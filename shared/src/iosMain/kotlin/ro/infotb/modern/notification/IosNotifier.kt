@@ -1,6 +1,8 @@
 package ro.infotb.modern.notification
 
 import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSOperatingSystemVersion
+import platform.Foundation.NSProcessInfo
 import platform.UserNotifications.UNMutableNotificationContent
 import platform.UserNotifications.UNNotificationRequest
 import platform.UserNotifications.UNNotificationSound
@@ -32,6 +34,12 @@ class IosNotifier : PlatformNotifier {
     }
 
     override fun showNotification(event: NotificationEvent) {
+        if (supportsLiveActivities()) {
+            postLiveTrackingNotification(UPDATE_LIVE_TRACKING, event)
+            println("[IosNotifier] Prefer Live Activity over local notification for ${event.activityId}")
+            return
+        }
+
         val content = UNMutableNotificationContent().apply {
             setTitle("Line ${event.lineName}")
             setBody(
@@ -90,5 +98,14 @@ class IosNotifier : PlatformNotifier {
             `object` = null,
             userInfo = userInfo
         )
+    }
+
+    private fun supportsLiveActivities(): Boolean {
+        val minimumVersion = NSOperatingSystemVersion(
+            majorVersion = 16,
+            minorVersion = 2,
+            patchVersion = 0
+        )
+        return NSProcessInfo.processInfo.isOperatingSystemAtLeastVersion(minimumVersion)
     }
 }

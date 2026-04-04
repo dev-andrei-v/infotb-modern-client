@@ -7,8 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.CoreGraphics.CGRectZero
+import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSString
+import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.dataUsingEncoding
 import platform.WebKit.WKNavigation
@@ -49,7 +50,7 @@ actual fun LeafletRouteMap(
         modifier = modifier,
         factory = {
             val config = WKWebViewConfiguration()
-            val webView = WKWebView(frame = CGRectZero.readValue(), configuration = config)
+            val webView = WKWebView(frame = CGRectMake(0.0, 0.0, 0.0, 0.0), configuration = config)
             webView.scrollView.setBounces(false)
             webView.navigationDelegate = object : NSObject(), WKNavigationDelegateProtocol {
                 override fun webView(webView: WKWebView, didFinishNavigation: WKNavigation?) {
@@ -58,7 +59,7 @@ actual fun LeafletRouteMap(
             }
             val data = (html as NSString).dataUsingEncoding(NSUTF8StringEncoding)
             if (data != null) {
-                webView.loadData(data, MIMEType = "text/html", characterEncodingName = "UTF-8", baseURL = null)
+                webView.loadData(data, MIMEType = "text/html", characterEncodingName = "UTF-8", baseURL = NSURL(string = ""))
             }
             webViewRef[0] = webView
             webView

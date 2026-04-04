@@ -1,7 +1,6 @@
 package ro.infotb.modern.notification
 
 import platform.Foundation.NSNotificationCenter
-import platform.Foundation.NSNotificationName
 import platform.UserNotifications.UNMutableNotificationContent
 import platform.UserNotifications.UNNotificationRequest
 import platform.UserNotifications.UNNotificationSound
@@ -13,12 +12,9 @@ import platform.Foundation.NSUUID
 class IosNotifier : PlatformNotifier {
 
     companion object {
-        val START_LIVE_TRACKING: NSNotificationName =
-            NSNotificationName("ro.infotb.modern.START_LIVE_TRACKING")
-        val UPDATE_LIVE_TRACKING: NSNotificationName =
-            NSNotificationName("ro.infotb.modern.UPDATE_LIVE_TRACKING")
-        val STOP_LIVE_TRACKING: NSNotificationName =
-            NSNotificationName("ro.infotb.modern.STOP_LIVE_TRACKING")
+        const val START_LIVE_TRACKING = "ro.infotb.modern.START_LIVE_TRACKING"
+        const val UPDATE_LIVE_TRACKING = "ro.infotb.modern.UPDATE_LIVE_TRACKING"
+        const val STOP_LIVE_TRACKING = "ro.infotb.modern.STOP_LIVE_TRACKING"
     }
 
     init {
@@ -77,11 +73,15 @@ class IosNotifier : PlatformNotifier {
         )
     }
 
-    private fun postLiveTrackingNotification(name: NSNotificationName, event: NotificationEvent) {
+    private fun postLiveTrackingNotification(name: String, event: NotificationEvent) {
         val userInfo = mapOf<Any?, Any?>(
+            "activityId" to event.activityId,
             "lineName" to event.lineName,
             "lineColor" to event.lineColor,
             "stopName" to event.stopName,
+            "stopId" to event.stopId,
+            "lineId" to event.lineId,
+            "direction" to event.direction,
             "minutes" to event.minutes,
             "isTimetable" to event.isTimetable
         )

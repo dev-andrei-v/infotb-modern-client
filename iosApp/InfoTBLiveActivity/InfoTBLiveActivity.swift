@@ -7,6 +7,7 @@ struct InfoTBLiveActivity: Widget {
         ActivityConfiguration(for: TransitActivityAttributes.self) { context in
             // LOCK SCREEN / STANDBY banner
             lockScreenView(context: context)
+                .widgetURL(deepLinkURL(for: context.attributes))
         } dynamicIsland: { context in
             DynamicIsland {
                 // EXPANDED Dynamic Island
@@ -68,6 +69,7 @@ struct InfoTBLiveActivity: Widget {
                         .foregroundStyle(.white)
                 }
             }
+            .widgetURL(deepLinkURL(for: context.attributes))
         }
     }
 
@@ -166,6 +168,18 @@ struct InfoTBLiveActivity: Widget {
                 .font(.system(size: 9, weight: .bold, design: .rounded))
                 .foregroundStyle(.green)
         }
+    }
+
+    private func deepLinkURL(for attributes: TransitActivityAttributes) -> URL? {
+        var components = URLComponents()
+        components.scheme = "infotb"
+        components.host = "stop"
+        components.queryItems = [
+            URLQueryItem(name: "stopId", value: String(attributes.stopId)),
+            URLQueryItem(name: "lineId", value: String(attributes.lineId)),
+            URLQueryItem(name: "direction", value: String(attributes.direction))
+        ]
+        return components.url
     }
 }
 

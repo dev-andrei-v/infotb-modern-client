@@ -7,7 +7,8 @@ import Foundation
 
     @objc static let shared = LiveActivityManager()
 
-    private var currentActivity: Any? = nil
+    @available(iOS 16.2, *)
+    private var currentActivity: Activity<TransitActivityAttributes>?
 
     private override init() {
         super.init()
@@ -42,10 +43,14 @@ import Foundation
     @objc private func handleStartTracking(_ notification: Notification) {
         guard let info = notification.userInfo else { return }
         startTracking(
+            activityId: info["activityId"] as? String ?? "",
             lineName: info["lineName"] as? String ?? "",
             lineColor: info["lineColor"] as? String ?? "#007AFF",
             stopName: info["stopName"] as? String ?? "",
-            minutes: (info["minutes"] as? Int) ?? 0,
+            stopId: (info["stopId"] as? NSNumber)?.int64Value ?? 0,
+            lineId: (info["lineId"] as? NSNumber)?.int64Value ?? 0,
+            direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
+            minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
             isTimetable: (info["isTimetable"] as? Bool) ?? false
         )
     }
@@ -53,10 +58,14 @@ import Foundation
     @objc private func handleUpdateTracking(_ notification: Notification) {
         guard let info = notification.userInfo else { return }
         updateTracking(
+            activityId: info["activityId"] as? String ?? "",
             lineName: info["lineName"] as? String ?? "",
             lineColor: info["lineColor"] as? String ?? "#007AFF",
             stopName: info["stopName"] as? String ?? "",
-            minutes: (info["minutes"] as? Int) ?? 0,
+            stopId: (info["stopId"] as? NSNumber)?.int64Value ?? 0,
+            lineId: (info["lineId"] as? NSNumber)?.int64Value ?? 0,
+            direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
+            minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
             isTimetable: (info["isTimetable"] as? Bool) ?? false
         )
     }
@@ -68,9 +77,13 @@ import Foundation
     // MARK: - ActivityKit Management
 
     private func startTracking(
+        activityId: String,
         lineName: String,
         lineColor: String,
         stopName: String,
+        stopId: Int64,
+        lineId: Int64,
+        direction: Int,
         minutes: Int,
         isTimetable: Bool
     ) {
@@ -80,58 +93,86 @@ import Foundation
             return
         }
 
-        stopTrackingInternal()
+        Task {
+            await endCurrentActivity()
 
-        let attributes = TransitActivityAttributes(
-            lineName: lineName,
-            lineColor: lineColor,
-            stopName: stopName
-        )
-        let state = TransitActivityAttributes.ContentState(
-            minutes: minutes,
-            isTimetable: isTimetable
-        )
-
-        do {
-            let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
-            let activity = try Activity<TransitActivityAttributes>.request(
-                attributes: attributes,
-                content: content,
-                pushType: nil
+            let attributes = TransitActivityAttributes(
+                activityId: activityId,
+                lineName: lineName,
+                lineColor: lineColor,
+                stopName: stopName,
+                stopId: stopId,
+                lineId: lineId,
+                direction: direction
             )
-            currentActivity = activity
-            print("[LiveActivity] Started: \(lineName) → \(stopName) in \(minutes) min")
-        } catch {
-            print("[LiveActivity] Failed to start: \(error.localizedDescription)")
+            let state = TransitActivityAttributes.ContentState(
+                minutes: minutes,
+                isTimetable: isTimetable
+            )
+
+            do {
+                let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
+                let activity = try Activity<TransitActivityAttributes>.request(
+                    attributes: attributes,
+                    content: content,
+                    pushType: nil
+                )
+                currentActivity = activity
+                print("[LiveActivity] Started: \(lineName) → \(stopName) in \(minutes) min")
+            } catch {
+                print("[LiveActivity] Failed to start: \(error.localizedDescription)")
+            }
         }
     }
 
     private func updateTracking(
+        activityId: String,
         lineName: String,
         lineColor: String,
         stopName: String,
+        stopId: Int64,
+        lineId: Int64,
+        direction: Int,
         minutes: Int,
         isTimetable: Bool
     ) {
         guard #available(iOS 16.2, *) else { return }
 
-        let state = TransitActivityAttributes.ContentState(
-            minutes: minutes,
-            isTimetable: isTimetable
-        )
-
         Task {
-            guard let activity = currentActivity as? Activity<TransitActivityAttributes> else {
+            guard let activity = currentActivity else {
                 startTracking(
+                    activityId: activityId,
                     lineName: lineName,
                     lineColor: lineColor,
                     stopName: stopName,
+                    stopId: stopId,
+                    lineId: lineId,
+                    direction: direction,
                     minutes: minutes,
                     isTimetable: isTimetable
                 )
                 return
             }
 
+            guard activity.attributes.activityId == activityId else {
+                startTracking(
+                    activityId: activityId,
+                    lineName: lineName,
+                    lineColor: lineColor,
+                    stopName: stopName,
+                    stopId: stopId,
+                    lineId: lineId,
+                    direction: direction,
+                    minutes: minutes,
+                    isTimetable: isTimetable
+                )
+                return
+            }
+
+            let state = TransitActivityAttributes.ContentState(
+                minutes: minutes,
+                isTimetable: isTimetable
+            )
             let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
             await activity.update(content)
             print("[LiveActivity] Updated: \(minutes) min")
@@ -146,11 +187,22 @@ import Foundation
     @available(iOS 16.2, *)
     private func stopTrackingInternal() {
         Task {
-            for activity in Activity<TransitActivityAttributes>.activities {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
-            currentActivity = nil
+            await endCurrentActivity()
             print("[LiveActivity] Stopped all activities")
         }
+    }
+
+    @available(iOS 16.2, *)
+    private func endCurrentActivity() async {
+        if let activity = currentActivity {
+            await activity.end(nil, dismissalPolicy: .immediate)
+            currentActivity = nil
+            return
+        }
+
+        for activity in Activity<TransitActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        currentActivity = nil
     }
 }

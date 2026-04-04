@@ -52,9 +52,11 @@ class StatusBarHostController: UIViewController {
     }
 
     @objc private func themeDidChange(_ notification: Notification) {
-        if let userInfo = notification.userInfo, let dark = userInfo["isDark"] as? Bool {
-            isDark = dark
-            setNeedsStatusBarAppearanceUpdate()
+        guard let userInfo = notification.userInfo,
+              let dark = (userInfo["isDark"] as? NSNumber)?.boolValue else { return }
+        DispatchQueue.main.async {
+            self.isDark = dark
+            self.setNeedsStatusBarAppearanceUpdate()
         }
     }
 

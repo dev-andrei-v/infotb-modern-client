@@ -95,11 +95,13 @@ import ro.infotb.modern.util.t
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     notificationStore: NotificationStore,
+    useDirectNotificationAction: Boolean,
     locale: Locale,
     onNavigateToStop: (stopId: Long) -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onNavigateToLines: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction) -> Unit
 ) {
     val widgets by viewModel.widgets.collectAsState()
     val widgetData by viewModel.widgetData.collectAsState()
@@ -252,7 +254,18 @@ fun DashboardScreen(
                                     viewModel.loadLineTimetable(widget.stopId, lineId, direction)
                                 },
                                 onBellClick = { lineId, lineName, lineColor, direction ->
-                                    bellTarget = BellTarget(widget.stopId, widget.stopName, lineId, lineName, lineColor, direction)
+                                    if (useDirectNotificationAction) {
+                                        onSetNotification(
+                                            widget.stopId,
+                                            widget.stopName,
+                                            lineId,
+                                            lineName,
+                                            lineColor,
+                                            direction
+                                        )
+                                    } else {
+                                        bellTarget = BellTarget(widget.stopId, widget.stopName, lineId, lineName, lineColor, direction)
+                                    }
                                 }
                             )
                         }
@@ -283,7 +296,7 @@ fun DashboardScreen(
         )
     }
 
-    bellTarget?.let { target ->
+    if (!useDirectNotificationAction) bellTarget?.let { target ->
         NotificationDialog(
             lineName = target.lineName,
             lineColor = target.lineColor,

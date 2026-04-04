@@ -66,6 +66,12 @@ class NotificationEngine(
         }
     }
 
+    fun refreshNow() {
+        scope.launch {
+            poll()
+        }
+    }
+
     private suspend fun poll() {
         val subs = notificationStore.subscriptions.value.filter { it.enabled }
 

@@ -9,6 +9,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        // Initialize Live Activity manager (registers NSNotification observers)
+        _ = LiveActivityManager.shared
+
         MainViewControllerKt.doInitKoin()
 
         window = UIWindow(frame: UIScreen.main.bounds)

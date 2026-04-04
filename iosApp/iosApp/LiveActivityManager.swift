@@ -7,8 +7,7 @@ import Foundation
 
     @objc static let shared = LiveActivityManager()
 
-    @available(iOS 16.2, *)
-    private var currentActivity: Activity<TransitActivityAttributes>?
+    private var currentActivity: Any? = nil
 
     private override init() {
         super.init()
@@ -139,7 +138,7 @@ import Foundation
         guard #available(iOS 16.2, *) else { return }
 
         Task {
-            guard let activity = currentActivity else {
+            guard let activity = currentActivity as? Activity<TransitActivityAttributes> else {
                 startTracking(
                     activityId: activityId,
                     lineName: lineName,
@@ -194,7 +193,7 @@ import Foundation
 
     @available(iOS 16.2, *)
     private func endCurrentActivity() async {
-        if let activity = currentActivity {
+        if let activity = currentActivity as? Activity<TransitActivityAttributes> {
             await activity.end(nil, dismissalPolicy: .immediate)
             currentActivity = nil
             return

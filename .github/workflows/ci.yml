@@ -62,9 +62,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build iOS framework
-        env:
-          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
-        run: ./gradlew :composeApp:linkDebugFrameworkIosArm64 --no-daemon -Pkotlin.native.jvmArgs=-Xmx4g -Dorg.gradle.workers.max=1
+        run: ./gradlew :composeApp:linkDebugFrameworkIosArm64 --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=1
 
       - name: Build iOS App
         run: |

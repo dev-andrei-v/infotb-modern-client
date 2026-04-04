@@ -58,6 +58,10 @@ class StatusBarHostController: UIViewController {
         }
     }
 
+    override var childForStatusBarStyle: UIViewController? {
+        nil
+    }
+
     override var preferredStatusBarStyle: UIStatusBarStyle {
         isDark ? .lightContent : .darkContent
     }

@@ -2,7 +2,10 @@ package ro.infotb.modern.data.db
 
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import kotlinx.coroutines.Dispatchers
 import ro.infotb.modern.AndroidContext
+
+actual val ioDispatcher = Dispatchers.IO
 
 actual fun createDatabaseBuilder(): RoomDatabase.Builder<StbDatabase> {
     val context = AndroidContext.appContext

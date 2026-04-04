@@ -1,6 +1,7 @@
 name: Build & Release APK
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -21,14 +22,20 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - name: Build Release APK
-        run: ./gradlew :composeApp:assembleRelease
+        env:
+          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
+        run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1
 
       - name: Get version from tag
         id: version
         run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.version.outputs.tag }}

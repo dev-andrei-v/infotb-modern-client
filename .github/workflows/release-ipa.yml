@@ -1,0 +1,63 @@
+name: Build & Release IPA
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build Kotlin framework
+        env:
+          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
+        run: ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon -Dorg.gradle.workers.max=1
+
+      - name: Build unsigned IPA
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/iosApp.xcarchive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+          mkdir -p build/Payload
+          cp -r build/iosApp.xcarchive/Products/Applications/InfoTB.app build/Payload/
+          cd build && zip -r InfoTB.ipa Payload
+
+      - name: Get version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: build/InfoTB.ipa

@@ -132,11 +132,7 @@ struct InfoTBLiveActivity: Widget {
     @ViewBuilder
     private func countdownView(minutes: Int, isTimetable: Bool, large: Bool) -> some View {
         VStack(spacing: 0) {
-            Text("\(minutes)")
-                .font(.system(size: large ? 32 : 20, weight: .bold, design: .rounded))
-                .foregroundStyle(minutes <= 2 ? .red : .primary)
-                .contentTransition(.numericText(value: Double(minutes)))
-                .animation(.snappy, value: minutes)
+            countdownNumber(minutes: minutes, large: large)
             Text("min")
                 .font(.system(size: large ? 11 : 9, weight: .medium))
                 .foregroundStyle(.secondary)
@@ -147,10 +143,7 @@ struct InfoTBLiveActivity: Widget {
     @ViewBuilder
     private func compactCountdown(minutes: Int) -> some View {
         HStack(spacing: 2) {
-            Text("\(minutes)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(minutes <= 2 ? .red : .white)
-                .contentTransition(.numericText(value: Double(minutes)))
+            countdownNumber(minutes: minutes, large: false, foreground: minutes <= 2 ? .red : .white)
             Text("min")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.7))
@@ -163,11 +156,17 @@ struct InfoTBLiveActivity: Widget {
             Image(systemName: "antenna.radiowaves.left.and.right")
                 .font(.system(size: 8))
                 .foregroundStyle(.green)
-                .symbolEffect(.variableColor.iterative, options: .repeating)
             Text("LIVE")
                 .font(.system(size: 9, weight: .bold, design: .rounded))
                 .foregroundStyle(.green)
         }
+    }
+
+    @ViewBuilder
+    private func countdownNumber(minutes: Int, large: Bool, foreground: Color? = nil) -> some View {
+        Text("\(minutes)")
+            .font(.system(size: large ? 32 : 14, weight: .bold, design: .rounded))
+            .foregroundStyle(foreground ?? (minutes <= 2 ? .red : .primary))
     }
 
     private func deepLinkURL(for attributes: TransitActivityAttributes) -> URL? {

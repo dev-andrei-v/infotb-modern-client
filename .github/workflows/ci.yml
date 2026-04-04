@@ -34,7 +34,7 @@ jobs:
       - name: Build Android
         env:
           GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
-        run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1
+        run: ./gradlew :composeApp:compileReleaseKotlinAndroid --no-daemon -Dorg.gradle.workers.max=1
 
   build-ios:
     runs-on: macos-latest

@@ -10,7 +10,7 @@ struct InfoTBLiveActivity: Widget {
                 .widgetURL(deepLinkURL(for: context.attributes))
         } dynamicIsland: { context in
             let lineColor = Color(hex: context.attributes.lineColor)
-            DynamicIsland {
+            return DynamicIsland {
                 // EXPANDED Dynamic Island
                 DynamicIslandExpandedRegion(.leading) {
                     lineBadge(
@@ -67,7 +67,6 @@ struct InfoTBLiveActivity: Widget {
                 )
             }
             .keylineTint(lineColor.opacity(0.55))
-            .widgetURL(deepLinkURL(for: context.attributes))
         }
     }
 

@@ -2,6 +2,11 @@ name: Build & Release IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0). If set, creates a GitHub Release with this tag.'
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
@@ -29,9 +34,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Kotlin framework
-        env:
-          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
-        run: ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon -Dorg.gradle.workers.max=1
+        run: ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=1
 
       - name: Build unsigned IPA
         run: |
@@ -50,14 +53,24 @@ jobs:
           cp -r build/iosApp.xcarchive/Products/Applications/InfoTB.app build/Payload/
           cd build && zip -r InfoTB.ipa Payload
 
-      - name: Get version from tag
+      - name: Resolve release tag
         id: version
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: build/InfoTB.ipa

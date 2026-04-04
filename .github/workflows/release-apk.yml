@@ -2,6 +2,11 @@ name: Build & Release APK
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0). If set, creates a GitHub Release with this tag.'
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
@@ -38,14 +43,24 @@ jobs:
           GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
         run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1
 
-      - name: Get version from tag
+      - name: Resolve release tag
         id: version
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: composeApp/build/outputs/apk/release/*.apk

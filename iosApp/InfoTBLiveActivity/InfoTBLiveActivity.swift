@@ -9,12 +9,13 @@ struct InfoTBLiveActivity: Widget {
             lockScreenView(context: context)
                 .widgetURL(deepLinkURL(for: context.attributes))
         } dynamicIsland: { context in
+            let lineColor = Color(hex: context.attributes.lineColor)
             DynamicIsland {
                 // EXPANDED Dynamic Island
                 DynamicIslandExpandedRegion(.leading) {
                     lineBadge(
                         name: context.attributes.lineName,
-                        color: Color(hex: context.attributes.lineColor),
+                        color: lineColor,
                         size: 44
                     )
                 }
@@ -49,26 +50,23 @@ struct InfoTBLiveActivity: Widget {
                     .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                // COMPACT pill — leading
-                lineBadge(
+                compactRouteBadge(
                     name: context.attributes.lineName,
-                    color: Color(hex: context.attributes.lineColor),
-                    size: 26
+                    color: lineColor
                 )
             } compactTrailing: {
-                // COMPACT pill — trailing
-                compactCountdown(minutes: context.state.minutes)
+                compactCountdown(
+                    minutes: context.state.minutes,
+                    isTimetable: context.state.isTimetable,
+                    color: lineColor
+                )
             } minimal: {
-                // MINIMAL (when multiple islands active)
-                ZStack {
-                    Circle()
-                        .fill(Color(hex: context.attributes.lineColor))
-                        .frame(width: 22, height: 22)
-                    Text("\(context.state.minutes)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                }
+                minimalBadge(
+                    name: context.attributes.lineName,
+                    color: lineColor
+                )
             }
+            .keylineTint(lineColor.opacity(0.55))
             .widgetURL(deepLinkURL(for: context.attributes))
         }
     }
@@ -141,13 +139,22 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func compactCountdown(minutes: Int) -> some View {
-        HStack(spacing: 2) {
-            countdownNumber(minutes: minutes, large: false, foreground: minutes <= 2 ? .red : .white)
+    private func compactCountdown(minutes: Int, isTimetable: Bool, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(isTimetable ? .orange : color)
+                .frame(width: 6, height: 6)
+            countdownNumber(minutes: minutes, large: false, foreground: .white)
             Text("min")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.7))
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule(style: .continuous)
+                .fill(color.opacity(0.28))
+        )
     }
 
     @ViewBuilder
@@ -159,6 +166,40 @@ struct InfoTBLiveActivity: Widget {
             Text("LIVE")
                 .font(.system(size: 9, weight: .bold, design: .rounded))
                 .foregroundStyle(.green)
+        }
+    }
+
+    @ViewBuilder
+    private func compactRouteBadge(name: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(name)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule(style: .continuous)
+                .fill(color.opacity(0.3))
+        )
+    }
+
+    @ViewBuilder
+    private func minimalBadge(name: String, color: Color) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(color)
+                .frame(width: 28, height: 28)
+            Text(name)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(.horizontal, 2)
         }
     }
 
@@ -196,8 +237,12 @@ extension Color {
             r = Double((int >> 16) & 0xFF) / 255.0
             g = Double((int >> 8) & 0xFF) / 255.0
             b = Double(int & 0xFF) / 255.0
+        case 3:
+            r = Double((int >> 8) & 0xF) / 15.0
+            g = Double((int >> 4) & 0xF) / 15.0
+            b = Double(int & 0xF) / 15.0
         default:
-            r = 0; g = 0; b = 0
+            r = 0.1; g = 0.46; b = 0.82
         }
         self.init(red: r, green: g, blue: b)
     }

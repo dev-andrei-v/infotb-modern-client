@@ -259,10 +259,39 @@ Minimal platform code via `expect`/`actual`:
 ```
 
 ### iOS
-Open in Xcode, or:
-```bash
-./gradlew :composeApp:iosSimulatorArm64Binaries
-```
+
+**Prerequisites:**
+- macOS with Xcode installed
+- JDK 17 (e.g. `brew install openjdk@17`)
+- At least 16GB RAM recommended (Kotlin/Native compiler needs ~4GB)
+
+**Steps:**
+
+1. Clone the repo and make Gradle executable:
+   ```bash
+   git clone <repo-url>
+   cd infotb-modern-client
+   chmod +x gradlew
+   ```
+
+2. Build the Kotlin framework (first build takes a while):
+   ```bash
+   ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+   ```
+
+3. Open the Xcode project:
+   ```bash
+   open iosApp/iosApp.xcodeproj
+   ```
+
+4. In Xcode, select an iOS Simulator target and press **Cmd+R** to build and run.
+
+**Troubleshooting:**
+
+- **OOM / `Java heap space`**: Ensure `gradle.properties` has `org.gradle.jvm.args=-Xmx4096M` and `kotlin.native.jvmArgs=-Xmx4096M`. Kill stale daemons with `./gradlew --stop`.
+- **Gradle lock file error**: Another Gradle process is running. Run `./gradlew --stop && pkill -f gradle`, then retry.
+- **`CADisableMinimumFrameDurationOnPhone` crash**: The `Info.plist` must contain `<key>CADisableMinimumFrameDurationOnPhone</key><true/>`. This is already configured.
+- **KSP / `ClassNotFoundException`**: Clean the Kotlin/Native cache with `rm -rf ~/.konan` and rebuild.
 
 ### Build Config
 

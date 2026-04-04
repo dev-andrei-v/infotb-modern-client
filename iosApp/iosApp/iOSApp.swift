@@ -1,14 +1,19 @@
-import SwiftUI
+import UIKit
+import ComposeApp
 
 @main
-struct iOSApp: App {
-    init() {
-        InitKoinKt.doInitKoin()
-    }
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
 
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        MainViewControllerKt.doInitKoin()
+
+        window = UIWindow(frame: UIScreen.main.bounds)
+        window?.rootViewController = MainViewControllerKt.MainViewController()
+        window?.makeKeyAndVisible()
+        return true
     }
 }

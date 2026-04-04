@@ -5,7 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSNotificationName
 
-const val ThemeDidChangeNotification: NSNotificationName = "InfoTBThemeDidChange"
+private const val ThemeDidChangeNotification: NSNotificationName = "InfoTBThemeDidChange"
 
 @Composable
 actual fun SystemAppearance(isDark: Boolean) {

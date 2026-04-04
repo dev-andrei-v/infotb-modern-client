@@ -21,6 +21,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 
 class StatusBarHostController: UIViewController {
+    static let themeDidChange = Notification.Name("InfoTBThemeDidChange")
+
     private let child: UIViewController
     private var isDark = false
 
@@ -31,12 +33,14 @@ class StatusBarHostController: UIViewController {
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(themeDidChange(_:)),
-            name: Notification.Name("InfoTBThemeDidChange"),
+            name: Self.themeDidChange,
             object: nil
         )
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported. Use init(child:) instead.")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()

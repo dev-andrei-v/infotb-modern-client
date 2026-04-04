@@ -3,6 +3,9 @@ package ro.infotb.modern
 import com.russhwolf.settings.NSUserDefaultsSettings
 import com.russhwolf.settings.Settings
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.NSDate
+import platform.Foundation.NSLocale
+import platform.Foundation.timeIntervalSince1970
 import platform.UIKit.UIDevice
 
 actual fun createSettings(): Settings {
@@ -38,9 +41,9 @@ actual fun currentMinuteOfHour(): Int {
 }
 
 actual fun currentTimeMillis(): Long {
-    return (platform.Foundation.NSDate().timeIntervalSince1970 * 1000).toLong()
+    return (NSDate().timeIntervalSince1970 * 1000).toLong()
 }
 
 actual fun getSystemLanguage(): String {
-    return platform.Foundation.NSLocale.preferredLanguages.firstOrNull()?.toString()?.take(2) ?: "en"
+    return NSLocale.preferredLanguages.firstOrNull()?.toString()?.take(2) ?: "en"
 }

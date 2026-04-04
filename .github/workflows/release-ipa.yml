@@ -66,6 +66,13 @@ jobs:
             echo "should_release=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InfoTB-modern-ipa
+          path: build/InfoTB.ipa
+          retention-days: 7
+
       - name: Rename IPA
         if: steps.version.outputs.should_release == 'true'
         run: mv build/InfoTB.ipa "InfoTB-modern_${{ steps.version.outputs.tag }}.ipa"

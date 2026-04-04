@@ -10,11 +10,13 @@ struct InfoTBLiveActivity: Widget {
                 .widgetURL(deepLinkURL(for: context.attributes))
         } dynamicIsland: { context in
             let lineColor = Color(hex: context.attributes.lineColor)
+            let lineName = displayLineName(context.attributes.lineName)
+            let stopName = displayStopName(context.attributes.stopName)
             return DynamicIsland {
                 // EXPANDED Dynamic Island
                 DynamicIslandExpandedRegion(.leading) {
                     lineBadge(
-                        name: context.attributes.lineName,
+                        name: lineName,
                         color: lineColor,
                         size: 44
                     )
@@ -23,12 +25,14 @@ struct InfoTBLiveActivity: Widget {
                     countdownView(
                         minutes: context.state.minutes,
                         isTimetable: context.state.isTimetable,
-                        large: true
+                        large: true,
+                        numberColor: .white,
+                        unitColor: .white.opacity(0.72)
                     )
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
-                        Text(context.attributes.stopName)
+                        Text(stopName)
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                             .foregroundStyle(.white)
@@ -41,7 +45,7 @@ struct InfoTBLiveActivity: Widget {
                             .frame(width: 6, height: 6)
                         Text(context.state.isTimetable ? "Scheduled" : "Real-time tracking")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.72))
                         Spacer()
                         if !context.state.isTimetable {
                             liveIndicator()
@@ -51,7 +55,7 @@ struct InfoTBLiveActivity: Widget {
                 }
             } compactLeading: {
                 compactRouteBadge(
-                    name: context.attributes.lineName,
+                    name: lineName,
                     color: lineColor
                 )
             } compactTrailing: {
@@ -62,7 +66,7 @@ struct InfoTBLiveActivity: Widget {
                 )
             } minimal: {
                 minimalBadge(
-                    name: context.attributes.lineName,
+                    name: lineName,
                     color: lineColor
                 )
             }
@@ -75,12 +79,14 @@ struct InfoTBLiveActivity: Widget {
     @ViewBuilder
     private func lockScreenView(context: ActivityViewContext<TransitActivityAttributes>) -> some View {
         let color = Color(hex: context.attributes.lineColor)
+        let lineName = displayLineName(context.attributes.lineName)
+        let stopName = displayStopName(context.attributes.stopName)
 
         HStack(spacing: 14) {
-            lineBadge(name: context.attributes.lineName, color: color, size: 48)
+            lineBadge(name: lineName, color: color, size: 48)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(context.attributes.stopName)
+                Text(stopName)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                 HStack(spacing: 4) {
@@ -127,12 +133,22 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func countdownView(minutes: Int, isTimetable: Bool, large: Bool) -> some View {
+    private func countdownView(
+        minutes: Int,
+        isTimetable: Bool,
+        large: Bool,
+        numberColor: Color? = nil,
+        unitColor: Color? = nil
+    ) -> some View {
         VStack(spacing: 0) {
-            countdownNumber(minutes: minutes, large: large)
+            countdownNumber(
+                minutes: minutes,
+                large: large,
+                foreground: numberColor ?? (minutes <= 2 ? .red : .primary)
+            )
             Text("min")
                 .font(.system(size: large ? 11 : 9, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(unitColor ?? .secondary)
                 .textCase(.uppercase)
         }
     }
@@ -219,6 +235,16 @@ struct InfoTBLiveActivity: Widget {
             URLQueryItem(name: "direction", value: String(attributes.direction))
         ]
         return components.url
+    }
+
+    private func displayLineName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "STB" : trimmed
+    }
+
+    private func displayStopName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Tracked station" : trimmed
     }
 }
 

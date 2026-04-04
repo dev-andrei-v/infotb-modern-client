@@ -38,16 +38,6 @@ jobs:
           GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
         run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1
 
-      - name: Resolve release tag
-        id: version
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -55,16 +45,24 @@ jobs:
           path: composeApp/build/outputs/apk/release/*.apk
           retention-days: 7
 
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: InfoTB-modern-apk
+
       - name: Rename APK
-        if: steps.version.outputs.should_release == 'true'
-        run: |
-          mv composeApp/build/outputs/apk/release/*.apk "InfoTB-modern_${{ steps.version.outputs.tag }}.apk"
+        run: mv *.apk "InfoTB-modern_${GITHUB_REF#refs/tags/}.apk"
 
       - name: Create GitHub Release
-        if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: InfoTB-modern_${{ steps.version.outputs.tag }}.apk
+          files: InfoTB-modern_${{ github.ref_name }}.apk

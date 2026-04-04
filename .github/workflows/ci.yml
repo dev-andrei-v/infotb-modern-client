@@ -31,10 +31,17 @@ jobs:
           mkdir -p ~/.android
           keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
 
-      - name: Build Android
+      - name: Build Debug APK
         env:
           GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
-        run: ./gradlew :composeApp:compileReleaseKotlinAndroid --no-daemon -Dorg.gradle.workers.max=1
+        run: ./gradlew :composeApp:assembleDebug --no-daemon -Dorg.gradle.workers.max=1
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: InfoTB-debug-apk
+          path: composeApp/build/outputs/apk/debug/*.apk
+          retention-days: 7
 
   build-ios:
     runs-on: macos-latest
@@ -55,4 +62,32 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build iOS framework
-        run: ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=1
+        env:
+          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
+        run: ./gradlew :composeApp:linkDebugFrameworkIosArm64 --no-daemon -Pkotlin.native.jvmArgs=-Xmx4g -Dorg.gradle.workers.max=1
+
+      - name: Build iOS App
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/iosApp.xcarchive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Package IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/iosApp.xcarchive/Products/Applications/InfoTB.app build/Payload/
+          cd build && zip -r InfoTB-debug.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: InfoTB-debug-ipa
+          path: build/InfoTB-debug.ipa
+          retention-days: 7

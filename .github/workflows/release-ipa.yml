@@ -66,6 +66,10 @@ jobs:
             echo "should_release=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Rename IPA
+        if: steps.version.outputs.should_release == 'true'
+        run: mv build/InfoTB.ipa "InfoTB-modern_${{ steps.version.outputs.tag }}.ipa"
+
       - name: Create GitHub Release
         if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
@@ -73,4 +77,4 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
-          files: build/InfoTB.ipa
+          files: InfoTB-modern_${{ steps.version.outputs.tag }}.ipa

@@ -46,6 +46,7 @@ class NotificationStore(
         thresholdMinutes: Int
     ) {
         scope.launch {
+            dao.disableAll()
             dao.deleteByKey(stopId, lineId, direction.value)
             dao.upsert(
                 NotificationEntity(
@@ -70,9 +71,12 @@ class NotificationStore(
 
     fun toggleSubscription(id: String) {
         scope.launch {
-            val all = dao.observeAll() // need current snapshot
             val current = subscriptions.value.find { it.id == id } ?: return@launch
-            dao.update(current.toEntity().copy(enabled = !current.enabled))
+            val enabling = !current.enabled
+            if (enabling) {
+                dao.disableAll()
+            }
+            dao.update(current.toEntity().copy(enabled = enabling))
         }
     }
 

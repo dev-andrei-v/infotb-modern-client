@@ -315,15 +315,30 @@ private fun LineArrivalCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                ArrivalTimeBadge(
-                    seconds = line.arrivingTime,
-                    isTimetable = line.isTimetable,
-                    size = BadgeSize.MEDIUM
-                )
+                if (line.arrivingTime >= 0) {
+                    ArrivalTimeBadge(
+                        seconds = line.arrivingTime,
+                        isTimetable = line.isTimetable,
+                        size = BadgeSize.MEDIUM
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = t("widget.outOfService", locale),
+                            fontSize = 10.sp,
+                            color = LocalMuted.current
+                        )
+                    }
+                }
             }
 
             // Next arrivals (skip duplicating the first one already shown in header)
-            if (line.arrivingTimes.isNotEmpty()) {
+            if (line.arrivingTime >= 0 && line.arrivingTimes.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -359,10 +374,12 @@ private fun LineArrivalCard(
                     Spacer(Modifier.width(2.dp))
                     Text(t("stopDetail.addToDashboard", locale), fontSize = 11.sp, maxLines = 1)
                 }
-                TextButton(onClick = onSetNotification, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(2.dp))
-                    Text(t("stopDetail.notification", locale), fontSize = 11.sp, maxLines = 1)
+                if (line.arrivingTime >= 0) {
+                    TextButton(onClick = onSetNotification, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(2.dp))
+                        Text(t("stopDetail.notification", locale), fontSize = 11.sp, maxLines = 1)
+                    }
                 }
                 TextButton(onClick = onToggleTimetable, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))

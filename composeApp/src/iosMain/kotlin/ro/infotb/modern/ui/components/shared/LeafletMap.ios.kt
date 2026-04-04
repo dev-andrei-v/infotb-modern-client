@@ -1,22 +1,18 @@
 package ro.infotb.modern.ui.components.shared
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.interop.UIKitView
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.CoreGraphics.CGRectZero
+import platform.Foundation.NSString
+import platform.Foundation.NSUTF8StringEncoding
+import platform.Foundation.dataUsingEncoding
+import platform.WebKit.WKWebView
+import platform.WebKit.WKWebViewConfiguration
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun LeafletMap(
     lat: Double,
@@ -25,25 +21,46 @@ actual fun LeafletMap(
     zoom: Int,
     modifier: Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Place,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+    val escapedLabel = label.replace("'", "\\'").replace("\"", "&quot;")
+    val html = remember(lat, lng, label, zoom) {
+        """
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+html,body,#map{margin:0;padding:0;width:100%;height:100%;}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+var map = L.map('map', {zoomControl: false}).setView([$lat, $lng], $zoom);
+L.control.zoom({position: 'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OSM',
+    maxZoom: 19
+}).addTo(map);
+L.marker([$lat, $lng]).addTo(map).bindPopup('$escapedLabel').openPopup();
+</script>
+</body>
+</html>
+""".trimIndent()
     }
+
+    UIKitView(
+        modifier = modifier,
+        factory = {
+            val config = WKWebViewConfiguration()
+            val webView = WKWebView(frame = CGRectZero.readValue(), configuration = config)
+            webView.scrollView.setBounces(false)
+            val data = (html as NSString).dataUsingEncoding(NSUTF8StringEncoding)
+            if (data != null) {
+                webView.loadData(data, MIMEType = "text/html", characterEncodingName = "UTF-8", baseURL = null)
+            }
+            webView
+        }
+    )
 }

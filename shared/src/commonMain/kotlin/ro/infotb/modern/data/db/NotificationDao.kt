@@ -25,6 +25,9 @@ interface NotificationDao {
     @Query("DELETE FROM notification_subscriptions WHERE stopId = :stopId AND lineId = :lineId AND direction = :direction")
     suspend fun deleteByKey(stopId: Long, lineId: Long, direction: Int)
 
+    @Query("UPDATE notification_subscriptions SET enabled = 0")
+    suspend fun disableAll()
+
     @Update
     suspend fun update(entity: NotificationEntity)
 }

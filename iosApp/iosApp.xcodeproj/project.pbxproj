@@ -132,7 +132,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "cd \"$SRCROOT/..\"\nexport GRADLE_OPTS=\"-Xmx4g -XX:MaxMetaspaceSize=512m\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode --no-daemon -Dorg.gradle.workers.max=1\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

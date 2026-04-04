@@ -1,5 +1,7 @@
 package ro.infotb.modern.notification
 
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.cValue
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperatingSystemVersion
 import platform.Foundation.NSProcessInfo
@@ -100,12 +102,13 @@ class IosNotifier : PlatformNotifier {
         )
     }
 
+    @OptIn(ExperimentalForeignApi::class)
     private fun supportsLiveActivities(): Boolean {
-        val minimumVersion = NSOperatingSystemVersion(
-            majorVersion = 16,
-            minorVersion = 2,
+        val minimumVersion = cValue<NSOperatingSystemVersion> {
+            majorVersion = 16
+            minorVersion = 2
             patchVersion = 0
-        )
+        }
         return NSProcessInfo.processInfo.isOperatingSystemAtLeastVersion(minimumVersion)
     }
 }

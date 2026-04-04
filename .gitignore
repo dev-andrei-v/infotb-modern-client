@@ -1,0 +1,57 @@
+# Built artifacts
+*.iml
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.jar
+*.war
+/build/
+/shared/build/
+/composeApp/build/
+
+# Gradle
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Kotlin
+.kotlin/
+
+# IDE - IntelliJ / Android Studio
+.idea/
+*.iws
+*.ipr
+
+# Local configuration
+local.properties
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# Android
+.externalNativeBuild/
+.cxx/
+/captures/
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+
+# Environment / secrets
+.env
+.env.*
+*.secret

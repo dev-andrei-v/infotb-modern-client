@@ -1,0 +1,231 @@
+package ro.infotb.modern.util
+
+enum class Locale { RO, EN }
+
+private val translations: Map<String, Map<Locale, String>> = mapOf(
+    // Navigation
+    "nav.dashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
+    "nav.lines" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),
+    "nav.settings" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),
+
+    // Transport types
+    "transport.BUS" to mapOf(Locale.RO to "Autobuz", Locale.EN to "Bus"),
+    "transport.TRAM" to mapOf(Locale.RO to "Tramvai", Locale.EN to "Tram"),
+    "transport.CABLE_CAR" to mapOf(Locale.RO to "Troleibuz", Locale.EN to "Trolleybus"),
+    "transport.SUBWAY" to mapOf(Locale.RO to "Metrou", Locale.EN to "Subway"),
+
+    // Theme
+    "theme.light" to mapOf(Locale.RO to "Luminos", Locale.EN to "Light"),
+    "theme.dark" to mapOf(Locale.RO to "Inchis", Locale.EN to "Dark"),
+    "theme.system" to mapOf(Locale.RO to "Sistem", Locale.EN to "System"),
+
+    // Direction
+    "direction.tur" to mapOf(Locale.RO to "Tur", Locale.EN to "Tour"),
+    "direction.retur" to mapOf(Locale.RO to "Retur", Locale.EN to "Retour"),
+
+    // Dashboard page
+    "dashboard.title" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
+    "dashboard.stationsMonitored" to mapOf(Locale.RO to "statii monitorizate", Locale.EN to "stations monitored"),
+    "dashboard.stationMonitored" to mapOf(Locale.RO to "statie monitorizata", Locale.EN to "station monitored"),
+    "dashboard.addStationsDescription" to mapOf(
+        Locale.RO to "Adauga statii pentru monitorizare in timp real",
+        Locale.EN to "Add stations for real-time monitoring"
+    ),
+    "dashboard.edit" to mapOf(Locale.RO to "Editeaza", Locale.EN to "Edit"),
+    "dashboard.done" to mapOf(Locale.RO to "Gata", Locale.EN to "Done"),
+    "dashboard.manageGroups" to mapOf(Locale.RO to "Grupuri", Locale.EN to "Groups"),
+    "dashboard.manageGroupsTitle" to mapOf(Locale.RO to "Gestioneaza grupuri", Locale.EN to "Manage groups"),
+    "dashboard.manageGroupsDescription" to mapOf(
+        Locale.RO to "Redenumeste sau sterge grupurile existente.",
+        Locale.EN to "Rename or delete existing groups."
+    ),
+    "dashboard.noGroups" to mapOf(Locale.RO to "Niciun grup creat.", Locale.EN to "No groups created."),
+    "dashboard.reset" to mapOf(Locale.RO to "Reseteaza", Locale.EN to "Reset"),
+    "dashboard.resetConfirmTitle" to mapOf(Locale.RO to "Reseteaza panoul?", Locale.EN to "Reset dashboard?"),
+    "dashboard.resetConfirmDescription" to mapOf(
+        Locale.RO to "Toate statiile monitorizate vor fi sterse. Aceasta actiune nu poate fi anulata.",
+        Locale.EN to "All monitored stations will be removed. This action cannot be undone."
+    ),
+    "dashboard.cancel" to mapOf(Locale.RO to "Anuleaza", Locale.EN to "Cancel"),
+    "dashboard.resetConfirm" to mapOf(Locale.RO to "Reseteaza", Locale.EN to "Reset"),
+    "dashboard.emptyTitle" to mapOf(Locale.RO to "Nicio statie pe panou", Locale.EN to "No stations on dashboard"),
+    "dashboard.emptyDescription" to mapOf(
+        Locale.RO to "Adauga statii din pagina Linii sau foloseste butonul de mai sus pentru a monitoriza sosirile in timp real.",
+        Locale.EN to "Add stations from the Lines page or use the button above to monitor arrivals in real time."
+    ),
+    "dashboard.allHidden" to mapOf(
+        Locale.RO to "Toate statiile sunt ascunse. Apasa Editeaza pentru a le face vizibile.",
+        Locale.EN to "All stations are hidden. Tap Edit to make them visible."
+    ),
+
+    // Lines page
+    "lines.title" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),
+    "lines.description" to mapOf(Locale.RO to "Toate liniile de transport", Locale.EN to "All transit lines"),
+    "lines.searchPlaceholder" to mapOf(
+        Locale.RO to "Cauta linia (ex: 41, 61, 100, M2)...",
+        Locale.EN to "Search line (e.g. 41, 61, 100, M2)..."
+    ),
+    "lines.errorTitle" to mapOf(Locale.RO to "Eroare la incarcarea liniilor", Locale.EN to "Error loading lines"),
+    "lines.errorDescription" to mapOf(
+        Locale.RO to "Verifica conexiunea la internet si incearca din nou.",
+        Locale.EN to "Check your internet connection and try again."
+    ),
+    "lines.favorites" to mapOf(Locale.RO to "Favorite", Locale.EN to "Favorites"),
+    "lines.night" to mapOf(Locale.RO to "Noapte", Locale.EN to "Night"),
+    "lines.emptyTitle" to mapOf(Locale.RO to "Nicio linie gasita", Locale.EN to "No lines found"),
+    "lines.emptyDescription" to mapOf(
+        Locale.RO to "Incearca un alt termen de cautare sau modifica filtrele.",
+        Locale.EN to "Try a different search term or change the filters."
+    ),
+
+    // Line detail page
+    "lineDetail.backToLines" to mapOf(Locale.RO to "Inapoi la linii", Locale.EN to "Back to lines"),
+    "lineDetail.linePrefix" to mapOf(Locale.RO to "Linia", Locale.EN to "Line"),
+    "lineDetail.stations" to mapOf(Locale.RO to "statii", Locale.EN to "stations"),
+    "lineDetail.showMap" to mapOf(Locale.RO to "Arata harta live", Locale.EN to "Show live map"),
+    "lineDetail.goToMap" to mapOf(Locale.RO to "Vezi harta", Locale.EN to "Go to map"),
+    "lineDetail.showOnMap" to mapOf(Locale.RO to "Arata pe harta", Locale.EN to "Show on map"),
+    "lineDetail.notFound" to mapOf(Locale.RO to "Linia nu a fost gasita", Locale.EN to "Line not found"),
+    "lineDetail.vehicleNearby" to mapOf(Locale.RO to "Vehicul in apropiere", Locale.EN to "Vehicle nearby"),
+    "lineDetail.vehicleClose" to mapOf(Locale.RO to "Foarte aproape", Locale.EN to "Very close"),
+    "lineDetail.vehicleApproaching" to mapOf(Locale.RO to "In apropiere", Locale.EN to "Approaching"),
+    "lineDetail.vehiclesActive" to mapOf(Locale.RO to "vehicule active pe traseu", Locale.EN to "vehicles active on route"),
+    "lineDetail.noVehicles" to mapOf(Locale.RO to "Niciun vehicul activ momentan", Locale.EN to "No active vehicles at the moment"),
+
+    // Stop detail page
+    "stopDetail.back" to mapOf(Locale.RO to "Inapoi", Locale.EN to "Back"),
+    "stopDetail.arrivals" to mapOf(Locale.RO to "Sosiri", Locale.EN to "Arrivals"),
+    "stopDetail.lines" to mapOf(Locale.RO to "linii", Locale.EN to "lines"),
+    "stopDetail.noLines" to mapOf(Locale.RO to "Nicio linie la aceasta statie", Locale.EN to "No lines at this station"),
+    "stopDetail.notFound" to mapOf(Locale.RO to "Statia nu a fost gasita", Locale.EN to "Station not found"),
+    "stopDetail.addToDashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
+    "stopDetail.notification" to mapOf(Locale.RO to "Notificare", Locale.EN to "Notification"),
+    "stopDetail.timetable" to mapOf(Locale.RO to "Orar", Locale.EN to "Timetable"),
+    "stopDetail.timetableTitle" to mapOf(Locale.RO to "Orar linia", Locale.EN to "Timetable line"),
+    "stopDetail.showOtherLines" to mapOf(Locale.RO to "Arata alte linii", Locale.EN to "Show other lines"),
+    "stopDetail.hideOtherLines" to mapOf(Locale.RO to "Ascunde alte linii", Locale.EN to "Hide other lines"),
+
+    // Settings page
+    "settings.title" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),
+    "settings.description" to mapOf(Locale.RO to "Configurare aplicatie", Locale.EN to "App configuration"),
+    "settings.theme" to mapOf(Locale.RO to "Tema", Locale.EN to "Theme"),
+    "settings.themeDescription" to mapOf(Locale.RO to "Alege modul de afisare", Locale.EN to "Choose display mode"),
+    "settings.language" to mapOf(Locale.RO to "Limba", Locale.EN to "Language"),
+    "settings.languageDescription" to mapOf(Locale.RO to "Alege limba aplicatiei", Locale.EN to "Choose app language"),
+    "settings.notifications" to mapOf(Locale.RO to "Notificari active", Locale.EN to "Active notifications"),
+    "settings.noNotifications" to mapOf(Locale.RO to "Nicio notificare configurata", Locale.EN to "No notifications configured"),
+    "settings.notificationsActive" to mapOf(Locale.RO to "notificari active", Locale.EN to "active notifications"),
+    "settings.alertAt" to mapOf(Locale.RO to "Alerta la", Locale.EN to "Alert at"),
+    "settings.min" to mapOf(Locale.RO to "min", Locale.EN to "min"),
+    "settings.installApp" to mapOf(Locale.RO to "Instaleaza aplicatia", Locale.EN to "Install app"),
+    "settings.installDescription" to mapOf(
+        Locale.RO to "Instaleaza InfoTB pe telefonul tau pentru acces rapid si notificari.",
+        Locale.EN to "Install InfoTB on your phone for quick access and notifications."
+    ),
+    "settings.install" to mapOf(Locale.RO to "Instaleaza", Locale.EN to "Install"),
+    "settings.about" to mapOf(Locale.RO to "Despre", Locale.EN to "About"),
+    "settings.aboutDescription" to mapOf(
+        Locale.RO to "Client modern pentru transportul public din Bucuresti.",
+        Locale.EN to "Modern client for Bucharest public transport."
+    ),
+    "settings.aboutInfo" to mapOf(
+        Locale.RO to "Date furnizate de STB (Societatea de Transport Bucuresti). Informatiile in timp real sunt disponibile doar pentru vehiculele echipate cu GPS.",
+        Locale.EN to "Data provided by STB (Bucharest Transport Company). Real-time information is available only for GPS-equipped vehicles."
+    ),
+
+    // Widget
+    "widget.addStation" to mapOf(Locale.RO to "Adauga statie", Locale.EN to "Add station"),
+    "widget.chooseLine" to mapOf(Locale.RO to "Alege linia", Locale.EN to "Choose line"),
+    "widget.direction" to mapOf(Locale.RO to "Directie", Locale.EN to "Direction"),
+    "widget.chooseStation" to mapOf(Locale.RO to "Alege statia", Locale.EN to "Choose station"),
+    "widget.searchLine" to mapOf(Locale.RO to "Cauta linia...", Locale.EN to "Search line..."),
+    "widget.continue" to mapOf(Locale.RO to "Continua", Locale.EN to "Continue"),
+    "widget.filterLines" to mapOf(Locale.RO to "Filtreaza linii", Locale.EN to "Filter lines"),
+    "widget.group" to mapOf(Locale.RO to "Grup", Locale.EN to "Group"),
+    "widget.noGroup" to mapOf(Locale.RO to "Fara grup", Locale.EN to "No group"),
+    "widget.addGroup" to mapOf(Locale.RO to "Adauga grup...", Locale.EN to "Add group..."),
+    "widget.delete" to mapOf(Locale.RO to "Sterge", Locale.EN to "Delete"),
+    "widget.moreLines" to mapOf(Locale.RO to "linii in plus", Locale.EN to "more lines"),
+    "widget.noData" to mapOf(Locale.RO to "Fara date", Locale.EN to "No data"),
+    "widget.outOfService" to mapOf(Locale.RO to "Nu circula", Locale.EN to "Not in service"),
+    "widget.nextArrivals" to mapOf(Locale.RO to "Urmatoarele", Locale.EN to "Next"),
+    "widget.noScheduled" to mapOf(Locale.RO to "Nicio cursă programată în următoarele ore", Locale.EN to "No scheduled arrivals in the next hours"),
+    "widget.addToDashboard" to mapOf(Locale.RO to "Adauga pe panou", Locale.EN to "Add to dashboard"),
+    "widget.addedToDashboard" to mapOf(Locale.RO to "adaugat pe panou", Locale.EN to "added to dashboard"),
+    "widget.widgetAdded" to mapOf(Locale.RO to "Widget adaugat pe panou", Locale.EN to "Widget added to dashboard"),
+
+    // Arrival time
+    "arrival.scheduled" to mapOf(Locale.RO to "Orar programat", Locale.EN to "Scheduled timetable"),
+    "arrival.realtime" to mapOf(Locale.RO to "Timp real GPS", Locale.EN to "Real-time GPS"),
+    "arrival.atStation" to mapOf(Locale.RO to "In statie", Locale.EN to "At station"),
+    "arrival.atStationScheduled" to mapOf(
+        Locale.RO to "Ar trebui sa fie in statie (conform orarului)",
+        Locale.EN to "Should be at station (according to schedule)"
+    ),
+    "timetable.hour" to mapOf(Locale.RO to "Ora", Locale.EN to "Hour"),
+    "timetable.minutes" to mapOf(Locale.RO to "Minute", Locale.EN to "Minutes"),
+    "timetable.highlightRow" to mapOf(Locale.RO to "Ora curenta", Locale.EN to "Current hour"),
+    "timetable.highlightMinute" to mapOf(Locale.RO to "Urmatoarea plecare", Locale.EN to "Next departure"),
+
+    // Announcements
+    "nav.announcements" to mapOf(Locale.RO to "Anunturi", Locale.EN to "News"),
+    "announcements.title" to mapOf(Locale.RO to "Anunturi STB", Locale.EN to "STB Announcements"),
+    "announcements.description" to mapOf(Locale.RO to "Anunturi oficiale de la STB", Locale.EN to "Official announcements from STB"),
+    "announcements.errorTitle" to mapOf(Locale.RO to "Eroare la incarcarea anunturilor", Locale.EN to "Error loading announcements"),
+    "announcements.errorDescription" to mapOf(
+        Locale.RO to "Verifica conexiunea la internet si incearca din nou.",
+        Locale.EN to "Check your internet connection and try again."
+    ),
+    "announcements.emptyTitle" to mapOf(Locale.RO to "Niciun anunt", Locale.EN to "No announcements"),
+    "announcements.today" to mapOf(Locale.RO to "Azi", Locale.EN to "Today"),
+    "announcements.yesterday" to mapOf(Locale.RO to "Ieri", Locale.EN to "Yesterday"),
+    "announcements.showMore" to mapOf(Locale.RO to "Citeste mai mult", Locale.EN to "Read more"),
+    "announcements.showLess" to mapOf(Locale.RO to "Arata mai putin", Locale.EN to "Show less"),
+    "announcements.relatedAlert" to mapOf(Locale.RO to "Anunt STB", Locale.EN to "STB announcement"),
+
+    // Notifications page
+    "nav.notifications" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),
+    "notifications.title" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),
+    "notifications.description" to mapOf(Locale.RO to "Gestioneaza notificarile pentru sosiri", Locale.EN to "Manage arrival notifications"),
+    "notifications.active" to mapOf(Locale.RO to "notificari active", Locale.EN to "active notifications"),
+    "notifications.emptyTitle" to mapOf(Locale.RO to "Nicio notificare", Locale.EN to "No notifications"),
+    "notifications.emptyDescription" to mapOf(
+        Locale.RO to "Adauga notificari din paginile statiilor pentru a fi alertat cand autobuzul soseste.",
+        Locale.EN to "Add notifications from stop pages to be alerted when the bus arrives."
+    ),
+    "notifications.onceSummary" to mapOf(Locale.RO to "Notificare la {min} min inainte", Locale.EN to "Notify {min} min before"),
+    "notifications.repeatSummary" to mapOf(Locale.RO to "Repeta la fiecare {min} min", Locale.EN to "Repeat every {min} min"),
+    "notifications.every" to mapOf(Locale.RO to "la fiecare", Locale.EN to "every"),
+    "notifications.disable" to mapOf(Locale.RO to "Dezactiveaza", Locale.EN to "Disable"),
+    "notifications.enable" to mapOf(Locale.RO to "Activeaza", Locale.EN to "Enable"),
+
+    "notification.title" to mapOf(Locale.RO to "Linia", Locale.EN to "Line"),
+    "notification.arrivesAt" to mapOf(Locale.RO to "Soseste la", Locale.EN to "Arrives at"),
+    "notification.in" to mapOf(Locale.RO to "in", Locale.EN to "in"),
+    "notification.minute" to mapOf(Locale.RO to "minut", Locale.EN to "minute"),
+    "notification.minutes" to mapOf(Locale.RO to "minute", Locale.EN to "minutes"),
+    "notification.arrived" to mapOf(Locale.RO to "A sosit!", Locale.EN to "Arrived!"),
+    "notification.setFor" to mapOf(Locale.RO to "Notificare setata pentru linia", Locale.EN to "Notification set for line"),
+    "notification.setup" to mapOf(Locale.RO to "Seteaza notificare", Locale.EN to "Set up notification"),
+    "notification.mode" to mapOf(Locale.RO to "Tip notificare", Locale.EN to "Notification type"),
+    "notification.modeOnce" to mapOf(Locale.RO to "O singura data", Locale.EN to "Once"),
+    "notification.modeRepeat" to mapOf(Locale.RO to "Repetitiv", Locale.EN to "Repeating"),
+    "notification.notifyWhen" to mapOf(Locale.RO to "Notifica-ma cand mai sunt", Locale.EN to "Notify me when"),
+    "notification.repeatEvery" to mapOf(Locale.RO to "Repeta la fiecare", Locale.EN to "Repeat every"),
+    "notification.onceDescription" to mapOf(
+        Locale.RO to "Vei primi o notificare cand autobuzul este la {min} minute distanta.",
+        Locale.EN to "You will be notified when the bus is {min} minutes away."
+    ),
+    "notification.repeatDescription" to mapOf(
+        Locale.RO to "Vei primi notificari la fiecare {min} minute pana cand autobuzul soseste.",
+        Locale.EN to "You will receive notifications every {min} minutes until the bus arrives."
+    ),
+    "notification.activate" to mapOf(Locale.RO to "Activeaza notificarea", Locale.EN to "Activate notification"),
+
+    // Misc
+    "misc.vehicle" to mapOf(Locale.RO to "Vehicul", Locale.EN to "Vehicle")
+)
+
+fun t(key: String, locale: Locale): String {
+    return translations[key]?.get(locale) ?: key
+}

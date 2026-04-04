@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0088DD"/>
+      <stop offset="100%" style="stop-color:#004A80"/>
+    </linearGradient>
+    <filter id="pinShadow" x="-15%" y="-5%" width="130%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#001830" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bgGrad)"/>
+
+  <!-- Location pin, centered vertically -->
+  <g filter="url(#pinShadow)">
+    <path d="M256,68 C195,68 146,117 146,178 C146,248 256,420 256,420 C256,420 366,248 366,178 C366,117 317,68 256,68 Z"
+          fill="#FFFFFF"/>
+  </g>
+
+  <!-- Bus icon (front view silhouette), centered in pin circle -->
+  <g transform="translate(256, 192)">
+    <!-- Bus body -->
+    <path d="M-56,-72 C-56,-82 -48,-90 -38,-90 L38,-90 C48,-90 56,-82 56,-72 L56,44 C56,50 52,54 46,54 L40,54 L40,64 C40,69 36,73 31,73 L26,73 C21,73 17,69 17,64 L17,54 L-17,54 L-17,64 C-17,69 -21,73 -26,73 L-31,73 C-36,73 -40,69 -40,64 L-40,54 L-46,54 C-52,54 -56,50 -56,44 Z"
+          fill="#0061A4"/>
+
+    <!-- Route sign -->
+    <rect x="-20" y="-83" width="40" height="10" rx="5" fill="#FFFFFF" opacity="0.9"/>
+
+    <!-- Windshield -->
+    <rect x="-44" y="-66" width="88" height="56" rx="10" fill="#FFFFFF"/>
+
+    <!-- Headlights -->
+    <circle cx="-38" cy="18" r="12" fill="#FFFFFF"/>
+    <circle cx="38" cy="18" r="12" fill="#FFFFFF"/>
+  </g>
+</svg>

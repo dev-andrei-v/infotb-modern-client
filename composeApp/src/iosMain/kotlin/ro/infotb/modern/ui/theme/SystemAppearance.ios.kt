@@ -2,17 +2,17 @@ package ro.infotb.modern.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import platform.Foundation.NSNotificationCenter
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.UIKit.UIApplication
+import platform.UIKit.UIStatusBarStyleDarkContent
+import platform.UIKit.UIStatusBarStyleLightContent
+import platform.UIKit.setStatusBarStyle
 
-private const val ThemeDidChangeNotification = "InfoTBThemeDidChange"
-
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun SystemAppearance(isDark: Boolean) {
     LaunchedEffect(isDark) {
-        NSNotificationCenter.defaultCenter.postNotificationName(
-            aName = ThemeDidChangeNotification,
-            `object` = null,
-            userInfo = mapOf("isDark" to isDark)
-        )
+        val style = if (isDark) UIStatusBarStyleLightContent else UIStatusBarStyleDarkContent
+        UIApplication.sharedApplication.setStatusBarStyle(style, animated = true)
     }
 }

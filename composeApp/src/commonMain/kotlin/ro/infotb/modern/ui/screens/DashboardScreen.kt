@@ -101,7 +101,7 @@ fun DashboardScreen(
     onNavigateToLine: (lineId: Long) -> Unit,
     onNavigateToLines: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction) -> Unit
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
     val widgets by viewModel.widgets.collectAsState()
     val widgetData by viewModel.widgetData.collectAsState()
@@ -253,7 +253,7 @@ fun DashboardScreen(
                                 onLoadTimetable = { lineId, direction ->
                                     viewModel.loadLineTimetable(widget.stopId, lineId, direction)
                                 },
-                                onBellClick = { lineId, lineName, lineColor, direction ->
+                                onBellClick = { lineId, lineName, lineColor, direction, minutes, isTimetable ->
                                     if (useDirectNotificationAction) {
                                         onSetNotification(
                                             widget.stopId,
@@ -261,7 +261,9 @@ fun DashboardScreen(
                                             lineId,
                                             lineName,
                                             lineColor,
-                                            direction
+                                            direction,
+                                            minutes,
+                                            isTimetable
                                         )
                                     } else {
                                         bellTarget = BellTarget(widget.stopId, widget.stopName, lineId, lineName, lineColor, direction)
@@ -388,7 +390,7 @@ private fun StationWidgetCard(
     onClick: () -> Unit,
     onLineClick: (lineId: Long) -> Unit,
     onLoadTimetable: (lineId: Long, direction: Direction) -> Unit,
-    onBellClick: (lineId: Long, lineName: String, lineColor: String, direction: Direction) -> Unit
+    onBellClick: (lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
     val allLines = stopInfo?.lines ?: emptyList()
     val visibleLines = widget.visibleLines
@@ -505,7 +507,16 @@ private fun StationWidgetCard(
                             timetableLoading = timetableKey in timetableLoading,
                             locale = locale,
                             onLineClick = { onLineClick(line.id) },
-                            onBellClick = { onBellClick(line.id, line.name, line.color, line.direction) },
+                            onBellClick = {
+                                onBellClick(
+                                    line.id,
+                                    line.name,
+                                    line.color,
+                                    line.direction,
+                                    (line.arrivingTime / 60).toInt().coerceAtLeast(0),
+                                    line.isTimetable
+                                )
+                            },
                             onLoadTimetable = { onLoadTimetable(line.id, line.direction) }
                         )
                     }

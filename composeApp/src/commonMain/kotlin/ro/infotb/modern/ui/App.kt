@@ -25,6 +25,7 @@ import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.notification.NotificationEngine
 import ro.infotb.modern.data.store.WidgetSize
+import ro.infotb.modern.notification.NotificationEvent
 import ro.infotb.modern.ui.components.layout.AppShell
 import ro.infotb.modern.ui.navigation.Screen
 import ro.infotb.modern.ui.screens.AnnouncementsScreen
@@ -74,9 +75,23 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         lineId: Long,
         lineName: String,
         lineColor: String,
-        direction: Direction
+        direction: Direction,
+        minutes: Int,
+        isTimetable: Boolean
     ) {
         if (isIos) {
+            notificationEngine.startLiveTrackingNow(
+                NotificationEvent(
+                    lineName = lineName,
+                    lineColor = lineColor,
+                    stopName = stopName,
+                    stopId = stopId,
+                    lineId = lineId,
+                    direction = direction.value,
+                    minutes = minutes,
+                    isTimetable = isTimetable
+                )
+            )
             notificationStore.replaceWithSingleSubscription(
                 stopId = stopId,
                 stopName = stopName,
@@ -153,14 +168,16 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         onNavigateToSettings = {
                             navController.navigate(Screen.Settings.route)
                         },
-                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir ->
+                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
                             handleTrackedStationSelection(
                                 stopId = sid,
                                 stopName = stopName,
                                 lineId = lid,
                                 lineName = lineName,
                                 lineColor = lineColor,
-                                direction = dir
+                                direction = dir,
+                                minutes = minutes,
+                                isTimetable = isTimetable
                             )
                         }
                     )
@@ -243,14 +260,16 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 launchSingleTop = true
                             }
                         },
-                        onSetNotification = { sid, lid, lineName, lineColor, dir ->
+                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
                             handleTrackedStationSelection(
                                 stopId = sid,
-                                stopName = "",
+                                stopName = stopName,
                                 lineId = lid,
                                 lineName = lineName,
                                 lineColor = lineColor,
-                                direction = dir
+                                direction = dir,
+                                minutes = minutes,
+                                isTimetable = isTimetable
                             )
                         }
                     )

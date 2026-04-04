@@ -72,6 +72,11 @@ class NotificationEngine(
         }
     }
 
+    fun startLiveTrackingNow(event: NotificationEvent) {
+        platformNotifier.startLiveTracking(event)
+        liveTrackingActive = true
+    }
+
     private suspend fun poll() {
         val subs = notificationStore.subscriptions.value.filter { it.enabled }
 

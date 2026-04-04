@@ -4,7 +4,6 @@ import com.russhwolf.settings.NSUserDefaultsSettings
 import com.russhwolf.settings.Settings
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDate
-import platform.Foundation.NSLocale
 import platform.Foundation.timeIntervalSince1970
 import platform.UIKit.UIDevice
 
@@ -45,5 +44,6 @@ actual fun currentTimeMillis(): Long {
 }
 
 actual fun getSystemLanguage(): String {
-    return NSLocale.preferredLanguages.firstOrNull()?.toString()?.take(2) ?: "en"
+    val preferred = platform.Foundation.NSBundle.mainBundle.preferredLocalizations.firstOrNull() as? String
+    return preferred?.take(2) ?: "en"
 }

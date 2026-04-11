@@ -1,11 +1,13 @@
 import UIKit
 import ComposeApp
 import BackgroundTasks
+import CoreLocation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    private lazy var locationManager = BackgroundLocationManager()
 
     func application(
         _ application: UIApplication,
@@ -38,23 +40,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     @objc private func appDidEnterBackground() {
-        // Request background execution time so NotificationEngine keeps polling
-        // and Dynamic Island stays updated
-        guard backgroundTaskID == .invalid else { return }
-        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "LiveActivityUpdate") { [weak self] in
-            self?.endBackgroundTask()
-        }
-        print("[AppDelegate] Background task started, remaining time: \(UIApplication.shared.backgroundTimeRemaining)s")
+        locationManager.start()
+        print("[AppDelegate] Background location started to keep Dynamic Island alive")
     }
 
     @objc private func appWillEnterForeground() {
-        endBackgroundTask()
-    }
-
-    private func endBackgroundTask() {
-        guard backgroundTaskID != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(backgroundTaskID)
-        backgroundTaskID = .invalid
+        locationManager.stop()
     }
 
     func application(

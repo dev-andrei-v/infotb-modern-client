@@ -270,8 +270,6 @@ class AndroidNotifier : PlatformNotifier {
                     context.resources.getIdentifier("ic_notification_realtime", "drawable", context.packageName)
                 }
                 setImageViewResource(sourceIconId, sourceIconDrawable)
-                val iconTint = if (event.isTimetable) Color.parseColor("#FF9800") else Color.parseColor("#4CAF50")
-                setInt(sourceIconId, "setColorFilter", iconTint)
 
                 val minutesId = context.resources.getIdentifier("minutes_text", "id", context.packageName)
                 val minuteColor = if (event.minutes <= 2) Color.parseColor("#F44336") else Color.parseColor("#4CAF50")

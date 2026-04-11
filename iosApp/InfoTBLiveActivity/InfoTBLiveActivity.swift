@@ -158,6 +158,7 @@ struct InfoTBLiveActivity: Widget {
 
     @ViewBuilder
     private func compactCountdown(minutes: Int, isTimetable: Bool, color: Color) -> some View {
+        let bgColor = isTimetable ? Color.gray : color
         HStack(spacing: 4) {
             Circle()
                 .fill(isTimetable ? .orange : color)
@@ -171,7 +172,7 @@ struct InfoTBLiveActivity: Widget {
         .padding(.vertical, 4)
         .background(
             Capsule(style: .continuous)
-                .fill(color.opacity(0.28))
+                .fill(bgColor.opacity(0.28))
         )
     }
 

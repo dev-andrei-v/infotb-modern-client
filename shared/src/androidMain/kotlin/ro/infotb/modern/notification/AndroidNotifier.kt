@@ -66,6 +66,9 @@ class AndroidNotifier : PlatformNotifier {
         val context = AndroidContext.appContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        // Double-check: if live notification is posted, skip alerts
+        if (manager.activeNotifications.any { it.id == LIVE_NOTIF_ID }) return
+
         val l = locale
         val title = if (event.minutes <= 0) {
             "${t("notification.title", l)} ${event.lineName} \u2014 ${t("notification.arrived", l)}"

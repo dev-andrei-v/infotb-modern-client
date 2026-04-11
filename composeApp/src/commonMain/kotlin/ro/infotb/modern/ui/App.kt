@@ -2,9 +2,6 @@ package ro.infotb.modern.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -158,10 +155,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
             }
         }
 
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }
-        ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+        Box(modifier = Modifier.fillMaxSize()) {
         AppShell(
             navController = navController,
             currentRoute = currentRoute,
@@ -323,7 +317,10 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                 }
             }
         }
-        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+        )
         }
     }
 }

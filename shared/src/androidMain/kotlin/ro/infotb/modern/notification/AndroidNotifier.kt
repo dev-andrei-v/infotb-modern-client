@@ -144,7 +144,6 @@ class AndroidNotifier : PlatformNotifier {
             return buildSamsungNotification(context, event, minuteText, source, iconBgColor, contentIntent, smallIcon)
         }
 
-        // Standard Android notification with custom layout
         val builder = Notification.Builder(context, LIVE_CHANNEL_ID)
             .setSmallIcon(smallIcon)
             .setContentIntent(contentIntent)
@@ -155,10 +154,11 @@ class AndroidNotifier : PlatformNotifier {
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
 
-        applyCustomLayout(builder, context, event, minuteText, source, lineColor)
-
-        // Android 16+ ProgressStyle
+        // Android 16+ (API 36): Use ProgressStyle for live update pill
         if (Build.VERSION.SDK_INT >= 36) {
+            builder
+                .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
+                .setContentText("$minuteText  \u2022  $source")
             try {
                 val progressStyleClass = Class.forName("android.app.Notification\$ProgressStyle")
                 val progressStyle = progressStyleClass.getConstructor().newInstance()
@@ -171,7 +171,13 @@ class AndroidNotifier : PlatformNotifier {
                     .invoke(progressStyle, progress)
                 Notification.Builder::class.java.getMethod("setStyle", Notification.Style::class.java)
                     .invoke(builder, progressStyle)
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                // Fallback to custom layout if ProgressStyle fails
+                applyCustomLayout(builder, context, event, minuteText, source, lineColor)
+            }
+        } else {
+            // Pre-Android 16: custom RemoteViews layout
+            applyCustomLayout(builder, context, event, minuteText, source, lineColor)
         }
 
         return builder.build()

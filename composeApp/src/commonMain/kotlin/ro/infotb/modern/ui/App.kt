@@ -1,7 +1,10 @@
 package ro.infotb.modern.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -335,7 +338,9 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         }
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+            modifier = Modifier
+                .align(androidx.compose.ui.Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.statusBars)
         )
         }
     }

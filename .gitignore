@@ -55,3 +55,4 @@ keystore.properties
 .env
 .env.*
 *.secret
+java_pid*.hprof

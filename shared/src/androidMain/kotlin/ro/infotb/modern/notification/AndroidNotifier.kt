@@ -191,6 +191,9 @@ class AndroidNotifier : PlatformNotifier {
             .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setTicker(minuteText)
+            .setShortCriticalText(minuteText)
+            .setRequestPromotedOngoing(true)
 
         // Samsung Live Notification + Now Bar extras
         val samsungExtras = Bundle().apply {

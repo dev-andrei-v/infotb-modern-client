@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.1.10"
 compose-multiplatform = "1.7.3"
-agp = "8.7.3"
+agp = "8.9.1"
 ktor = "3.0.3"
 kotlinx-coroutines = "1.9.0"
 kotlinx-serialization = "1.7.3"
@@ -52,7 +52,7 @@ sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.r
 
 # AndroidX
 activity-compose = { group = "androidx.activity", name = "activity-compose", version = "1.9.3" }
-androidx-core = { group = "androidx.core", name = "core-ktx", version = "1.16.0" }
+androidx-core = { group = "androidx.core", name = "core-ktx", version = "1.17.0" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

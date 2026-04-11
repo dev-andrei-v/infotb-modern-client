@@ -145,7 +145,7 @@ object ProtoDecoder {
         var color = "#666"
         var direction = Direction.TUR
         var directionName = ""
-        var arrivingTime = 0L
+        var arrivingTime = -1L
         var isTimetable = false
         val arrivingTimes = mutableListOf<ArrivalTime>()
         val timetable = mutableListOf<TimetableHour>()
@@ -256,7 +256,7 @@ object ProtoDecoder {
         var type = TransportType.BUS
         var color = "#666"
         var directionName = ""
-        var arrivingTime = 0L
+        var arrivingTime = -1L
         var isTimetable = false
         var direction = Direction.TUR
         val arrivingTimes = mutableListOf<ArrivalTime>()

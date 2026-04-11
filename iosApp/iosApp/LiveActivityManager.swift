@@ -89,6 +89,12 @@ import Foundation
         guard #available(iOS 16.2, *) else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             print("[LiveActivity] Activities not enabled by user")
+            postFallback(info: [
+                "lineName": lineName,
+                "stopName": stopName,
+                "minutes": minutes,
+                "isTimetable": isTimetable
+            ])
             return
         }
 
@@ -120,6 +126,12 @@ import Foundation
                 print("[LiveActivity] Started: \(lineName) → \(stopName) in \(minutes) min")
             } catch {
                 print("[LiveActivity] Failed to start: \(error.localizedDescription)")
+                postFallback(info: [
+                    "lineName": lineName,
+                    "stopName": stopName,
+                    "minutes": minutes,
+                    "isTimetable": isTimetable
+                ])
             }
         }
     }
@@ -189,6 +201,14 @@ import Foundation
             await endCurrentActivity()
             print("[LiveActivity] Stopped all activities")
         }
+    }
+
+    private func postFallback(info: [String: Any]) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ro.infotb.modern.LIVE_ACTIVITY_FAILED"),
+            object: nil,
+            userInfo: info
+        )
     }
 
     @available(iOS 16.2, *)

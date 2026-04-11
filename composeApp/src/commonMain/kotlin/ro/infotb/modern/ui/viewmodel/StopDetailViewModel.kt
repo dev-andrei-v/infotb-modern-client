@@ -36,6 +36,9 @@ class StopDetailViewModel(
     private val _stopCoordinates = MutableStateFlow<Stop?>(null)
     val stopCoordinates: StateFlow<Stop?> = _stopCoordinates.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private var refreshJob: Job? = null
     private var currentStopId: Long? = null
     private var currentLineId: Long? = null
@@ -48,6 +51,19 @@ class StopDetailViewModel(
         fetchStop(stopId, lineId, direction, showLoading = true)
         fetchStopCoordinates(stopId)
         startRefresh()
+    }
+
+    fun refreshNow() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val stopId = currentStopId ?: run { _isRefreshing.value = false; return@launch }
+            try {
+                val info = repository.getStopInfo(stopId, currentLineId, currentDirection)
+                _stopInfo.value = info
+            } catch (_: Exception) { }
+            _isRefreshing.value = false
+            startRefresh()
+        }
     }
 
     private fun fetchStopCoordinates(stopId: Long) {

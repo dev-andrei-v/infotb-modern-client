@@ -44,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -86,10 +87,12 @@ fun StopDetailScreen(
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
-    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit,
+    onRefresh: (() -> Unit)? = null
 ) {
     val stopInfo by viewModel.stopInfo.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lineTimetables by viewModel.lineTimetables.collectAsState()
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     val stopCoordinates by viewModel.stopCoordinates.collectAsState()
@@ -136,8 +139,16 @@ fun StopDetailScreen(
         } else {
             val info = stopInfo!!
 
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    viewModel.refreshNow()
+                    onRefresh?.invoke()
+                },
+                modifier = Modifier.weight(1f)
+            ) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     horizontal = 16.dp,
                     vertical = 8.dp
@@ -261,6 +272,7 @@ fun StopDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
             }
+            }
         }
     }
 }
@@ -324,15 +336,30 @@ private fun LineArrivalCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                ArrivalTimeBadge(
-                    seconds = line.arrivingTime,
-                    isTimetable = line.isTimetable,
-                    size = BadgeSize.MEDIUM
-                )
+                if (line.arrivingTime >= 0) {
+                    ArrivalTimeBadge(
+                        seconds = line.arrivingTime,
+                        isTimetable = line.isTimetable,
+                        size = BadgeSize.MEDIUM
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = t("widget.outOfService", locale),
+                            fontSize = 10.sp,
+                            color = LocalMuted.current
+                        )
+                    }
+                }
             }
 
             // Next arrivals (skip duplicating the first one already shown in header)
-            if (line.arrivingTimes.isNotEmpty()) {
+            if (line.arrivingTime >= 0 && line.arrivingTimes.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -368,10 +395,12 @@ private fun LineArrivalCard(
                     Spacer(Modifier.width(2.dp))
                     Text(t("stopDetail.addToDashboard", locale), fontSize = 11.sp, maxLines = 1)
                 }
-                TextButton(onClick = onSetNotification, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(2.dp))
-                    Text(t("stopDetail.notification", locale), fontSize = 11.sp, maxLines = 1)
+                if (line.arrivingTime >= 0) {
+                    TextButton(onClick = onSetNotification, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(2.dp))
+                        Text(t("stopDetail.notification", locale), fontSize = 11.sp, maxLines = 1)
+                    }
                 }
                 TextButton(onClick = onToggleTimetable, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))

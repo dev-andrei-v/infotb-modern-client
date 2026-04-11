@@ -12,6 +12,7 @@
 		A1B2C3D4E5F60001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002 /* Assets.xcassets */; };
 		DA00000000000013 /* TransitActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000001 /* TransitActivityAttributes.swift */; };
 		DA00000000000014 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000004 /* LiveActivityManager.swift */; };
+		DA00000000000015 /* BackgroundLocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000008 /* BackgroundLocationManager.swift */; };
 		DA00000000000010 /* TransitActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000001 /* TransitActivityAttributes.swift */; };
 		DA00000000000011 /* InfoTBLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000002 /* InfoTBLiveActivity.swift */; };
 		DA00000000000012 /* InfoTBLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000003 /* InfoTBLiveActivityBundle.swift */; };
@@ -52,6 +53,7 @@
 		DA00000000000002 /* InfoTBLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTBLiveActivity.swift; sourceTree = "<group>"; };
 		DA00000000000003 /* InfoTBLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTBLiveActivityBundle.swift; sourceTree = "<group>"; };
 		DA00000000000004 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		DA00000000000008 /* BackgroundLocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundLocationManager.swift; sourceTree = "<group>"; };
 		DA00000000000005 /* InfoTBLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = InfoTBLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA00000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -99,6 +101,7 @@
 				7555FF80242A565900829871 /* ContentView.swift */,
 				DA00000000000001 /* TransitActivityAttributes.swift */,
 				DA00000000000004 /* LiveActivityManager.swift */,
+				DA00000000000008 /* BackgroundLocationManager.swift */,
 				A1B2C3D4E5F60002 /* Assets.xcassets */,
 				7555FF82242A565900829871 /* Info.plist */,
 			);
@@ -233,6 +236,7 @@
 				7555FF7F242A565900829871 /* iOSApp.swift in Sources */,
 				DA00000000000013 /* TransitActivityAttributes.swift in Sources */,
 				DA00000000000014 /* LiveActivityManager.swift in Sources */,
+				DA00000000000015 /* BackgroundLocationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

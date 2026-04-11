@@ -73,6 +73,9 @@ class NotificationEngine(
     }
 
     fun startLiveTrackingNow(event: NotificationEvent) {
+        // Don't call stopLiveTracking() here — LiveActivityManager.startTracking
+        // already ends the old activity before creating a new one. Calling stop
+        // separately races with start and can end the *new* activity.
         platformNotifier.startLiveTracking(event)
         liveTrackingActive = true
     }

@@ -20,6 +20,7 @@ struct InfoTBLiveActivity: Widget {
                         color: lineColor,
                         size: 44
                     )
+                    .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     countdownView(
@@ -29,6 +30,7 @@ struct InfoTBLiveActivity: Widget {
                         numberColor: .white,
                         unitColor: .white.opacity(0.72)
                     )
+                    .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
@@ -51,7 +53,7 @@ struct InfoTBLiveActivity: Widget {
                             liveIndicator()
                         }
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 8)
                 }
             } compactLeading: {
                 compactRouteBadge(
@@ -62,7 +64,7 @@ struct InfoTBLiveActivity: Widget {
                 compactCountdown(
                     minutes: context.state.minutes,
                     isTimetable: context.state.isTimetable,
-                    color: lineColor
+                    color: .green
                 )
             } minimal: {
                 minimalBadge(
@@ -71,6 +73,7 @@ struct InfoTBLiveActivity: Widget {
                 )
             }
             .keylineTint(lineColor.opacity(0.55))
+            .widgetURL(deepLinkURL(for: context.attributes))
         }
     }
 
@@ -155,6 +158,7 @@ struct InfoTBLiveActivity: Widget {
 
     @ViewBuilder
     private func compactCountdown(minutes: Int, isTimetable: Bool, color: Color) -> some View {
+        let bgColor = isTimetable ? Color.gray : color
         HStack(spacing: 4) {
             Circle()
                 .fill(isTimetable ? .orange : color)
@@ -168,7 +172,7 @@ struct InfoTBLiveActivity: Widget {
         .padding(.vertical, 4)
         .background(
             Capsule(style: .continuous)
-                .fill(color.opacity(0.28))
+                .fill(bgColor.opacity(0.28))
         )
     }
 

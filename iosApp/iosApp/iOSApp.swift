@@ -1,9 +1,13 @@
 import UIKit
 import ComposeApp
+import BackgroundTasks
+import CoreLocation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    private lazy var locationManager = BackgroundLocationManager()
 
     func application(
         _ application: UIApplication,
@@ -17,7 +21,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = MainViewControllerKt.MainViewController()
         window?.makeKeyAndVisible()
+
+        // Register for app lifecycle notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+
         return true
+    }
+
+    @objc private func appDidEnterBackground() {
+        locationManager.start()
+        print("[AppDelegate] Background location started to keep Dynamic Island alive")
+    }
+
+    @objc private func appWillEnterForeground() {
+        locationManager.stop()
     }
 
     func application(

@@ -2,16 +2,17 @@ package ro.infotb.modern.notification
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.cValue
+import platform.Foundation.NSNotification
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperatingSystemVersion
 import platform.Foundation.NSProcessInfo
+import platform.Foundation.NSUUID
+import platform.UserNotifications.UNAuthorizationOptionAlert
+import platform.UserNotifications.UNAuthorizationOptionSound
 import platform.UserNotifications.UNMutableNotificationContent
 import platform.UserNotifications.UNNotificationRequest
 import platform.UserNotifications.UNNotificationSound
 import platform.UserNotifications.UNUserNotificationCenter
-import platform.UserNotifications.UNAuthorizationOptionAlert
-import platform.UserNotifications.UNAuthorizationOptionSound
-import platform.Foundation.NSUUID
 
 class IosNotifier : PlatformNotifier {
 
@@ -19,10 +20,12 @@ class IosNotifier : PlatformNotifier {
         const val START_LIVE_TRACKING = "ro.infotb.modern.START_LIVE_TRACKING"
         const val UPDATE_LIVE_TRACKING = "ro.infotb.modern.UPDATE_LIVE_TRACKING"
         const val STOP_LIVE_TRACKING = "ro.infotb.modern.STOP_LIVE_TRACKING"
+        private const val LIVE_ACTIVITY_FAILED = "ro.infotb.modern.LIVE_ACTIVITY_FAILED"
     }
 
+    private var liveTrackingActive = false
+
     init {
-        // Request notification permissions on init
         UNUserNotificationCenter.currentNotificationCenter()
             .requestAuthorizationWithOptions(
                 UNAuthorizationOptionAlert or UNAuthorizationOptionSound
@@ -33,22 +36,65 @@ class IosNotifier : PlatformNotifier {
                     println("[IosNotifier] Notification permission denied: ${error?.localizedDescription}")
                 }
             }
+
+        NSNotificationCenter.defaultCenter.addObserverForName(
+            name = LIVE_ACTIVITY_FAILED,
+            `object` = null,
+            queue = null
+        ) { notification: NSNotification? ->
+            println("[IosNotifier] Live Activity failed, falling back to local notification")
+            liveTrackingActive = false
+            val info = notification?.userInfo ?: return@addObserverForName
+            showLocalNotification(
+                lineName = info["lineName"] as? String ?: "",
+                stopName = info["stopName"] as? String ?: "",
+                minutes = (info["minutes"] as? Number)?.toInt() ?: 0,
+                isTimetable = (info["isTimetable"] as? Boolean) ?: false
+            )
+        }
     }
 
     override fun showNotification(event: NotificationEvent) {
+        // When Dynamic Island is active, it's already being updated by updateLiveTracking.
+        // Don't send a duplicate update that could race and trigger a fallback notification.
+        if (liveTrackingActive) return
+
+        showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
+    }
+
+    override fun startLiveTracking(event: NotificationEvent) {
+        if (supportsLiveActivities()) {
+            postLiveTrackingNotification(START_LIVE_TRACKING, event)
+            liveTrackingActive = true
+        } else {
+            showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
+        }
+    }
+
+    override fun updateLiveTracking(event: NotificationEvent) {
         if (supportsLiveActivities()) {
             postLiveTrackingNotification(UPDATE_LIVE_TRACKING, event)
-            println("[IosNotifier] Prefer Live Activity over local notification for ${event.activityId}")
-            return
+        } else {
+            showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
         }
+    }
 
+    override fun stopLiveTracking() {
+        liveTrackingActive = false
+        NSNotificationCenter.defaultCenter.postNotificationName(
+            aName = STOP_LIVE_TRACKING,
+            `object` = null
+        )
+    }
+
+    private fun showLocalNotification(lineName: String, stopName: String, minutes: Int, isTimetable: Boolean) {
         val content = UNMutableNotificationContent().apply {
-            setTitle("Line ${event.lineName}")
+            setTitle("Line $lineName")
             setBody(
-                if (event.minutes <= 0) {
-                    "Arriving now at ${event.stopName}!"
+                if (minutes <= 0) {
+                    "Arriving now at $stopName!"
                 } else {
-                    "${event.minutes} min until arrival at ${event.stopName}"
+                    "$minutes min until arrival at $stopName"
                 }
             )
             setSound(UNNotificationSound.defaultSound())
@@ -57,7 +103,7 @@ class IosNotifier : PlatformNotifier {
         val request = UNNotificationRequest.requestWithIdentifier(
             identifier = NSUUID().UUIDString(),
             content = content,
-            trigger = null // Deliver immediately
+            trigger = null
         )
 
         UNUserNotificationCenter.currentNotificationCenter()
@@ -66,21 +112,6 @@ class IosNotifier : PlatformNotifier {
                     println("[IosNotifier] Failed to deliver notification: ${error.localizedDescription}")
                 }
             }
-    }
-
-    override fun startLiveTracking(event: NotificationEvent) {
-        postLiveTrackingNotification(START_LIVE_TRACKING, event)
-    }
-
-    override fun updateLiveTracking(event: NotificationEvent) {
-        postLiveTrackingNotification(UPDATE_LIVE_TRACKING, event)
-    }
-
-    override fun stopLiveTracking() {
-        NSNotificationCenter.defaultCenter.postNotificationName(
-            aName = STOP_LIVE_TRACKING,
-            `object` = null
-        )
     }
 
     private fun postLiveTrackingNotification(name: String, event: NotificationEvent) {

@@ -53,7 +53,7 @@ struct InfoTBLiveActivity: Widget {
                             liveIndicator()
                         }
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 8)
                 }
             } compactLeading: {
                 compactRouteBadge(
@@ -64,7 +64,7 @@ struct InfoTBLiveActivity: Widget {
                 compactCountdown(
                     minutes: context.state.minutes,
                     isTimetable: context.state.isTimetable,
-                    color: lineColor
+                    color: .green
                 )
             } minimal: {
                 minimalBadge(

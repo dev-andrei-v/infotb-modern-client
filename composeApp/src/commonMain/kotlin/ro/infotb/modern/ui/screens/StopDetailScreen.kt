@@ -404,7 +404,7 @@ private fun LineArrivalCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                TextButton(onClick = onAddToDashboard, modifier = Modifier.weight(1f)) {
+                TextButton(onClick = onAddToDashboard) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(2.dp))
                     Text(t("stopDetail.addToDashboard", locale), fontSize = 11.sp, maxLines = 1)
@@ -413,7 +413,6 @@ private fun LineArrivalCard(
                     if (isTracking) {
                         TextButton(
                             onClick = onStopNotification,
-                            modifier = Modifier.weight(1f),
                             colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
                             )
@@ -423,7 +422,7 @@ private fun LineArrivalCard(
                             Text(t("stopDetail.stopTracking", locale), fontSize = 11.sp, maxLines = 1)
                         }
                     } else {
-                        TextButton(onClick = onSetNotification, modifier = Modifier.weight(1f)) {
+                        TextButton(onClick = onSetNotification) {
                             Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(2.dp))
                             Text(
@@ -434,7 +433,7 @@ private fun LineArrivalCard(
                         }
                     }
                 }
-                TextButton(onClick = onToggleTimetable, modifier = Modifier.weight(1f)) {
+                TextButton(onClick = onToggleTimetable) {
                     Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(2.dp))
                     Text(t("stopDetail.timetable", locale), fontSize = 11.sp, maxLines = 1)

@@ -12,6 +12,9 @@ import android.os.Bundle
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import ro.infotb.modern.AndroidContext
+import ro.infotb.modern.getSystemLanguage
+import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.t
 
 class AndroidNotifier : PlatformNotifier {
 
@@ -25,6 +28,7 @@ class AndroidNotifier : PlatformNotifier {
 
     private val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
     private var serviceStarted = false
+    private val locale: Locale get() = if (getSystemLanguage() == "ro") Locale.RO else Locale.EN
 
     init {
         createChannels()
@@ -58,13 +62,14 @@ class AndroidNotifier : PlatformNotifier {
         val context = AndroidContext.appContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        val l = locale
         val title = if (event.minutes <= 0) {
-            "Line ${event.lineName} \u2014 Arrived!"
+            "${t("notification.title", l)} ${event.lineName} \u2014 ${t("notification.arrived", l)}"
         } else {
-            "Line ${event.lineName} \u2014 ${event.minutes} min"
+            "${t("notification.title", l)} ${event.lineName} \u2014 ${event.minutes} ${t("notification.min", l)}"
         }
-        val source = if (event.isTimetable) "scheduled" else "GPS"
-        val body = "Arrives at ${event.stopName} ($source)"
+        val source = if (event.isTimetable) t("notification.scheduled", l) else t("notification.realtime", l)
+        val body = "${t("notification.arrivesAt", l)} ${event.stopName} ($source)"
 
         val notifId = "${event.stopId}-${event.lineName}".hashCode()
         val contentIntent = buildStopDetailIntent(context, event, notifId)
@@ -122,18 +127,18 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     private fun buildLiveNotification(context: Context, event: NotificationEvent): Notification {
+        val l = locale
         val minuteText = when {
-            event.minutes <= 0 -> "NOW"
-            event.minutes == 1 -> "1 min"
-            else -> "${event.minutes} min"
+            event.minutes <= 0 -> t("notification.now", l)
+            else -> "${event.minutes} ${t("notification.min", l)}"
         }
-        val source = if (event.isTimetable) "Scheduled" else "Real-time"
+        val source = if (event.isTimetable) t("notification.scheduled", l) else t("notification.realtime", l)
         val lineColor = parseHexColor(event.lineColor)
         val contentIntent = buildStopDetailIntent(context, event, LIVE_NOTIF_ID)
         val sourceIconRes = if (event.isTimetable) "ic_notification_scheduled" else "ic_notification_realtime"
         val sourceIcon = context.resources.getIdentifier(sourceIconRes, "drawable", context.packageName)
         val smallIcon = if (sourceIcon != 0) sourceIcon else android.R.drawable.ic_menu_mylocation
-        val iconBgColor = if (event.isTimetable) Color.parseColor("#FF9800") else Color.parseColor("#4CAF50")
+        val iconBgColor = if (event.isTimetable) Color.parseColor("#757575") else Color.parseColor("#4CAF50")
 
         if (isSamsung) {
             return buildSamsungNotification(context, event, minuteText, source, iconBgColor, contentIntent, smallIcon)
@@ -248,13 +253,14 @@ class AndroidNotifier : PlatformNotifier {
                     context.resources.getIdentifier("stop_name", "id", context.packageName),
                     event.stopName
                 )
+                val l = locale
                 setTextViewText(
                     context.resources.getIdentifier("minutes_text", "id", context.packageName),
-                    if (event.minutes <= 0) "NOW" else "${event.minutes}"
+                    if (event.minutes <= 0) t("notification.now", l) else "${event.minutes}"
                 )
                 setTextViewText(
                     context.resources.getIdentifier("minutes_label", "id", context.packageName),
-                    if (event.minutes <= 0) "" else "min"
+                    if (event.minutes <= 0) "" else t("notification.min", l)
                 )
                 setTextViewText(
                     context.resources.getIdentifier("source_text", "id", context.packageName),
@@ -274,7 +280,7 @@ class AndroidNotifier : PlatformNotifier {
                 setTextColor(minutesId, minuteColor)
 
                 val sourceTextId = context.resources.getIdentifier("source_text", "id", context.packageName)
-                val sourceColor = if (event.isTimetable) Color.parseColor("#FF9800") else Color.parseColor("#4CAF50")
+                val sourceColor = if (event.isTimetable) Color.parseColor("#9E9E9E") else Color.parseColor("#4CAF50")
                 setTextColor(sourceTextId, sourceColor)
             }
 

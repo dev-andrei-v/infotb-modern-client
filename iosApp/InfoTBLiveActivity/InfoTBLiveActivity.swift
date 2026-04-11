@@ -69,7 +69,7 @@ struct InfoTBLiveActivity: Widget {
             } minimal: {
                 minimalCountdown(
                     minutes: context.state.minutes,
-                    color: lineColor
+                    color: context.state.isTimetable ? .gray : .green
                 )
             }
             .keylineTint(lineColor.opacity(0.55))
@@ -213,14 +213,11 @@ struct InfoTBLiveActivity: Widget {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(color)
                 .frame(width: 28, height: 28)
-            VStack(spacing: -1) {
-                Text("\(minutes)")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                Text("m")
-                    .font(.system(size: 7, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
+            Text("\(minutes)")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
         }
     }
 

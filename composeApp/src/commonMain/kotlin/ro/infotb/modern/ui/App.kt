@@ -335,7 +335,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         }
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+            modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter)
         )
         }
     }

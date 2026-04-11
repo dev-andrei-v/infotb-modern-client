@@ -86,7 +86,7 @@ fun StopDetailScreen(
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
-    onSetNotification: (stopId: Long, lineId: Long, lineName: String, lineColor: String, direction: Direction) -> Unit
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
     val stopInfo by viewModel.stopInfo.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -246,7 +246,16 @@ fun StopDetailScreen(
                             onAddToDashboard(stopId, info.name)
                         },
                         onSetNotification = {
-                            onSetNotification(stopId, line.id, line.name, line.color, line.direction)
+                            onSetNotification(
+                                stopId,
+                                info.name,
+                                line.id,
+                                line.name,
+                                line.color,
+                                line.direction,
+                                (line.arrivingTime / 60).toInt().coerceAtLeast(0),
+                                line.isTimetable
+                            )
                         }
                     )
                     Spacer(Modifier.height(8.dp))

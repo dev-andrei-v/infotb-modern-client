@@ -24,7 +24,10 @@ data class NotificationEvent(
     val direction: Int,
     val minutes: Int,
     val isTimetable: Boolean
-)
+) {
+    val activityId: String
+        get() = "$stopId-$lineId-$direction"
+}
 
 class NotificationEngine(
     private val notificationStore: NotificationStore,
@@ -63,6 +66,17 @@ class NotificationEngine(
         }
     }
 
+    fun refreshNow() {
+        scope.launch {
+            poll()
+        }
+    }
+
+    fun startLiveTrackingNow(event: NotificationEvent) {
+        platformNotifier.startLiveTracking(event)
+        liveTrackingActive = true
+    }
+
     private suspend fun poll() {
         val subs = notificationStore.subscriptions.value.filter { it.enabled }
 
@@ -76,7 +90,7 @@ class NotificationEngine(
 
         val now = currentTimeMillis()
 
-        // Track the first active subscription for the live pill
+        // Track the closest active subscription for the live pill
         var pillEvent: NotificationEvent? = null
 
         for (sub in subs) {
@@ -148,6 +162,9 @@ class NotificationEngine(
             } else {
                 platformNotifier.updateLiveTracking(pillEvent)
             }
+        } else if (liveTrackingActive) {
+            platformNotifier.stopLiveTracking()
+            liveTrackingActive = false
         }
     }
 

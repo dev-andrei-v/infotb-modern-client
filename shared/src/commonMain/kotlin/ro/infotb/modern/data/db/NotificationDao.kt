@@ -28,6 +28,9 @@ interface NotificationDao {
     @Query("UPDATE notification_subscriptions SET enabled = 0")
     suspend fun disableAll()
 
+    @Query("DELETE FROM notification_subscriptions")
+    suspend fun deleteAll()
+
     @Update
     suspend fun update(entity: NotificationEntity)
 }

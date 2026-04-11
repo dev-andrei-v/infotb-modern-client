@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
+import android.os.Bundle
 import android.widget.RemoteViews
 import ro.infotb.modern.AndroidContext
 
@@ -41,7 +42,7 @@ class AndroidNotifier : PlatformNotifier {
         val liveChannel = NotificationChannel(
             LIVE_CHANNEL_ID,
             LIVE_CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "Live arrival countdown"
             setShowBadge(false)
@@ -54,18 +55,19 @@ class AndroidNotifier : PlatformNotifier {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val title = if (event.minutes <= 0) {
-            "Line ${event.lineName} — Arrived!"
+            "Line ${event.lineName} \u2014 Arrived!"
         } else {
-            "Line ${event.lineName} — ${event.minutes} min"
+            "Line ${event.lineName} \u2014 ${event.minutes} min"
         }
         val source = if (event.isTimetable) "scheduled" else "GPS"
         val body = "Arrives at ${event.stopName} ($source)"
 
         val notifId = "${event.stopId}-${event.lineName}".hashCode()
         val contentIntent = buildStopDetailIntent(context, event, notifId)
+        val busIcon = context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName)
 
         val notification = Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName))
+            .setSmallIcon(if (busIcon != 0) busIcon else android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
@@ -106,46 +108,81 @@ class AndroidNotifier : PlatformNotifier {
         val busIcon = context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName)
 
         val builder = Notification.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(busIcon)
+            .setSmallIcon(if (busIcon != 0) busIcon else android.R.drawable.ic_menu_mylocation)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setColor(lineColor)
             .setColorized(true)
-            .setCategory(Notification.CATEGORY_TRANSPORT)
+            .setCategory(Notification.CATEGORY_NAVIGATION)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
 
-        // Android 16+ (API 36): Use ProgressStyle for rich ongoing pill
+        // Apply custom layout for notification shade
+        applyCustomLayout(builder, context, event, minuteText, source, lineColor)
+
+        val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+
+        // Samsung OneUI: Live Notifications + Now Bar extras
+        if (isSamsung) {
+            val samsungExtras = Bundle().apply {
+                putInt("android.ongoingActivityNoti.style", 1)
+
+                // Live Notification: standard style
+                putString("android.ongoingActivityNoti.primaryInfo", minuteText)
+                putString("android.ongoingActivityNoti.secondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
+
+                // Chip (status bar pill)
+                putInt("android.ongoingActivityNoti.chipBgColor", lineColor)
+                putString("android.ongoingActivityNoti.chipExpandedText", "${event.lineName} \u2022 $minuteText")
+
+                // Now Bar (lock screen)
+                putString("android.ongoingActivityNoti.nowbarPrimaryInfo", minuteText)
+                putString("android.ongoingActivityNoti.nowbarSecondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
+            }
+            builder.addExtras(samsungExtras)
+        }
+
+        // Android 16+ (API 36): ProgressStyle for all OEMs
         if (Build.VERSION.SDK_INT >= 36) {
-            builder
-                .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
-                .setContentText(minuteText)
             try {
                 val progressStyleClass = Class.forName("android.app.Notification\$ProgressStyle")
-                val constructor = progressStyleClass.getConstructor()
-                val progressStyle = constructor.newInstance()
+                val progressStyle = progressStyleClass.getConstructor().newInstance()
 
-                // Set progress point (percentage-like, inverted: lower minutes = more progress)
                 val progress = when {
                     event.minutes <= 0 -> 100
                     event.minutes >= 30 -> 5
                     else -> ((30 - event.minutes) * 100 / 30).coerceIn(5, 100)
                 }
-                val setProgressPoint = progressStyleClass.getMethod("setProgressPoint", Int::class.java)
-                setProgressPoint.invoke(progressStyle, progress)
+                progressStyleClass.getMethod("setProgressPoint", Int::class.java)
+                    .invoke(progressStyle, progress)
 
-                val setStyle = Notification.Builder::class.java.getMethod("setStyle", Notification.Style::class.java)
-                setStyle.invoke(builder, progressStyle)
+                Notification.Builder::class.java.getMethod("setStyle", Notification.Style::class.java)
+                    .invoke(builder, progressStyle)
             } catch (_: Exception) {
-                // ProgressStyle not available on this build, fall back to custom layout
-                applyCustomLayout(builder, context, event, minuteText, source, lineColor)
+                // ProgressStyle not available, custom layout already applied
             }
-        } else {
-            // Pre-Android 16: Use custom RemoteViews layout
-            applyCustomLayout(builder, context, event, minuteText, source, lineColor)
         }
 
-        return builder.build()
+        val notification = builder.build()
+
+        // Samsung semFlags hack: set bit 0x8000 to promote to Now Bar
+        if (isSamsung) {
+            applySamsungSemFlags(notification)
+        }
+
+        return notification
+    }
+
+    private fun applySamsungSemFlags(notification: Notification) {
+        try {
+            val semFlagsField = Notification::class.java.getDeclaredField("semFlags")
+            semFlagsField.isAccessible = true
+            val currentFlags = semFlagsField.getInt(notification)
+            semFlagsField.setInt(notification, currentFlags or 0x8000)
+        } catch (_: Exception) {
+            // Not a Samsung device or field not available
+        }
     }
 
     private fun applyCustomLayout(
@@ -181,7 +218,6 @@ class AndroidNotifier : PlatformNotifier {
                     source
                 )
 
-                // Set source dot color
                 val dotId = context.resources.getIdentifier("source_dot", "id", context.packageName)
                 val dotDrawable = if (event.isTimetable) {
                     context.resources.getIdentifier("notification_dot_orange", "drawable", context.packageName)
@@ -190,7 +226,6 @@ class AndroidNotifier : PlatformNotifier {
                 }
                 setImageViewResource(dotId, dotDrawable)
 
-                // Color the minutes text: red if <= 2, green otherwise
                 val minutesId = context.resources.getIdentifier("minutes_text", "id", context.packageName)
                 val minuteColor = if (event.minutes <= 2) Color.parseColor("#F44336") else Color.parseColor("#4CAF50")
                 setTextColor(minutesId, minuteColor)
@@ -202,7 +237,6 @@ class AndroidNotifier : PlatformNotifier {
                 .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
                 .setContentText("$minuteText  \u2022  $source")
         } else {
-            // Fallback if layout not found
             builder
                 .setContentTitle("\uD83D\uDE8C ${event.lineName} \u2192 ${event.stopName}")
                 .setContentText("$minuteText  \u2022  $source")

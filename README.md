@@ -293,6 +293,18 @@ Minimal platform code via `expect`/`actual`:
 - **`CADisableMinimumFrameDurationOnPhone` crash**: The `Info.plist` must contain `<key>CADisableMinimumFrameDurationOnPhone</key><true/>`. This is already configured.
 - **KSP / `ClassNotFoundException`**: Clean the Kotlin/Native cache with `rm -rf ~/.konan` and rebuild.
 
+### iOS Sideloading (iLoader / Sideloadly)
+
+The CI pipeline produces an **unsigned IPA** that can be sideloaded using [iLoader](https://github.com/nab138/iloader) or Sideloadly. These tools re-sign the IPA with your Apple ID.
+
+**Dynamic Island / Live Activities:** The app includes a Live Activity widget extension for real-time transit tracking on Dynamic Island. This requires a **paid Apple Developer account** for code signing. When sideloading with a free Apple ID, the extension cannot be signed — the app automatically detects this and falls back to regular local notifications.
+
+| Install method | Dynamic Island | Notifications |
+|---------------|----------------|---------------|
+| Xcode (free or paid account) | Yes | Yes |
+| [iLoader](https://github.com/nab138/iloader) (free or paid account) | Yes | Yes |
+| Sideloadly | No | Yes (fallback) |
+
 ### Build Config
 
 - Android: Min SDK 26, Target SDK 35, Compile SDK 36, App ID `ro.infotb.modern`

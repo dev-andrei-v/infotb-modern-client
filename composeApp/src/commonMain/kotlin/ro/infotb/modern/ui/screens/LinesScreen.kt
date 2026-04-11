@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -369,9 +367,9 @@ private fun LineRow(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = if (isFavorite) Color(0xFFFFC107) else LocalMuted.current,
+                    tint = if (isFavorite) Color(0xFFFFC107) else LocalMuted.current.copy(alpha = 0.3f),
                     modifier = Modifier.size(20.dp)
                 )
             }

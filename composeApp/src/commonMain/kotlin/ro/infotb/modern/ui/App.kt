@@ -271,7 +271,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 minutes = minutes,
                                 isTimetable = isTimetable
                             )
-                        }
+                        },
+                        onRefresh = { notificationEngine.refreshNow() }
                     )
                 }
 
@@ -294,7 +295,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     SettingsScreen(
                         preferencesStore = preferencesStore,
                         notificationStore = notificationStore,
-                        locale = locale
+                        locale = locale,
+                        onNotificationChanged = { notificationEngine.refreshNow() }
                     )
                 }
             }

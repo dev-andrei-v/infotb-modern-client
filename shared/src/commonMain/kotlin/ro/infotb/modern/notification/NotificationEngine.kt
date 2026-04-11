@@ -73,6 +73,9 @@ class NotificationEngine(
     }
 
     fun startLiveTrackingNow(event: NotificationEvent) {
+        if (liveTrackingActive) {
+            platformNotifier.stopLiveTracking()
+        }
         platformNotifier.startLiveTracking(event)
         liveTrackingActive = true
     }

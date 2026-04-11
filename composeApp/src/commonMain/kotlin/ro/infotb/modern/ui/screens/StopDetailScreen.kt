@@ -44,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -86,10 +87,12 @@ fun StopDetailScreen(
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
-    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit,
+    onRefresh: (() -> Unit)? = null
 ) {
     val stopInfo by viewModel.stopInfo.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lineTimetables by viewModel.lineTimetables.collectAsState()
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     val stopCoordinates by viewModel.stopCoordinates.collectAsState()
@@ -136,8 +139,16 @@ fun StopDetailScreen(
         } else {
             val info = stopInfo!!
 
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    viewModel.refreshNow()
+                    onRefresh?.invoke()
+                },
+                modifier = Modifier.weight(1f)
+            ) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     horizontal = 16.dp,
                     vertical = 8.dp
@@ -260,6 +271,7 @@ fun StopDetailScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                 }
+            }
             }
         }
     }

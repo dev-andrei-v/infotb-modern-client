@@ -54,7 +54,8 @@ import ro.infotb.modern.util.t
 fun SettingsScreen(
     preferencesStore: PreferencesStore,
     notificationStore: NotificationStore,
-    locale: Locale
+    locale: Locale,
+    onNotificationChanged: (() -> Unit)? = null
 ) {
     val theme by preferencesStore.theme.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
@@ -176,8 +177,14 @@ fun SettingsScreen(
                         SettingsNotificationCard(
                             subscription = subscription,
                             locale = locale,
-                            onToggle = { notificationStore.toggleSubscription(subscription.id) },
-                            onDelete = { notificationStore.removeSubscription(subscription.id) }
+                            onToggle = {
+                                notificationStore.toggleSubscription(subscription.id)
+                                onNotificationChanged?.invoke()
+                            },
+                            onDelete = {
+                                notificationStore.removeSubscription(subscription.id)
+                                onNotificationChanged?.invoke()
+                            }
                         )
                     }
                 }

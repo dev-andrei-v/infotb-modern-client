@@ -73,6 +73,7 @@ struct InfoTBLiveActivity: Widget {
                 )
             }
             .keylineTint(lineColor.opacity(0.55))
+            .widgetURL(deepLinkURL(for: context.attributes))
         }
     }
 

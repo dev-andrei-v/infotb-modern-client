@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.NotificationSubscription
+import ro.infotb.modern.supportsDynamicIsland
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
@@ -55,6 +56,7 @@ fun NotificationsScreen(
     locale: Locale
 ) {
     val subscriptions by notificationStore.subscriptions.collectAsState()
+    val isDynamicIsland = supportsDynamicIsland()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Header
@@ -64,13 +66,15 @@ fun NotificationsScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Text(
-                text = t("notifications.title", locale),
+                text = if (isDynamicIsland) t("dynamicIsland.title", locale)
+                    else t("notifications.title", locale),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             if (subscriptions.isNotEmpty()) {
                 Text(
-                    text = "${subscriptions.size} ${t("notifications.active", locale)}",
+                    text = if (isDynamicIsland) t("dynamicIsland.enabled", locale)
+                        else "${subscriptions.size} ${t("notifications.active", locale)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalMuted.current
                 )
@@ -80,8 +84,10 @@ fun NotificationsScreen(
         if (subscriptions.isEmpty()) {
             EmptyState(
                 icon = Icons.Default.Notifications,
-                title = t("notifications.emptyTitle", locale),
-                description = t("notifications.emptyDescription", locale),
+                title = if (isDynamicIsland) t("dynamicIsland.emptyTitle", locale)
+                    else t("notifications.emptyTitle", locale),
+                description = if (isDynamicIsland) t("dynamicIsland.emptyDescription", locale)
+                    else t("notifications.emptyDescription", locale),
                 modifier = Modifier.weight(1f)
             )
         } else {

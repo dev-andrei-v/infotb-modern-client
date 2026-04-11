@@ -45,6 +45,7 @@ import ro.infotb.modern.data.store.NotificationSubscription
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.LineBadge
+import ro.infotb.modern.supportsDynamicIsland
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.util.Locale
@@ -59,6 +60,7 @@ fun SettingsScreen(
 ) {
     val theme by preferencesStore.theme.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
+    val isDynamicIsland = supportsDynamicIsland()
 
     Column(
         modifier = Modifier
@@ -146,11 +148,13 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        // Notifications section
+        // Notifications / Dynamic Island section
         SettingsSection(
-            title = t("notifications.title", locale),
+            title = if (isDynamicIsland) t("dynamicIsland.title", locale)
+                else t("notifications.title", locale),
             description = if (subscriptions.isNotEmpty())
-                "${subscriptions.size} ${t("notifications.active", locale)}"
+                if (isDynamicIsland) t("dynamicIsland.enabled", locale)
+                else "${subscriptions.size} ${t("notifications.active", locale)}"
             else ""
         ) {
             if (subscriptions.isEmpty()) {
@@ -166,7 +170,8 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = t("notifications.emptyDescription", locale),
+                        text = if (isDynamicIsland) t("dynamicIsland.emptyDescription", locale)
+                            else t("notifications.emptyDescription", locale),
                         style = MaterialTheme.typography.bodySmall,
                         color = LocalMuted.current
                     )

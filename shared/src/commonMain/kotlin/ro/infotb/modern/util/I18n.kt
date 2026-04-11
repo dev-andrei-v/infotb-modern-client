@@ -100,6 +100,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "stopDetail.notFound" to mapOf(Locale.RO to "Statia nu a fost gasita", Locale.EN to "Station not found"),
     "stopDetail.addToDashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
     "stopDetail.notification" to mapOf(Locale.RO to "Notificare", Locale.EN to "Notification"),
+    "stopDetail.dynamicIsland" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
     "stopDetail.timetable" to mapOf(Locale.RO to "Orar", Locale.EN to "Timetable"),
     "stopDetail.timetableTitle" to mapOf(Locale.RO to "Orar linia", Locale.EN to "Timetable line"),
     "stopDetail.showOtherLines" to mapOf(Locale.RO to "Arata alte linii", Locale.EN to "Show other lines"),
@@ -193,6 +194,15 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "notifications.emptyDescription" to mapOf(
         Locale.RO to "Adauga notificari din paginile statiilor pentru a fi alertat cand autobuzul soseste.",
         Locale.EN to "Add notifications from stop pages to be alerted when the bus arrives."
+    ),
+
+    // Dynamic Island (iOS)
+    "dynamicIsland.title" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
+    "dynamicIsland.enabled" to mapOf(Locale.RO to "Dynamic Island activat", Locale.EN to "Dynamic Island enabled"),
+    "dynamicIsland.emptyTitle" to mapOf(Locale.RO to "Dynamic Island inactiv", Locale.EN to "Dynamic Island inactive"),
+    "dynamicIsland.emptyDescription" to mapOf(
+        Locale.RO to "Adauga notificari din paginile statiilor pentru a activa Dynamic Island.",
+        Locale.EN to "Add notifications from stop pages to activate the Dynamic Island."
     ),
     "notifications.onceSummary" to mapOf(Locale.RO to "Notificare la {min} min inainte", Locale.EN to "Notify {min} min before"),
     "notifications.repeatSummary" to mapOf(Locale.RO to "Repeta la fiecare {min} min", Locale.EN to "Repeat every {min} min"),

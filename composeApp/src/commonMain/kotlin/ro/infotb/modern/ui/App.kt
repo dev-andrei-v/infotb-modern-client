@@ -254,6 +254,12 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     val dirInt = backStackEntry.arguments?.getInt("direction")?.takeIf { it >= 0 }
                     val direction = dirInt?.let { Direction.fromInt(it) }
                     val viewModel = remember(stopId) { StopDetailViewModel(repository) }
+
+                    // Update dynamic island when visiting a stop with active subscription
+                    LaunchedEffect(stopId) {
+                        notificationEngine.refreshNow()
+                    }
+
                     StopDetailScreen(
                         stopId = stopId,
                         lineId = lineId,

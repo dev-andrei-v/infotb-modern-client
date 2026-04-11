@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.NotificationMode
@@ -38,6 +40,7 @@ class NotificationEngine(
     private var pollJob: Job? = null
     private val firedSet = mutableMapOf<String, Long>()
     private var liveTrackingActive = false
+    private val pollMutex = Mutex()
 
     // In-app notification events for toast display
     private val _events = MutableStateFlow<NotificationEvent?>(null)
@@ -50,6 +53,23 @@ class NotificationEngine(
     fun start() {
         pollJob?.cancel()
         pollJob = scope.launch {
+            // React to subscription changes immediately
+            launch {
+                notificationStore.subscriptions.collect { subs ->
+                    val enabled = subs.filter { it.enabled }
+                    if (enabled.isEmpty() && liveTrackingActive) {
+                        pollMutex.withLock {
+                            if (liveTrackingActive) {
+                                platformNotifier.stopLiveTracking()
+                                liveTrackingActive = false
+                            }
+                        }
+                    } else if (enabled.isNotEmpty()) {
+                        poll()
+                    }
+                }
+            }
+            // Regular polling loop
             while (true) {
                 poll()
                 delay(POLL_INTERVAL_MS)
@@ -60,16 +80,13 @@ class NotificationEngine(
     fun stop() {
         pollJob?.cancel()
         pollJob = null
-        if (liveTrackingActive) {
-            platformNotifier.stopLiveTracking()
-            liveTrackingActive = false
-        }
+        // Do NOT stop live tracking here — keep the dynamic island / ongoing
+        // notification persistent across app lifecycle events. Live tracking
+        // is only stopped when all subscriptions are disabled or removed.
     }
 
     fun refreshNow() {
-        scope.launch {
-            poll()
-        }
+        scope.launch { poll() }
     }
 
     fun startLiveTrackingNow(event: NotificationEvent) {
@@ -80,7 +97,7 @@ class NotificationEngine(
         liveTrackingActive = true
     }
 
-    private suspend fun poll() {
+    private suspend fun poll() = pollMutex.withLock {
         val subs = notificationStore.subscriptions.value.filter { it.enabled }
 
         if (subs.isEmpty()) {
@@ -122,14 +139,13 @@ class NotificationEngine(
                     pillEvent = event
                 }
 
-                // Bus arrived
+                // Bus arrived — fire notification once but keep subscription active
                 if (minutes <= 0) {
                     val key = "${sub.id}-arrived"
                     if (key !in firedSet) {
                         firedSet[key] = now
                         fireNotification(sub, 0, line.isTimetable)
                     }
-                    notificationStore.toggleSubscription(sub.id)
                     continue
                 }
 
@@ -139,7 +155,8 @@ class NotificationEngine(
                         if (key !in firedSet) {
                             firedSet[key] = now
                             fireNotification(sub, minutes, line.isTimetable)
-                            notificationStore.toggleSubscription(sub.id)
+                            // Do NOT toggle/disable — keep subscription active
+                            // so live tracking (dynamic island) stays persistent
                         }
                     }
                 } else {
@@ -157,7 +174,7 @@ class NotificationEngine(
             }
         }
 
-        // Update the live pill
+        // Update the live pill / dynamic island
         if (pillEvent != null) {
             if (!liveTrackingActive) {
                 platformNotifier.startLiveTracking(pillEvent)
@@ -183,6 +200,11 @@ class NotificationEngine(
             isTimetable = isTimetable
         )
         _events.value = event
-        platformNotifier.showNotification(event)
+        // Skip OS notification when live tracking is active — the dynamic island
+        // or ongoing notification already shows the info. Sending a separate alert
+        // causes the "switches to notifications" bug.
+        if (!liveTrackingActive) {
+            platformNotifier.showNotification(event)
+        }
     }
 }

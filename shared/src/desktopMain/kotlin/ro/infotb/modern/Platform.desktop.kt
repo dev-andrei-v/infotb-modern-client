@@ -30,3 +30,5 @@ actual fun currentMinuteOfHour(): Int = java.util.Calendar.getInstance().get(jav
 actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 
 actual fun getSystemLanguage(): String = java.util.Locale.getDefault().language
+
+actual fun supportsDynamicIsland(): Boolean = false

@@ -64,6 +64,37 @@ class NotificationStore(
         }
     }
 
+    fun replaceWithSingleSubscription(
+        stopId: Long,
+        stopName: String,
+        lineId: Long,
+        lineName: String,
+        lineColor: String,
+        direction: Direction,
+        mode: NotificationMode,
+        thresholdMinutes: Int,
+        onComplete: (() -> Unit)? = null
+    ) {
+        scope.launch {
+            dao.deleteAll()
+            dao.upsert(
+                NotificationEntity(
+                    id = generateId(),
+                    stopId = stopId,
+                    stopName = stopName,
+                    lineId = lineId,
+                    lineName = lineName,
+                    lineColor = lineColor,
+                    direction = direction.value,
+                    mode = mode.name,
+                    thresholdMinutes = thresholdMinutes,
+                    enabled = true
+                )
+            )
+            onComplete?.invoke()
+        }
+    }
+
     fun removeSubscription(id: String) {
         scope.launch { dao.deleteById(id) }
     }

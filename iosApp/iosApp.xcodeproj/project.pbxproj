@@ -10,7 +10,37 @@
 		7555FF7F242A565900829871 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF7E242A565900829871 /* iOSApp.swift */; };
 		7555FF81242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF80242A565900829871 /* ContentView.swift */; };
 		A1B2C3D4E5F60001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002 /* Assets.xcassets */; };
+		DA00000000000013 /* TransitActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000001 /* TransitActivityAttributes.swift */; };
+		DA00000000000014 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000004 /* LiveActivityManager.swift */; };
+		DA00000000000010 /* TransitActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000001 /* TransitActivityAttributes.swift */; };
+		DA00000000000011 /* InfoTBLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000002 /* InfoTBLiveActivity.swift */; };
+		DA00000000000012 /* InfoTBLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000003 /* InfoTBLiveActivityBundle.swift */; };
+		DA00000000000053 /* InfoTBLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = DA00000000000005 /* InfoTBLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DA00000000000051 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7555FF71242A565900829871 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA00000000000030;
+			remoteInfo = InfoTBLiveActivity;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DA00000000000052 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DA00000000000053 /* InfoTBLiveActivity.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7555FF79242A565900829871 /* InfoTB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InfoTB.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -18,10 +48,23 @@
 		7555FF80242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF82242A565900829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D4E5F60002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DA00000000000001 /* TransitActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitActivityAttributes.swift; sourceTree = "<group>"; };
+		DA00000000000002 /* InfoTBLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTBLiveActivity.swift; sourceTree = "<group>"; };
+		DA00000000000003 /* InfoTBLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoTBLiveActivityBundle.swift; sourceTree = "<group>"; };
+		DA00000000000004 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		DA00000000000005 /* InfoTBLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = InfoTBLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA00000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		7555FF76242A565900829871 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA00000000000021 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -35,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				7555FF7D242A565900829871 /* iosApp */,
+				DA00000000000006 /* InfoTBLiveActivity */,
 				7555FF7A242A565900829871 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +87,7 @@
 			isa = PBXGroup;
 			children = (
 				7555FF79242A565900829871 /* InfoTB.app */,
+				DA00000000000005 /* InfoTBLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -52,10 +97,22 @@
 			children = (
 				7555FF7E242A565900829871 /* iOSApp.swift */,
 				7555FF80242A565900829871 /* ContentView.swift */,
+				DA00000000000001 /* TransitActivityAttributes.swift */,
+				DA00000000000004 /* LiveActivityManager.swift */,
 				A1B2C3D4E5F60002 /* Assets.xcassets */,
 				7555FF82242A565900829871 /* Info.plist */,
 			);
 			path = iosApp;
+			sourceTree = "<group>";
+		};
+		DA00000000000006 /* InfoTBLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				DA00000000000002 /* InfoTBLiveActivity.swift */,
+				DA00000000000003 /* InfoTBLiveActivityBundle.swift */,
+				DA00000000000007 /* Info.plist */,
+			);
+			path = InfoTBLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -69,15 +126,34 @@
 				7555FF75242A565900829871 /* Sources */,
 				7555FF76242A565900829871 /* Frameworks */,
 				7555FF77242A565900829871 /* Resources */,
+				DA00000000000052 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DA00000000000050 /* PBXTargetDependency */,
 			);
 			name = iosApp;
 			productName = iosApp;
 			productReference = 7555FF79242A565900829871 /* InfoTB.app */;
 			productType = "com.apple.product-type.application";
+		};
+		DA00000000000030 /* InfoTBLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA00000000000042 /* Build configuration list for PBXNativeTarget "InfoTBLiveActivity" */;
+			buildPhases = (
+				DA00000000000020 /* Sources */,
+				DA00000000000021 /* Frameworks */,
+				DA00000000000022 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InfoTBLiveActivity;
+			productName = InfoTBLiveActivity;
+			productReference = DA00000000000005 /* InfoTBLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -104,6 +180,7 @@
 			projectRoot = "";
 			targets = (
 				7555FF78242A565900829871 /* iosApp */,
+				DA00000000000030 /* InfoTBLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -114,6 +191,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D4E5F60001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA00000000000022 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,10 +231,30 @@
 			files = (
 				7555FF81242A565900829871 /* ContentView.swift in Sources */,
 				7555FF7F242A565900829871 /* iOSApp.swift in Sources */,
+				DA00000000000013 /* TransitActivityAttributes.swift in Sources */,
+				DA00000000000014 /* LiveActivityManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA00000000000020 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA00000000000010 /* TransitActivityAttributes.swift in Sources */,
+				DA00000000000011 /* InfoTBLiveActivity.swift in Sources */,
+				DA00000000000012 /* InfoTBLiveActivityBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DA00000000000050 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA00000000000030 /* InfoTBLiveActivity */;
+			targetProxy = DA00000000000051 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7555FF8A242A565B00829871 /* Debug */ = {
@@ -319,6 +423,56 @@
 			};
 			name = Release;
 		};
+		DA00000000000040 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = InfoTBLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "InfoTB Live";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.infotb.modern.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DA00000000000041 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = InfoTBLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "InfoTB Live";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.infotb.modern.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -336,6 +490,15 @@
 			buildConfigurations = (
 				7555FF8D242A565B00829871 /* Debug */,
 				7555FF8E242A565B00829871 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA00000000000042 /* Build configuration list for PBXNativeTarget "InfoTBLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA00000000000040 /* Debug */,
+				DA00000000000041 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

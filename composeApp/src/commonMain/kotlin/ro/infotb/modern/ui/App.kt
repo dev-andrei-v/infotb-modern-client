@@ -15,6 +15,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import org.koin.compose.koinInject
+import ro.infotb.modern.getPlatformName
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
@@ -24,6 +25,7 @@ import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.notification.NotificationEngine
 import ro.infotb.modern.data.store.WidgetSize
+import ro.infotb.modern.notification.NotificationEvent
 import ro.infotb.modern.ui.components.layout.AppShell
 import ro.infotb.modern.ui.navigation.Screen
 import ro.infotb.modern.ui.screens.AnnouncementsScreen
@@ -65,6 +67,57 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val themeValue by preferencesStore.theme.collectAsState()
     val localeValue by preferencesStore.locale.collectAsState()
     val locale = if (localeValue == "en") Locale.EN else Locale.RO
+    val isIos = remember { getPlatformName() == "iOS" }
+
+    fun handleTrackedStationSelection(
+        stopId: Long,
+        stopName: String,
+        lineId: Long,
+        lineName: String,
+        lineColor: String,
+        direction: Direction,
+        minutes: Int,
+        isTimetable: Boolean
+    ) {
+        if (isIos) {
+            notificationEngine.startLiveTrackingNow(
+                NotificationEvent(
+                    lineName = lineName,
+                    lineColor = lineColor,
+                    stopName = stopName,
+                    stopId = stopId,
+                    lineId = lineId,
+                    direction = direction.value,
+                    minutes = minutes,
+                    isTimetable = isTimetable
+                )
+            )
+            notificationStore.replaceWithSingleSubscription(
+                stopId = stopId,
+                stopName = stopName,
+                lineId = lineId,
+                lineName = lineName,
+                lineColor = lineColor,
+                direction = direction,
+                mode = NotificationMode.ONCE,
+                thresholdMinutes = 3,
+                onComplete = {
+                    notificationEngine.refreshNow()
+                }
+            )
+        } else {
+            notificationStore.addSubscription(
+                stopId = stopId,
+                stopName = stopName,
+                lineId = lineId,
+                lineName = lineName,
+                lineColor = lineColor,
+                direction = direction,
+                mode = NotificationMode.ONCE,
+                thresholdMinutes = 3
+            )
+        }
+    }
 
     StbTheme(themeMode = themeValue) {
         val navController = rememberNavController()
@@ -101,6 +154,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     DashboardScreen(
                         viewModel = viewModel,
                         notificationStore = notificationStore,
+                        useDirectNotificationAction = isIos,
                         locale = locale,
                         onNavigateToStop = { stopId ->
                             navController.navigate(Screen.StopDetail(stopId).route)
@@ -113,6 +167,18 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         },
                         onNavigateToSettings = {
                             navController.navigate(Screen.Settings.route)
+                        },
+                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
+                            handleTrackedStationSelection(
+                                stopId = sid,
+                                stopName = stopName,
+                                lineId = lid,
+                                lineName = lineName,
+                                lineColor = lineColor,
+                                direction = dir,
+                                minutes = minutes,
+                                isTimetable = isTimetable
+                            )
                         }
                     )
                 }
@@ -194,16 +260,16 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 launchSingleTop = true
                             }
                         },
-                        onSetNotification = { sid, lid, lineName, lineColor, dir ->
-                            notificationStore.addSubscription(
+                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
+                            handleTrackedStationSelection(
                                 stopId = sid,
-                                stopName = "",
+                                stopName = stopName,
                                 lineId = lid,
                                 lineName = lineName,
                                 lineColor = lineColor,
                                 direction = dir,
-                                mode = NotificationMode.ONCE,
-                                thresholdMinutes = 3
+                                minutes = minutes,
+                                isTimetable = isTimetable
                             )
                         }
                     )

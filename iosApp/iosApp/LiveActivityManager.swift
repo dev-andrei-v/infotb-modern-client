@@ -8,7 +8,6 @@ import Foundation
     @objc static let shared = LiveActivityManager()
 
     private var currentActivity: Any? = nil
-    private var isStarting = false
 
     private override init() {
         super.init()
@@ -88,10 +87,6 @@ import Foundation
         isTimetable: Bool
     ) {
         guard #available(iOS 16.2, *) else { return }
-        guard !isStarting else {
-            print("[LiveActivity] Start already in progress, skipping")
-            return
-        }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             print("[LiveActivity] Activities not enabled by user")
             postFallback(info: [
@@ -103,7 +98,6 @@ import Foundation
             return
         }
 
-        isStarting = true
         Task {
             await endCurrentActivity()
 
@@ -129,10 +123,8 @@ import Foundation
                     pushType: nil
                 )
                 currentActivity = activity
-                isStarting = false
                 print("[LiveActivity] Started: \(lineName) → \(stopName) in \(minutes) min")
             } catch {
-                isStarting = false
                 print("[LiveActivity] Failed to start: \(error.localizedDescription)")
                 postFallback(info: [
                     "lineName": lineName,

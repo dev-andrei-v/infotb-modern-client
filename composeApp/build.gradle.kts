@@ -77,7 +77,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.kakao.taxi"
+        applicationId = "ro.infotb.modern"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

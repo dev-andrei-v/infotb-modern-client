@@ -130,8 +130,12 @@ class AndroidNotifier : PlatformNotifier {
         val source = if (event.isTimetable) "Scheduled" else "Real-time"
         val lineColor = parseHexColor(event.lineColor)
         val contentIntent = buildStopDetailIntent(context, event, LIVE_NOTIF_ID)
-        val busIcon = context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName)
-        val smallIcon = if (busIcon != 0) busIcon else android.R.drawable.ic_menu_mylocation
+        val sourceIcon = if (event.isTimetable) {
+            context.resources.getIdentifier("ic_notification_scheduled", "drawable", context.packageName)
+        } else {
+            context.resources.getIdentifier("ic_notification_realtime", "drawable", context.packageName)
+        }
+        val smallIcon = if (sourceIcon != 0) sourceIcon else android.R.drawable.ic_menu_mylocation
 
         if (isSamsung) {
             return buildSamsungNotification(context, event, minuteText, source, lineColor, contentIntent, smallIcon)
@@ -259,17 +263,21 @@ class AndroidNotifier : PlatformNotifier {
                     source
                 )
 
-                val dotId = context.resources.getIdentifier("source_dot", "id", context.packageName)
-                val dotDrawable = if (event.isTimetable) {
-                    context.resources.getIdentifier("notification_dot_orange", "drawable", context.packageName)
+                val sourceIconId = context.resources.getIdentifier("source_icon", "id", context.packageName)
+                val sourceIconDrawable = if (event.isTimetable) {
+                    context.resources.getIdentifier("ic_notification_scheduled", "drawable", context.packageName)
                 } else {
-                    context.resources.getIdentifier("notification_dot_green", "drawable", context.packageName)
+                    context.resources.getIdentifier("ic_notification_realtime", "drawable", context.packageName)
                 }
-                setImageViewResource(dotId, dotDrawable)
+                setImageViewResource(sourceIconId, sourceIconDrawable)
 
                 val minutesId = context.resources.getIdentifier("minutes_text", "id", context.packageName)
                 val minuteColor = if (event.minutes <= 2) Color.parseColor("#F44336") else Color.parseColor("#4CAF50")
                 setTextColor(minutesId, minuteColor)
+
+                val sourceTextId = context.resources.getIdentifier("source_text", "id", context.packageName)
+                val sourceColor = if (event.isTimetable) Color.parseColor("#FF9800") else Color.parseColor("#4CAF50")
+                setTextColor(sourceTextId, sourceColor)
             }
 
             builder

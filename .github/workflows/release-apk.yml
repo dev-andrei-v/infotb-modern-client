@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Release APK
         env:
-          GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
+          GRADLE_OPTS: -Xmx512m -XX:MaxMetaspaceSize=256m
         run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1
 
       - name: Upload APK artifact

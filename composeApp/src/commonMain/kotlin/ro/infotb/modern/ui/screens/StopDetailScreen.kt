@@ -68,6 +68,7 @@ import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.LeafletMap
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.supportsDynamicIsland
+import ro.infotb.modern.supportsLiveNotification
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
@@ -426,8 +427,11 @@ private fun LineArrivalCard(
                             Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(2.dp))
                             Text(
-                                if (supportsDynamicIsland()) t("stopDetail.dynamicIsland", locale)
-                                else t("stopDetail.notification", locale),
+                                when {
+                                    supportsDynamicIsland() -> t("stopDetail.dynamicIsland", locale)
+                                    supportsLiveNotification() -> t("stopDetail.liveNotification", locale)
+                                    else -> t("stopDetail.notification", locale)
+                                },
                                 fontSize = 11.sp, maxLines = 1
                             )
                         }

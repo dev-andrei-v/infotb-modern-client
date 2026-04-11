@@ -19,3 +19,5 @@ expect fun currentTimeMillis(): Long
 expect fun getSystemLanguage(): String
 
 expect fun supportsDynamicIsland(): Boolean
+
+expect fun supportsLiveNotification(): Boolean

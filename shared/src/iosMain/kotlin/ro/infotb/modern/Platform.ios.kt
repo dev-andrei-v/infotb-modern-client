@@ -49,3 +49,5 @@ actual fun getSystemLanguage(): String {
 }
 
 actual fun supportsDynamicIsland(): Boolean = true
+
+actual fun supportsLiveNotification(): Boolean = true

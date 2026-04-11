@@ -25,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import org.koin.compose.koinInject
 import ro.infotb.modern.getPlatformName
+import ro.infotb.modern.supportsLiveNotification
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
@@ -79,6 +80,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val localeValue by preferencesStore.locale.collectAsState()
     val locale = if (localeValue == "en") Locale.EN else Locale.RO
     val isIos = remember { getPlatformName() == "iOS" }
+    val hasLiveNotification = remember { supportsLiveNotification() }
     val activeSubscriptions by notificationStore.subscriptions.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -93,7 +95,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         minutes: Int,
         isTimetable: Boolean
     ) {
-        if (isIos) {
+        if (hasLiveNotification) {
             notificationEngine.startLiveTrackingNow(
                 NotificationEvent(
                     lineName = lineName,
@@ -174,7 +176,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     DashboardScreen(
                         viewModel = viewModel,
                         notificationStore = notificationStore,
-                        useDirectNotificationAction = isIos,
+                        useDirectNotificationAction = hasLiveNotification,
                         locale = locale,
                         onNavigateToStop = { stopId ->
                             navController.navigate(Screen.StopDetail(stopId).route)

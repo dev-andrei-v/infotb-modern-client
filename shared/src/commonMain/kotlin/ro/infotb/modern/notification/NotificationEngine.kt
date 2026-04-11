@@ -58,10 +58,16 @@ class NotificationEngine(
                 notificationStore.subscriptions.collect { subs ->
                     val enabled = subs.filter { it.enabled }
                     if (enabled.isEmpty() && liveTrackingActive) {
-                        pollMutex.withLock {
-                            if (liveTrackingActive) {
-                                platformNotifier.stopLiveTracking()
-                                liveTrackingActive = false
+                        // Debounce: replaceWithSingleSubscription emits empty
+                        // list briefly between deleteAll and upsert
+                        delay(500)
+                        val current = notificationStore.subscriptions.value.filter { it.enabled }
+                        if (current.isEmpty()) {
+                            pollMutex.withLock {
+                                if (liveTrackingActive) {
+                                    platformNotifier.stopLiveTracking()
+                                    liveTrackingActive = false
+                                }
                             }
                         }
                     } else if (enabled.isNotEmpty()) {
@@ -199,11 +205,10 @@ class NotificationEngine(
             minutes = minutes,
             isTimetable = isTimetable
         )
-        _events.value = event
-        // Skip OS notification when live tracking is active — the dynamic island
-        // or ongoing notification already shows the info. Sending a separate alert
-        // causes the "switches to notifications" bug.
+        // Skip all notifications when live tracking is active — the dynamic island
+        // or ongoing notification already shows the info.
         if (!liveTrackingActive) {
+            _events.value = event
             platformNotifier.showNotification(event)
         }
     }

@@ -101,13 +101,14 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "stopDetail.addToDashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
     "stopDetail.notification" to mapOf(Locale.RO to "Notificare", Locale.EN to "Notification"),
     "stopDetail.dynamicIsland" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
+    "stopDetail.liveNotification" to mapOf(Locale.RO to "Live", Locale.EN to "Live"),
     "stopDetail.timetable" to mapOf(Locale.RO to "Orar", Locale.EN to "Timetable"),
     "stopDetail.timetableTitle" to mapOf(Locale.RO to "Orar linia", Locale.EN to "Timetable line"),
     "stopDetail.showOtherLines" to mapOf(Locale.RO to "Arata alte linii", Locale.EN to "Show other lines"),
     "stopDetail.hideOtherLines" to mapOf(Locale.RO to "Ascunde alte linii", Locale.EN to "Hide other lines"),
-    "stopDetail.trackingStarted" to mapOf(Locale.RO to "Dynamic Island pornit:", Locale.EN to "Dynamic Island started:"),
+    "stopDetail.trackingStarted" to mapOf(Locale.RO to "Urmarire pornita:", Locale.EN to "Live tracking started:"),
     "stopDetail.stopTracking" to mapOf(Locale.RO to "Opreste", Locale.EN to "Stop"),
-    "stopDetail.trackingStopped" to mapOf(Locale.RO to "Dynamic Island oprit", Locale.EN to "Dynamic Island stopped"),
+    "stopDetail.trackingStopped" to mapOf(Locale.RO to "Urmarire oprita", Locale.EN to "Live tracking stopped"),
 
     // Settings page
     "settings.title" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),
@@ -190,6 +191,13 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     // Notifications page
     "nav.notifications" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),
     "notifications.title" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),
+    "liveTracking.title" to mapOf(Locale.RO to "Urmarire live", Locale.EN to "Live tracking"),
+    "liveTracking.enabled" to mapOf(Locale.RO to "Urmarire live activa", Locale.EN to "Live tracking active"),
+    "liveTracking.emptyTitle" to mapOf(Locale.RO to "Nicio urmarire activa", Locale.EN to "No active tracking"),
+    "liveTracking.emptyDescription" to mapOf(
+        Locale.RO to "Apasa pe butonul Live de pe o statie pentru a urmari sosirea in timp real.",
+        Locale.EN to "Tap the Live button on a stop to track arrivals in real-time."
+    ),
     "notifications.description" to mapOf(Locale.RO to "Gestioneaza notificarile pentru sosiri", Locale.EN to "Manage arrival notifications"),
     "notifications.active" to mapOf(Locale.RO to "notificari active", Locale.EN to "active notifications"),
     "notifications.emptyTitle" to mapOf(Locale.RO to "Nicio notificare", Locale.EN to "No notifications"),
@@ -218,6 +226,10 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "notification.minute" to mapOf(Locale.RO to "minut", Locale.EN to "minute"),
     "notification.minutes" to mapOf(Locale.RO to "minute", Locale.EN to "minutes"),
     "notification.arrived" to mapOf(Locale.RO to "A sosit!", Locale.EN to "Arrived!"),
+    "notification.now" to mapOf(Locale.RO to "ACUM", Locale.EN to "NOW"),
+    "notification.min" to mapOf(Locale.RO to "min", Locale.EN to "min"),
+    "notification.scheduled" to mapOf(Locale.RO to "Programat", Locale.EN to "Scheduled"),
+    "notification.realtime" to mapOf(Locale.RO to "Timp real", Locale.EN to "Real-time"),
     "notification.setFor" to mapOf(Locale.RO to "Notificare setata pentru linia", Locale.EN to "Notification set for line"),
     "notification.setup" to mapOf(Locale.RO to "Seteaza notificare", Locale.EN to "Set up notification"),
     "notification.mode" to mapOf(Locale.RO to "Tip notificare", Locale.EN to "Notification type"),

@@ -7,8 +7,14 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
+import android.os.Bundle
 import android.widget.RemoteViews
+import androidx.core.app.NotificationCompat
 import ro.infotb.modern.AndroidContext
+import ro.infotb.modern.getSystemLanguage
+import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.t
 
 class AndroidNotifier : PlatformNotifier {
 
@@ -17,8 +23,13 @@ class AndroidNotifier : PlatformNotifier {
         private const val CHANNEL_NAME = "Arrival Alerts"
         private const val LIVE_CHANNEL_ID = "stb_live_tracking"
         private const val LIVE_CHANNEL_NAME = "Live Arrival Tracking"
-        private const val LIVE_NOTIF_ID = 9001
+        const val LIVE_NOTIF_ID = 9001
     }
+
+    private val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+    private var serviceStarted = false
+    private var liveTrackingPosted = false
+    private val locale: Locale get() = if (getSystemLanguage() == "ro") Locale.RO else Locale.EN
 
     init {
         createChannels()
@@ -28,7 +39,6 @@ class AndroidNotifier : PlatformNotifier {
         val context = AndroidContext.appContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Alert channel (high importance, heads-up)
         val alertChannel = NotificationChannel(
             CHANNEL_ID,
             CHANNEL_NAME,
@@ -38,11 +48,10 @@ class AndroidNotifier : PlatformNotifier {
         }
         manager.createNotificationChannel(alertChannel)
 
-        // Live tracking channel (low importance, ongoing pill)
         val liveChannel = NotificationChannel(
             LIVE_CHANNEL_ID,
             LIVE_CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "Live arrival countdown"
             setShowBadge(false)
@@ -51,22 +60,30 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     override fun showNotification(event: NotificationEvent) {
+        // Never show alert notifications while live tracking is active
+        if (liveTrackingPosted) return
+
         val context = AndroidContext.appContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        // Double-check: if live notification is posted, skip alerts
+        if (manager.activeNotifications.any { it.id == LIVE_NOTIF_ID }) return
+
+        val l = locale
         val title = if (event.minutes <= 0) {
-            "Line ${event.lineName} — Arrived!"
+            "${t("notification.title", l)} ${event.lineName} \u2014 ${t("notification.arrived", l)}"
         } else {
-            "Line ${event.lineName} — ${event.minutes} min"
+            "${t("notification.title", l)} ${event.lineName} \u2014 ${event.minutes} ${t("notification.min", l)}"
         }
-        val source = if (event.isTimetable) "scheduled" else "GPS"
-        val body = "Arrives at ${event.stopName} ($source)"
+        val source = if (event.isTimetable) t("notification.scheduled", l) else t("notification.realtime", l)
+        val body = "${t("notification.arrivesAt", l)} ${event.stopName} ($source)"
 
         val notifId = "${event.stopId}-${event.lineName}".hashCode()
         val contentIntent = buildStopDetailIntent(context, event, notifId)
+        val busIcon = context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName)
 
         val notification = Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(if (busIcon != 0) busIcon else android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
@@ -78,47 +95,224 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     override fun startLiveTracking(event: NotificationEvent) {
-        updateLiveTracking(event)
+        liveTrackingPosted = true
+        val context = AndroidContext.appContext
+        val notification = buildLiveNotification(context, event)
+
+        if (isSamsung) {
+            LiveTrackingService.start(context, notification)
+            serviceStarted = true
+        } else {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(LIVE_NOTIF_ID, notification)
+        }
     }
 
     override fun updateLiveTracking(event: NotificationEvent) {
         val context = AndroidContext.appContext
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
         val notification = buildLiveNotification(context, event)
-        manager.notify(LIVE_NOTIF_ID, notification)
+
+        if (isSamsung && serviceStarted) {
+            LiveTrackingService.update(context, notification)
+        } else if (isSamsung) {
+            LiveTrackingService.start(context, notification)
+            serviceStarted = true
+        } else {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(LIVE_NOTIF_ID, notification)
+        }
     }
 
     override fun stopLiveTracking() {
+        liveTrackingPosted = false
         val context = AndroidContext.appContext
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(LIVE_NOTIF_ID)
+        if (isSamsung && serviceStarted) {
+            LiveTrackingService.stop(context)
+            serviceStarted = false
+        } else {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(LIVE_NOTIF_ID)
+        }
     }
 
     private fun buildLiveNotification(context: Context, event: NotificationEvent): Notification {
+        val l = locale
         val minuteText = when {
-            event.minutes <= 0 -> "NOW"
-            event.minutes == 1 -> "1 min"
-            else -> "${event.minutes} min"
+            event.minutes <= 0 -> t("notification.now", l)
+            else -> "${event.minutes} ${t("notification.min", l)}"
         }
-        val source = if (event.isTimetable) "Scheduled" else "GPS"
+        val source = if (event.isTimetable) t("notification.scheduled", l) else t("notification.realtime", l)
+        val lineColor = parseHexColor(event.lineColor)
         val contentIntent = buildStopDetailIntent(context, event, LIVE_NOTIF_ID)
+        val sourceIconRes = if (event.isTimetable) "ic_notification_scheduled" else "ic_notification_realtime"
+        val sourceIcon = context.resources.getIdentifier(sourceIconRes, "drawable", context.packageName)
+        val smallIcon = if (sourceIcon != 0) sourceIcon else android.R.drawable.ic_menu_mylocation
+        val iconBgColor = if (event.isTimetable) Color.parseColor("#757575") else Color.parseColor("#4CAF50")
 
-        return Notification.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("\uD83D\uDE8C ${event.lineName} → ${event.stopName}")
-            .setContentText("$minuteText  •  $source")
+        if (isSamsung) {
+            return buildSamsungNotification(context, event, minuteText, source, iconBgColor, contentIntent, smallIcon)
+        }
+
+        val builder = Notification.Builder(context, LIVE_CHANNEL_ID)
+            .setSmallIcon(smallIcon)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setColor(parseHexColor(event.lineColor))
+            .setColor(iconBgColor)
             .setColorized(true)
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setStyle(Notification.BigTextStyle()
-                .setBigContentTitle("\uD83D\uDE8C Line ${event.lineName}")
-                .bigText("Arriving at ${event.stopName}\n$minuteText  •  $source"))
-            .build()
+
+        if (Build.VERSION.SDK_INT >= 36) {
+            // Android 16+: clean standard notification (ProgressStyle when available)
+            builder
+                .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
+                .setContentText("$minuteText  \u2022  $source")
+            try {
+                val progressStyleClass = Class.forName("android.app.Notification\$ProgressStyle")
+                val progressStyle = progressStyleClass.getConstructor().newInstance()
+                val progress = when {
+                    event.minutes <= 0 -> 100
+                    event.minutes >= 30 -> 5
+                    else -> ((30 - event.minutes) * 100 / 30).coerceIn(5, 100)
+                }
+                progressStyleClass.getMethod("setProgressPoint", Int::class.java)
+                    .invoke(progressStyle, progress)
+                Notification.Builder::class.java.getMethod("setStyle", Notification.Style::class.java)
+                    .invoke(builder, progressStyle)
+            } catch (_: Exception) {
+                // ProgressStyle not in this DP — use standard BigTextStyle
+            }
+        } else {
+            // Pre-Android 16: custom RemoteViews layout
+            applyCustomLayout(builder, context, event, minuteText, source, lineColor)
+        }
+
+        return builder.build()
+    }
+
+    private fun buildSamsungNotification(
+        context: Context,
+        event: NotificationEvent,
+        minuteText: String,
+        source: String,
+        lineColor: Int,
+        contentIntent: PendingIntent,
+        smallIcon: Int
+    ): Notification {
+        val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
+            .setSmallIcon(smallIcon)
+            .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
+            .setContentText("$minuteText  \u2022  $source")
+            .setContentIntent(contentIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setColor(lineColor)
+            .setColorized(true)
+            .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setTicker(minuteText)
+            .setShortCriticalText(minuteText)
+            .setRequestPromotedOngoing(true)
+
+        // Samsung Live Notification + Now Bar extras
+        val samsungExtras = Bundle().apply {
+            putInt("android.ongoingActivityNoti.style", 1)
+
+            // Live Notification standard style
+            putString("android.ongoingActivityNoti.primaryInfo", minuteText)
+            putString("android.ongoingActivityNoti.secondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
+
+            // Chip (status bar pill)
+            putInt("android.ongoingActivityNoti.chipBgColor", lineColor)
+            putString("android.ongoingActivityNoti.chipExpandedText", "${event.lineName} \u2022 $minuteText")
+
+            // Now Bar (lock screen)
+            putString("android.ongoingActivityNoti.nowbarPrimaryInfo", minuteText)
+            putString("android.ongoingActivityNoti.nowbarSecondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
+        }
+        builder.addExtras(samsungExtras)
+
+        val notification = builder.build()
+
+        // semFlags hack: promote to Now Bar
+        try {
+            val semFlagsField = Notification::class.java.getDeclaredField("semFlags")
+            semFlagsField.isAccessible = true
+            val currentFlags = semFlagsField.getInt(notification)
+            semFlagsField.setInt(notification, currentFlags or 0x8000)
+        } catch (_: Exception) { }
+
+        return notification
+    }
+
+    private fun applyCustomLayout(
+        builder: Notification.Builder,
+        context: Context,
+        event: NotificationEvent,
+        minuteText: String,
+        source: String,
+        lineColor: Int
+    ) {
+        val layoutId = context.resources.getIdentifier("notification_live_tracking", "layout", context.packageName)
+
+        if (layoutId != 0) {
+            val customView = RemoteViews(context.packageName, layoutId).apply {
+                setTextViewText(
+                    context.resources.getIdentifier("line_badge", "id", context.packageName),
+                    event.lineName
+                )
+                setTextViewText(
+                    context.resources.getIdentifier("stop_name", "id", context.packageName),
+                    event.stopName
+                )
+                val l = locale
+                setTextViewText(
+                    context.resources.getIdentifier("minutes_text", "id", context.packageName),
+                    if (event.minutes <= 0) t("notification.now", l) else "${event.minutes}"
+                )
+                setTextViewText(
+                    context.resources.getIdentifier("minutes_label", "id", context.packageName),
+                    if (event.minutes <= 0) "" else t("notification.min", l)
+                )
+                setTextViewText(
+                    context.resources.getIdentifier("source_text", "id", context.packageName),
+                    source
+                )
+
+                val sourceIconId = context.resources.getIdentifier("source_icon", "id", context.packageName)
+                val sourceIconDrawable = if (event.isTimetable) {
+                    context.resources.getIdentifier("ic_notification_scheduled", "drawable", context.packageName)
+                } else {
+                    context.resources.getIdentifier("ic_notification_realtime", "drawable", context.packageName)
+                }
+                setImageViewResource(sourceIconId, sourceIconDrawable)
+
+                val minutesId = context.resources.getIdentifier("minutes_text", "id", context.packageName)
+                val minuteColor = if (event.minutes <= 2) Color.parseColor("#F44336") else Color.parseColor("#4CAF50")
+                setTextColor(minutesId, minuteColor)
+
+                val sourceTextId = context.resources.getIdentifier("source_text", "id", context.packageName)
+                val sourceColor = if (event.isTimetable) Color.parseColor("#9E9E9E") else Color.parseColor("#4CAF50")
+                setTextColor(sourceTextId, sourceColor)
+            }
+
+            builder
+                .setCustomContentView(customView)
+                .setStyle(Notification.DecoratedCustomViewStyle())
+                .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
+                .setContentText("$minuteText  \u2022  $source")
+        } else {
+            builder
+                .setContentTitle("\uD83D\uDE8C ${event.lineName} \u2192 ${event.stopName}")
+                .setContentText("$minuteText  \u2022  $source")
+                .setStyle(
+                    Notification.BigTextStyle()
+                        .setBigContentTitle("\uD83D\uDE8C Line ${event.lineName}")
+                        .bigText("Arriving at ${event.stopName}\n$minuteText  \u2022  $source")
+                )
+        }
     }
 
     private fun buildStopDetailIntent(context: Context, event: NotificationEvent, requestCode: Int): PendingIntent {

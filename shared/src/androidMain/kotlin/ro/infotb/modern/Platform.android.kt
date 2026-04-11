@@ -33,3 +33,6 @@ actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 actual fun getSystemLanguage(): String = java.util.Locale.getDefault().language
 
 actual fun supportsDynamicIsland(): Boolean = false
+
+actual fun supportsLiveNotification(): Boolean =
+    Build.MANUFACTURER.equals("samsung", ignoreCase = true) || Build.VERSION.SDK_INT >= 36

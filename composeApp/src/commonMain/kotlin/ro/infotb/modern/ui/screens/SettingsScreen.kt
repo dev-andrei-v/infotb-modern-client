@@ -46,6 +46,7 @@ import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.supportsDynamicIsland
+import ro.infotb.modern.supportsLiveNotification
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.util.Locale
@@ -61,6 +62,7 @@ fun SettingsScreen(
     val theme by preferencesStore.theme.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
     val isDynamicIsland = supportsDynamicIsland()
+    val isLiveNotification = supportsLiveNotification()
 
     Column(
         modifier = Modifier
@@ -150,12 +152,16 @@ fun SettingsScreen(
 
         // Notifications / Dynamic Island section
         SettingsSection(
-            title = if (isDynamicIsland) t("dynamicIsland.title", locale)
-                else t("notifications.title", locale),
-            description = if (subscriptions.isNotEmpty())
-                if (isDynamicIsland) t("dynamicIsland.enabled", locale)
-                else "${subscriptions.size} ${t("notifications.active", locale)}"
-            else ""
+            title = when {
+                isDynamicIsland -> t("dynamicIsland.title", locale)
+                isLiveNotification -> t("liveTracking.title", locale)
+                else -> t("notifications.title", locale)
+            },
+            description = if (subscriptions.isNotEmpty()) when {
+                isDynamicIsland -> t("dynamicIsland.enabled", locale)
+                isLiveNotification -> t("liveTracking.enabled", locale)
+                else -> "${subscriptions.size} ${t("notifications.active", locale)}"
+            } else ""
         ) {
             if (subscriptions.isEmpty()) {
                 Row(
@@ -170,8 +176,11 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (isDynamicIsland) t("dynamicIsland.emptyDescription", locale)
-                            else t("notifications.emptyDescription", locale),
+                        text = when {
+                            isDynamicIsland -> t("dynamicIsland.emptyDescription", locale)
+                            isLiveNotification -> t("liveTracking.emptyDescription", locale)
+                            else -> t("notifications.emptyDescription", locale)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = LocalMuted.current
                     )

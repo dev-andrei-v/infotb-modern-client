@@ -23,8 +23,6 @@ class IosNotifier : PlatformNotifier {
         private const val LIVE_ACTIVITY_FAILED = "ro.infotb.modern.LIVE_ACTIVITY_FAILED"
     }
 
-    private var liveActivitiesAvailable = true
-
     init {
         UNUserNotificationCenter.currentNotificationCenter()
             .requestAuthorizationWithOptions(
@@ -42,8 +40,7 @@ class IosNotifier : PlatformNotifier {
             `object` = null,
             queue = null
         ) { notification: NSNotification? ->
-            liveActivitiesAvailable = false
-            println("[IosNotifier] Live Activities unavailable, falling back to local notifications")
+            println("[IosNotifier] Live Activity failed, falling back to local notification")
             val info = notification?.userInfo ?: return@addObserverForName
             showLocalNotification(
                 lineName = info["lineName"] as? String ?: "",
@@ -55,17 +52,15 @@ class IosNotifier : PlatformNotifier {
     }
 
     override fun showNotification(event: NotificationEvent) {
-        if (liveActivitiesAvailable && supportsLiveActivities()) {
+        if (supportsLiveActivities()) {
             postLiveTrackingNotification(UPDATE_LIVE_TRACKING, event)
-            println("[IosNotifier] Prefer Live Activity over local notification for ${event.activityId}")
             return
         }
-
         showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
     }
 
     override fun startLiveTracking(event: NotificationEvent) {
-        if (liveActivitiesAvailable && supportsLiveActivities()) {
+        if (supportsLiveActivities()) {
             postLiveTrackingNotification(START_LIVE_TRACKING, event)
         } else {
             showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
@@ -73,7 +68,7 @@ class IosNotifier : PlatformNotifier {
     }
 
     override fun updateLiveTracking(event: NotificationEvent) {
-        if (liveActivitiesAvailable && supportsLiveActivities()) {
+        if (supportsLiveActivities()) {
             postLiveTrackingNotification(UPDATE_LIVE_TRACKING, event)
         } else {
             showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
@@ -81,12 +76,10 @@ class IosNotifier : PlatformNotifier {
     }
 
     override fun stopLiveTracking() {
-        if (liveActivitiesAvailable) {
-            NSNotificationCenter.defaultCenter.postNotificationName(
-                aName = STOP_LIVE_TRACKING,
-                `object` = null
-            )
-        }
+        NSNotificationCenter.defaultCenter.postNotificationName(
+            aName = STOP_LIVE_TRACKING,
+            `object` = null
+        )
     }
 
     private fun showLocalNotification(lineName: String, stopName: String, minutes: Int, isTimetable: Boolean) {

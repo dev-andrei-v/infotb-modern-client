@@ -104,6 +104,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "stopDetail.timetableTitle" to mapOf(Locale.RO to "Orar linia", Locale.EN to "Timetable line"),
     "stopDetail.showOtherLines" to mapOf(Locale.RO to "Arata alte linii", Locale.EN to "Show other lines"),
     "stopDetail.hideOtherLines" to mapOf(Locale.RO to "Ascunde alte linii", Locale.EN to "Hide other lines"),
+    "stopDetail.trackingStarted" to mapOf(Locale.RO to "Dynamic Island pornit:", Locale.EN to "Dynamic Island started:"),
 
     // Settings page
     "settings.title" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),

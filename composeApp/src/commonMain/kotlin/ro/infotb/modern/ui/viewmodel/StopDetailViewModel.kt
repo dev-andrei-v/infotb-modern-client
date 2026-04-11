@@ -57,7 +57,10 @@ class StopDetailViewModel(
         viewModelScope.launch {
             _isRefreshing.value = true
             val stopId = currentStopId ?: run { _isRefreshing.value = false; return@launch }
-            fetchStop(stopId, currentLineId, currentDirection, showLoading = false)
+            try {
+                val info = repository.getStopInfo(stopId, currentLineId, currentDirection)
+                _stopInfo.value = info
+            } catch (_: Exception) { }
             _isRefreshing.value = false
             startRefresh()
         }

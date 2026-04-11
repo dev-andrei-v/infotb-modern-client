@@ -1,5 +1,12 @@
 package ro.infotb.modern.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -8,6 +15,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -41,6 +50,7 @@ import ro.infotb.modern.ui.viewmodel.DashboardViewModel
 import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.ui.viewmodel.LinesViewModel
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
+import kotlinx.coroutines.launch
 import ro.infotb.modern.util.Locale
 
 data class PendingStopNav(
@@ -68,6 +78,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val localeValue by preferencesStore.locale.collectAsState()
     val locale = if (localeValue == "en") Locale.EN else Locale.RO
     val isIos = remember { getPlatformName() == "iOS" }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     fun handleTrackedStationSelection(
         stopId: Long,
@@ -92,6 +104,11 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     isTimetable = isTimetable
                 )
             )
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "${t("stopDetail.trackingStarted", locale)} $lineName → $stopName"
+                )
+            }
             notificationStore.replaceWithSingleSubscription(
                 stopId = stopId,
                 stopName = stopName,
@@ -140,6 +157,10 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
             }
         }
 
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { paddingValues ->
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
         AppShell(
             navController = navController,
             currentRoute = currentRoute,
@@ -300,6 +321,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     )
                 }
             }
+        }
+        }
         }
     }
 }

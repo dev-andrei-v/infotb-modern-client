@@ -63,6 +63,13 @@ actual fun LeafletRouteMap(
             }
             webViewRef[0] = webView
             webView
+        },
+        update = { webView ->
+            pageReady.value = false
+            val data = (html as NSString).dataUsingEncoding(NSUTF8StringEncoding)
+            if (data != null) {
+                webView.loadData(data, MIMEType = "text/html", characterEncodingName = "UTF-8", baseURL = NSURL(string = ""))
+            }
         }
     )
 }
@@ -73,7 +80,12 @@ private fun buildRouteMapHtml(
     segmentPath: String?
 ): String {
     val stopsJs = stops.joinToString(",") { stop ->
-        val name = stop.name.replace("'", "\\'").replace("\"", "&quot;")
+        val name = stop.name
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("'", "&#39;")
+            .replace("\"", "&quot;")
         "{lat:${stop.lat},lng:${stop.lng},name:'$name'}"
     }
 

@@ -5,7 +5,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.interop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
@@ -13,6 +12,13 @@ import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.dataUsingEncoding
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
+
+private fun escapeHtml(text: String): String = text
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")
+    .replace("\"", "&quot;")
+    .replace("'", "&#39;")
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -23,7 +29,7 @@ actual fun LeafletMap(
     zoom: Int,
     modifier: Modifier
 ) {
-    val escapedLabel = label.replace("'", "\\'").replace("\"", "&quot;")
+    val escapedLabel = escapeHtml(label)
     val html = remember(lat, lng, label, zoom) {
         """
 <!DOCTYPE html>
@@ -63,6 +69,12 @@ L.marker([$lat, $lng]).addTo(map).bindPopup('$escapedLabel').openPopup();
                 webView.loadData(data, MIMEType = "text/html", characterEncodingName = "UTF-8", baseURL = NSURL(string = ""))
             }
             webView
+        },
+        update = { webView ->
+            val data = (html as NSString).dataUsingEncoding(NSUTF8StringEncoding)
+            if (data != null) {
+                webView.loadData(data, MIMEType = "text/html", characterEncodingName = "UTF-8", baseURL = NSURL(string = ""))
+            }
         }
     )
 }

@@ -1,9 +1,11 @@
 import UIKit
 import ComposeApp
+import BackgroundTasks
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
     func application(
         _ application: UIApplication,
@@ -17,7 +19,42 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = MainViewControllerKt.MainViewController()
         window?.makeKeyAndVisible()
+
+        // Register for app lifecycle notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+
         return true
+    }
+
+    @objc private func appDidEnterBackground() {
+        // Request background execution time so NotificationEngine keeps polling
+        // and Dynamic Island stays updated
+        guard backgroundTaskID == .invalid else { return }
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "LiveActivityUpdate") { [weak self] in
+            self?.endBackgroundTask()
+        }
+        print("[AppDelegate] Background task started, remaining time: \(UIApplication.shared.backgroundTimeRemaining)s")
+    }
+
+    @objc private func appWillEnterForeground() {
+        endBackgroundTask()
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTaskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTaskID)
+        backgroundTaskID = .invalid
     }
 
     func application(

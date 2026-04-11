@@ -67,8 +67,8 @@ struct InfoTBLiveActivity: Widget {
                     color: .green
                 )
             } minimal: {
-                minimalBadge(
-                    name: lineName,
+                minimalCountdown(
+                    minutes: context.state.minutes,
                     color: lineColor
                 )
             }
@@ -208,17 +208,19 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func minimalBadge(name: String, color: Color) -> some View {
+    private func minimalCountdown(minutes: Int, color: Color) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(color)
                 .frame(width: 28, height: 28)
-            Text(name)
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .padding(.horizontal, 2)
+            VStack(spacing: -1) {
+                Text("\(minutes)")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("m")
+                    .font(.system(size: 7, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
         }
     }
 

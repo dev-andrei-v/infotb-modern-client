@@ -106,6 +106,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "stopDetail.showOtherLines" to mapOf(Locale.RO to "Arata alte linii", Locale.EN to "Show other lines"),
     "stopDetail.hideOtherLines" to mapOf(Locale.RO to "Ascunde alte linii", Locale.EN to "Hide other lines"),
     "stopDetail.trackingStarted" to mapOf(Locale.RO to "Dynamic Island pornit:", Locale.EN to "Dynamic Island started:"),
+    "stopDetail.stopTracking" to mapOf(Locale.RO to "Opreste", Locale.EN to "Stop"),
+    "stopDetail.trackingStopped" to mapOf(Locale.RO to "Dynamic Island oprit", Locale.EN to "Dynamic Island stopped"),
 
     // Settings page
     "settings.title" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),

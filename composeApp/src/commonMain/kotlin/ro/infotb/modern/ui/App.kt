@@ -76,6 +76,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val localeValue by preferencesStore.locale.collectAsState()
     val locale = if (localeValue == "en") Locale.EN else Locale.RO
     val isIos = remember { getPlatformName() == "iOS" }
+    val activeSubscriptions by notificationStore.subscriptions.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -266,6 +267,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         direction = direction,
                         viewModel = viewModel,
                         locale = locale,
+                        activeSubscriptions = activeSubscriptions,
                         onBack = { navController.popBackStack() },
                         onNavigateToLine = { lid ->
                             navController.navigate(Screen.LineDetail(lid).route)
@@ -293,6 +295,14 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 minutes = minutes,
                                 isTimetable = isTimetable
                             )
+                        },
+                        onStopNotification = { subscriptionId ->
+                            notificationStore.removeSubscription(subscriptionId)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = t("stopDetail.trackingStopped", locale)
+                                )
+                            }
                         },
                         onRefresh = { notificationEngine.refreshNow() }
                     )

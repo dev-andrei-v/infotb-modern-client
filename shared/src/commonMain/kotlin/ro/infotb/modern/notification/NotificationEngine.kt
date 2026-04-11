@@ -199,11 +199,10 @@ class NotificationEngine(
             minutes = minutes,
             isTimetable = isTimetable
         )
-        _events.value = event
-        // Skip OS notification when live tracking is active — the dynamic island
-        // or ongoing notification already shows the info. Sending a separate alert
-        // causes the "switches to notifications" bug.
+        // Skip all notifications when live tracking is active — the dynamic island
+        // or ongoing notification already shows the info.
         if (!liveTrackingActive) {
+            _events.value = event
             platformNotifier.showNotification(event)
         }
     }

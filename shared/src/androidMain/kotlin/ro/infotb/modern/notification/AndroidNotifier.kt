@@ -130,15 +130,13 @@ class AndroidNotifier : PlatformNotifier {
         val source = if (event.isTimetable) "Scheduled" else "Real-time"
         val lineColor = parseHexColor(event.lineColor)
         val contentIntent = buildStopDetailIntent(context, event, LIVE_NOTIF_ID)
-        val sourceIcon = if (event.isTimetable) {
-            context.resources.getIdentifier("ic_notification_scheduled", "drawable", context.packageName)
-        } else {
-            context.resources.getIdentifier("ic_notification_realtime", "drawable", context.packageName)
-        }
+        val sourceIconRes = if (event.isTimetable) "ic_notification_scheduled" else "ic_notification_realtime"
+        val sourceIcon = context.resources.getIdentifier(sourceIconRes, "drawable", context.packageName)
         val smallIcon = if (sourceIcon != 0) sourceIcon else android.R.drawable.ic_menu_mylocation
+        val iconBgColor = if (event.isTimetable) Color.parseColor("#FF9800") else Color.parseColor("#4CAF50")
 
         if (isSamsung) {
-            return buildSamsungNotification(context, event, minuteText, source, lineColor, contentIntent, smallIcon)
+            return buildSamsungNotification(context, event, minuteText, source, iconBgColor, contentIntent, smallIcon)
         }
 
         // Standard Android notification with custom layout
@@ -147,7 +145,7 @@ class AndroidNotifier : PlatformNotifier {
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setColor(lineColor)
+            .setColor(iconBgColor)
             .setColorized(true)
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)

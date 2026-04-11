@@ -23,6 +23,8 @@ class IosNotifier : PlatformNotifier {
         private const val LIVE_ACTIVITY_FAILED = "ro.infotb.modern.LIVE_ACTIVITY_FAILED"
     }
 
+    private var liveTrackingActive = false
+
     init {
         UNUserNotificationCenter.currentNotificationCenter()
             .requestAuthorizationWithOptions(
@@ -41,6 +43,7 @@ class IosNotifier : PlatformNotifier {
             queue = null
         ) { notification: NSNotification? ->
             println("[IosNotifier] Live Activity failed, falling back to local notification")
+            liveTrackingActive = false
             val info = notification?.userInfo ?: return@addObserverForName
             showLocalNotification(
                 lineName = info["lineName"] as? String ?: "",
@@ -52,16 +55,17 @@ class IosNotifier : PlatformNotifier {
     }
 
     override fun showNotification(event: NotificationEvent) {
-        if (supportsLiveActivities()) {
-            postLiveTrackingNotification(UPDATE_LIVE_TRACKING, event)
-            return
-        }
+        // When Dynamic Island is active, it's already being updated by updateLiveTracking.
+        // Don't send a duplicate update that could race and trigger a fallback notification.
+        if (liveTrackingActive) return
+
         showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
     }
 
     override fun startLiveTracking(event: NotificationEvent) {
         if (supportsLiveActivities()) {
             postLiveTrackingNotification(START_LIVE_TRACKING, event)
+            liveTrackingActive = true
         } else {
             showLocalNotification(event.lineName, event.stopName, event.minutes, event.isTimetable)
         }
@@ -76,6 +80,7 @@ class IosNotifier : PlatformNotifier {
     }
 
     override fun stopLiveTracking() {
+        liveTrackingActive = false
         NSNotificationCenter.defaultCenter.postNotificationName(
             aName = STOP_LIVE_TRACKING,
             `object` = null

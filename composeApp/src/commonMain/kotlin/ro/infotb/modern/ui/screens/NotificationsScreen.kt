@@ -42,6 +42,7 @@ import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.NotificationSubscription
 import ro.infotb.modern.supportsDynamicIsland
+import ro.infotb.modern.supportsLiveNotification
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
@@ -57,6 +58,7 @@ fun NotificationsScreen(
 ) {
     val subscriptions by notificationStore.subscriptions.collectAsState()
     val isDynamicIsland = supportsDynamicIsland()
+    val isLiveNotification = supportsLiveNotification()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Header
@@ -66,15 +68,21 @@ fun NotificationsScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Text(
-                text = if (isDynamicIsland) t("dynamicIsland.title", locale)
-                    else t("notifications.title", locale),
+                text = when {
+                    isDynamicIsland -> t("dynamicIsland.title", locale)
+                    isLiveNotification -> t("liveTracking.title", locale)
+                    else -> t("notifications.title", locale)
+                },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             if (subscriptions.isNotEmpty()) {
                 Text(
-                    text = if (isDynamicIsland) t("dynamicIsland.enabled", locale)
-                        else "${subscriptions.size} ${t("notifications.active", locale)}",
+                    text = when {
+                        isDynamicIsland -> t("dynamicIsland.enabled", locale)
+                        isLiveNotification -> t("liveTracking.enabled", locale)
+                        else -> "${subscriptions.size} ${t("notifications.active", locale)}"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalMuted.current
                 )
@@ -84,10 +92,16 @@ fun NotificationsScreen(
         if (subscriptions.isEmpty()) {
             EmptyState(
                 icon = Icons.Default.Notifications,
-                title = if (isDynamicIsland) t("dynamicIsland.emptyTitle", locale)
-                    else t("notifications.emptyTitle", locale),
-                description = if (isDynamicIsland) t("dynamicIsland.emptyDescription", locale)
-                    else t("notifications.emptyDescription", locale),
+                title = when {
+                    isDynamicIsland -> t("dynamicIsland.emptyTitle", locale)
+                    isLiveNotification -> t("liveTracking.emptyTitle", locale)
+                    else -> t("notifications.emptyTitle", locale)
+                },
+                description = when {
+                    isDynamicIsland -> t("dynamicIsland.emptyDescription", locale)
+                    isLiveNotification -> t("liveTracking.emptyDescription", locale)
+                    else -> t("notifications.emptyDescription", locale)
+                },
                 modifier = Modifier.weight(1f)
             )
         } else {

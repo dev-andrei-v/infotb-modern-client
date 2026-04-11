@@ -191,6 +191,13 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     // Notifications page
     "nav.notifications" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),
     "notifications.title" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),
+    "liveTracking.title" to mapOf(Locale.RO to "Urmarire live", Locale.EN to "Live tracking"),
+    "liveTracking.enabled" to mapOf(Locale.RO to "Urmarire live activa", Locale.EN to "Live tracking active"),
+    "liveTracking.emptyTitle" to mapOf(Locale.RO to "Nicio urmarire activa", Locale.EN to "No active tracking"),
+    "liveTracking.emptyDescription" to mapOf(
+        Locale.RO to "Apasa pe butonul Live de pe o statie pentru a urmari sosirea in timp real.",
+        Locale.EN to "Tap the Live button on a stop to track arrivals in real-time."
+    ),
     "notifications.description" to mapOf(Locale.RO to "Gestioneaza notificarile pentru sosiri", Locale.EN to "Manage arrival notifications"),
     "notifications.active" to mapOf(Locale.RO to "notificari active", Locale.EN to "active notifications"),
     "notifications.emptyTitle" to mapOf(Locale.RO to "Nicio notificare", Locale.EN to "No notifications"),

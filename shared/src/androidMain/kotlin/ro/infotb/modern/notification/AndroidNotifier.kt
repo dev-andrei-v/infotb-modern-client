@@ -154,8 +154,8 @@ class AndroidNotifier : PlatformNotifier {
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
 
-        // Android 16+ (API 36): Use ProgressStyle for live update pill
         if (Build.VERSION.SDK_INT >= 36) {
+            // Android 16+: clean standard notification (ProgressStyle when available)
             builder
                 .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
                 .setContentText("$minuteText  \u2022  $source")
@@ -172,8 +172,7 @@ class AndroidNotifier : PlatformNotifier {
                 Notification.Builder::class.java.getMethod("setStyle", Notification.Style::class.java)
                     .invoke(builder, progressStyle)
             } catch (_: Exception) {
-                // Fallback to custom layout if ProgressStyle fails
-                applyCustomLayout(builder, context, event, minuteText, source, lineColor)
+                // ProgressStyle not in this DP — use standard BigTextStyle
             }
         } else {
             // Pre-Android 16: custom RemoteViews layout

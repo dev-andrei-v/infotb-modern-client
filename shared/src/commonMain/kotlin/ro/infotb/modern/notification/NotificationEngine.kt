@@ -58,10 +58,16 @@ class NotificationEngine(
                 notificationStore.subscriptions.collect { subs ->
                     val enabled = subs.filter { it.enabled }
                     if (enabled.isEmpty() && liveTrackingActive) {
-                        pollMutex.withLock {
-                            if (liveTrackingActive) {
-                                platformNotifier.stopLiveTracking()
-                                liveTrackingActive = false
+                        // Debounce: replaceWithSingleSubscription emits empty
+                        // list briefly between deleteAll and upsert
+                        delay(500)
+                        val current = notificationStore.subscriptions.value.filter { it.enabled }
+                        if (current.isEmpty()) {
+                            pollMutex.withLock {
+                                if (liveTrackingActive) {
+                                    platformNotifier.stopLiveTracking()
+                                    liveTrackingActive = false
+                                }
                             }
                         }
                     } else if (enabled.isNotEmpty()) {

@@ -1,7 +1,10 @@
 package ro.infotb.modern.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -76,6 +79,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val localeValue by preferencesStore.locale.collectAsState()
     val locale = if (localeValue == "en") Locale.EN else Locale.RO
     val isIos = remember { getPlatformName() == "iOS" }
+    val activeSubscriptions by notificationStore.subscriptions.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -254,12 +258,19 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     val dirInt = backStackEntry.arguments?.getInt("direction")?.takeIf { it >= 0 }
                     val direction = dirInt?.let { Direction.fromInt(it) }
                     val viewModel = remember(stopId) { StopDetailViewModel(repository) }
+
+                    // Update dynamic island when visiting a stop with active subscription
+                    LaunchedEffect(stopId) {
+                        notificationEngine.refreshNow()
+                    }
+
                     StopDetailScreen(
                         stopId = stopId,
                         lineId = lineId,
                         direction = direction,
                         viewModel = viewModel,
                         locale = locale,
+                        activeSubscriptions = activeSubscriptions,
                         onBack = { navController.popBackStack() },
                         onNavigateToLine = { lid ->
                             navController.navigate(Screen.LineDetail(lid).route)
@@ -287,6 +298,14 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 minutes = minutes,
                                 isTimetable = isTimetable
                             )
+                        },
+                        onStopNotification = { subscriptionId ->
+                            notificationStore.removeSubscription(subscriptionId)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = t("stopDetail.trackingStopped", locale)
+                                )
+                            }
                         },
                         onRefresh = { notificationEngine.refreshNow() }
                     )
@@ -319,7 +338,9 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         }
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+            modifier = Modifier
+                .align(androidx.compose.ui.Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.statusBars)
         )
         }
     }

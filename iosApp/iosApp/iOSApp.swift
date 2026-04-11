@@ -48,6 +48,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         locationManager.stop()
     }
 
+    func applicationWillTerminate(_ application: UIApplication) {
+        LiveActivityManager.shared.endAllActivities()
+    }
+
     func application(
         _ app: UIApplication,
         open url: URL,

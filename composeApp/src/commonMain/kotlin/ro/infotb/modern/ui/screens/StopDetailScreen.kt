@@ -67,11 +67,13 @@ import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.LeafletMap
 import ro.infotb.modern.ui.components.shared.LineBadge
+import ro.infotb.modern.supportsDynamicIsland
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
 import ro.infotb.modern.currentHourOfDay
 import ro.infotb.modern.currentMinuteOfHour
+import ro.infotb.modern.data.store.NotificationSubscription
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
 import kotlinx.coroutines.launch
@@ -84,10 +86,12 @@ fun StopDetailScreen(
     direction: Direction? = null,
     viewModel: StopDetailViewModel,
     locale: Locale,
+    activeSubscriptions: List<NotificationSubscription> = emptyList(),
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
     onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit,
+    onStopNotification: (subscriptionId: String) -> Unit = {},
     onRefresh: (() -> Unit)? = null
 ) {
     val stopInfo by viewModel.stopInfo.collectAsState()
@@ -237,9 +241,14 @@ fun StopDetailScreen(
                     }
                     val isTimetableLoading = timetableLoading.contains(timetableKey)
 
+                    val activeSub = activeSubscriptions.find { sub ->
+                        sub.stopId == stopId && sub.lineId == line.id && sub.direction == line.direction && sub.enabled
+                    }
+
                     LineArrivalCard(
                         line = line,
                         isPrimary = isPrimary,
+                        isTracking = activeSub != null,
                         isTimetableExpanded = isTimetableExpanded,
                         timetableData = timetableData,
                         isTimetableLoading = isTimetableLoading,
@@ -267,6 +276,9 @@ fun StopDetailScreen(
                                 (line.arrivingTime / 60).toInt().coerceAtLeast(0),
                                 line.isTimetable
                             )
+                        },
+                        onStopNotification = {
+                            activeSub?.let { onStopNotification(it.id) }
                         }
                     )
                     Spacer(Modifier.height(8.dp))
@@ -281,6 +293,7 @@ fun StopDetailScreen(
 private fun LineArrivalCard(
     line: LineArrivalDetail,
     isPrimary: Boolean,
+    isTracking: Boolean,
     isTimetableExpanded: Boolean,
     timetableData: List<TimetableHour>?,
     isTimetableLoading: Boolean,
@@ -288,7 +301,8 @@ private fun LineArrivalCard(
     onNavigateToLine: () -> Unit,
     onToggleTimetable: () -> Unit,
     onAddToDashboard: () -> Unit,
-    onSetNotification: () -> Unit
+    onSetNotification: () -> Unit,
+    onStopNotification: () -> Unit
 ) {
     val borderColor = if (isPrimary) {
         try {
@@ -388,21 +402,38 @@ private fun LineArrivalCard(
             // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                TextButton(onClick = onAddToDashboard, modifier = Modifier.weight(1f)) {
+                TextButton(onClick = onAddToDashboard) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(2.dp))
                     Text(t("stopDetail.addToDashboard", locale), fontSize = 11.sp, maxLines = 1)
                 }
                 if (line.arrivingTime >= 0) {
-                    TextButton(onClick = onSetNotification, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(2.dp))
-                        Text(t("stopDetail.notification", locale), fontSize = 11.sp, maxLines = 1)
+                    if (isTracking) {
+                        TextButton(
+                            onClick = onStopNotification,
+                            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(2.dp))
+                            Text(t("stopDetail.stopTracking", locale), fontSize = 11.sp, maxLines = 1)
+                        }
+                    } else {
+                        TextButton(onClick = onSetNotification) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(2.dp))
+                            Text(
+                                if (supportsDynamicIsland()) t("stopDetail.dynamicIsland", locale)
+                                else t("stopDetail.notification", locale),
+                                fontSize = 11.sp, maxLines = 1
+                            )
+                        }
                     }
                 }
-                TextButton(onClick = onToggleTimetable, modifier = Modifier.weight(1f)) {
+                TextButton(onClick = onToggleTimetable) {
                     Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(2.dp))
                     Text(t("stopDetail.timetable", locale), fontSize = 11.sp, maxLines = 1)

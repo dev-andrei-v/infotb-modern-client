@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.store.NotificationMode
+import ro.infotb.modern.supportsDynamicIsland
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
@@ -68,7 +69,12 @@ fun NotificationDialog(
                 modifier = Modifier.size(24.dp)
             )
         },
-        title = { Text(t("notification.setup", locale)) },
+        title = {
+            Text(
+                if (supportsDynamicIsland()) t("dynamicIsland.title", locale)
+                else t("notification.setup", locale)
+            )
+        },
         text = {
             Column {
                 // Line info

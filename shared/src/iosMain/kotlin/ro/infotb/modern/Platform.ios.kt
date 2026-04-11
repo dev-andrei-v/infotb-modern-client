@@ -47,3 +47,5 @@ actual fun getSystemLanguage(): String {
     val preferred = platform.Foundation.NSBundle.mainBundle.preferredLocalizations.firstOrNull() as? String
     return preferred?.take(2) ?: "en"
 }
+
+actual fun supportsDynamicIsland(): Boolean = true

@@ -73,6 +73,15 @@ import Foundation
         stopTracking()
     }
 
+    /// End all live activities immediately. Called when the app is terminated.
+    @objc func endAllActivities() {
+        guard #available(iOS 16.2, *) else { return }
+        Task {
+            await endCurrentActivity()
+            print("[LiveActivity] Ended all activities on app termination")
+        }
+    }
+
     // MARK: - ActivityKit Management
 
     private func startTracking(

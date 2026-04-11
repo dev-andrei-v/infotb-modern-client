@@ -209,16 +209,11 @@ struct InfoTBLiveActivity: Widget {
 
     @ViewBuilder
     private func minimalCountdown(minutes: Int, color: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(color)
-                .frame(width: 28, height: 28)
-            Text(minutes > 99 ? "99" : "\(minutes)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-        }
+        Text(minutes > 99 ? "99" : "\(minutes)")
+            .font(.system(size: 14, weight: .bold, design: .rounded))
+            .foregroundStyle(color.opacity(0.9))
+            .minimumScaleFactor(0.5)
+            .lineLimit(1)
     }
 
     @ViewBuilder

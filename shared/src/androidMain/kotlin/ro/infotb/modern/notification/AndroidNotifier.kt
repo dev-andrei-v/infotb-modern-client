@@ -28,6 +28,7 @@ class AndroidNotifier : PlatformNotifier {
 
     private val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
     private var serviceStarted = false
+    private var liveTrackingPosted = false
     private val locale: Locale get() = if (getSystemLanguage() == "ro") Locale.RO else Locale.EN
 
     init {
@@ -59,6 +60,9 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     override fun showNotification(event: NotificationEvent) {
+        // Never show alert notifications while live tracking is active
+        if (liveTrackingPosted) return
+
         val context = AndroidContext.appContext
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -88,6 +92,7 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     override fun startLiveTracking(event: NotificationEvent) {
+        liveTrackingPosted = true
         val context = AndroidContext.appContext
         val notification = buildLiveNotification(context, event)
 
@@ -116,6 +121,7 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     override fun stopLiveTracking() {
+        liveTrackingPosted = false
         val context = AndroidContext.appContext
         if (isSamsung && serviceStarted) {
             LiveTrackingService.stop(context)

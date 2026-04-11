@@ -32,3 +32,5 @@ actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 actual fun getSystemLanguage(): String = java.util.Locale.getDefault().language
 
 actual fun supportsDynamicIsland(): Boolean = false
+
+actual fun supportsLiveNotification(): Boolean = false

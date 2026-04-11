@@ -28,6 +28,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Set up swap space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 4
+
       - name: Create debug keystore
         run: |
           mkdir -p ~/.android

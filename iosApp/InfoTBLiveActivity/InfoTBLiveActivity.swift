@@ -20,6 +20,7 @@ struct InfoTBLiveActivity: Widget {
                         color: lineColor,
                         size: 44
                     )
+                    .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     countdownView(
@@ -29,6 +30,7 @@ struct InfoTBLiveActivity: Widget {
                         numberColor: .white,
                         unitColor: .white.opacity(0.72)
                     )
+                    .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {

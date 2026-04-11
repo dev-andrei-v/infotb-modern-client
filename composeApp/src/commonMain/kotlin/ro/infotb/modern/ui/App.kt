@@ -52,6 +52,7 @@ import ro.infotb.modern.ui.viewmodel.LinesViewModel
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
 import kotlinx.coroutines.launch
 import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.t
 
 data class PendingStopNav(
     val stopId: Long,

@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.widget.RemoteViews
+import androidx.core.app.NotificationCompat
 import ro.infotb.modern.AndroidContext
 
 class AndroidNotifier : PlatformNotifier {
@@ -19,8 +20,11 @@ class AndroidNotifier : PlatformNotifier {
         private const val CHANNEL_NAME = "Arrival Alerts"
         private const val LIVE_CHANNEL_ID = "stb_live_tracking"
         private const val LIVE_CHANNEL_NAME = "Live Arrival Tracking"
-        private const val LIVE_NOTIF_ID = 9001
+        const val LIVE_NOTIF_ID = 9001
     }
+
+    private val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+    private var serviceStarted = false
 
     init {
         createChannels()
@@ -79,21 +83,42 @@ class AndroidNotifier : PlatformNotifier {
     }
 
     override fun startLiveTracking(event: NotificationEvent) {
-        updateLiveTracking(event)
+        val context = AndroidContext.appContext
+        val notification = buildLiveNotification(context, event)
+
+        if (isSamsung) {
+            LiveTrackingService.start(context, notification)
+            serviceStarted = true
+        } else {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(LIVE_NOTIF_ID, notification)
+        }
     }
 
     override fun updateLiveTracking(event: NotificationEvent) {
         val context = AndroidContext.appContext
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
         val notification = buildLiveNotification(context, event)
-        manager.notify(LIVE_NOTIF_ID, notification)
+
+        if (isSamsung && serviceStarted) {
+            LiveTrackingService.update(context, notification)
+        } else if (isSamsung) {
+            LiveTrackingService.start(context, notification)
+            serviceStarted = true
+        } else {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(LIVE_NOTIF_ID, notification)
+        }
     }
 
     override fun stopLiveTracking() {
         val context = AndroidContext.appContext
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(LIVE_NOTIF_ID)
+        if (isSamsung && serviceStarted) {
+            LiveTrackingService.stop(context)
+            serviceStarted = false
+        } else {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(LIVE_NOTIF_ID)
+        }
     }
 
     private fun buildLiveNotification(context: Context, event: NotificationEvent): Notification {
@@ -106,49 +131,30 @@ class AndroidNotifier : PlatformNotifier {
         val lineColor = parseHexColor(event.lineColor)
         val contentIntent = buildStopDetailIntent(context, event, LIVE_NOTIF_ID)
         val busIcon = context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName)
+        val smallIcon = if (busIcon != 0) busIcon else android.R.drawable.ic_menu_mylocation
 
+        if (isSamsung) {
+            return buildSamsungNotification(context, event, minuteText, source, lineColor, contentIntent, smallIcon)
+        }
+
+        // Standard Android notification with custom layout
         val builder = Notification.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(if (busIcon != 0) busIcon else android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(smallIcon)
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setColor(lineColor)
             .setColorized(true)
-            .setCategory(Notification.CATEGORY_NAVIGATION)
+            .setCategory(Notification.CATEGORY_TRANSPORT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
 
-        // Apply custom layout for notification shade
         applyCustomLayout(builder, context, event, minuteText, source, lineColor)
 
-        val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-
-        // Samsung OneUI: Live Notifications + Now Bar extras
-        if (isSamsung) {
-            val samsungExtras = Bundle().apply {
-                putInt("android.ongoingActivityNoti.style", 1)
-
-                // Live Notification: standard style
-                putString("android.ongoingActivityNoti.primaryInfo", minuteText)
-                putString("android.ongoingActivityNoti.secondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
-
-                // Chip (status bar pill)
-                putInt("android.ongoingActivityNoti.chipBgColor", lineColor)
-                putString("android.ongoingActivityNoti.chipExpandedText", "${event.lineName} \u2022 $minuteText")
-
-                // Now Bar (lock screen)
-                putString("android.ongoingActivityNoti.nowbarPrimaryInfo", minuteText)
-                putString("android.ongoingActivityNoti.nowbarSecondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
-            }
-            builder.addExtras(samsungExtras)
-        }
-
-        // Android 16+ (API 36): ProgressStyle for all OEMs
+        // Android 16+ ProgressStyle
         if (Build.VERSION.SDK_INT >= 36) {
             try {
                 val progressStyleClass = Class.forName("android.app.Notification\$ProgressStyle")
                 val progressStyle = progressStyleClass.getConstructor().newInstance()
-
                 val progress = when {
                     event.minutes <= 0 -> 100
                     event.minutes >= 30 -> 5
@@ -156,33 +162,65 @@ class AndroidNotifier : PlatformNotifier {
                 }
                 progressStyleClass.getMethod("setProgressPoint", Int::class.java)
                     .invoke(progressStyle, progress)
-
                 Notification.Builder::class.java.getMethod("setStyle", Notification.Style::class.java)
                     .invoke(builder, progressStyle)
-            } catch (_: Exception) {
-                // ProgressStyle not available, custom layout already applied
-            }
+            } catch (_: Exception) { }
         }
+
+        return builder.build()
+    }
+
+    private fun buildSamsungNotification(
+        context: Context,
+        event: NotificationEvent,
+        minuteText: String,
+        source: String,
+        lineColor: Int,
+        contentIntent: PendingIntent,
+        smallIcon: Int
+    ): Notification {
+        val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
+            .setSmallIcon(smallIcon)
+            .setContentTitle("${event.lineName} \u2192 ${event.stopName}")
+            .setContentText("$minuteText  \u2022  $source")
+            .setContentIntent(contentIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setColor(lineColor)
+            .setColorized(true)
+            .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+        // Samsung Live Notification + Now Bar extras
+        val samsungExtras = Bundle().apply {
+            putInt("android.ongoingActivityNoti.style", 1)
+
+            // Live Notification standard style
+            putString("android.ongoingActivityNoti.primaryInfo", minuteText)
+            putString("android.ongoingActivityNoti.secondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
+
+            // Chip (status bar pill)
+            putInt("android.ongoingActivityNoti.chipBgColor", lineColor)
+            putString("android.ongoingActivityNoti.chipExpandedText", "${event.lineName} \u2022 $minuteText")
+
+            // Now Bar (lock screen)
+            putString("android.ongoingActivityNoti.nowbarPrimaryInfo", minuteText)
+            putString("android.ongoingActivityNoti.nowbarSecondaryInfo", "${event.lineName} \u2192 ${event.stopName}")
+        }
+        builder.addExtras(samsungExtras)
 
         val notification = builder.build()
 
-        // Samsung semFlags hack: set bit 0x8000 to promote to Now Bar
-        if (isSamsung) {
-            applySamsungSemFlags(notification)
-        }
-
-        return notification
-    }
-
-    private fun applySamsungSemFlags(notification: Notification) {
+        // semFlags hack: promote to Now Bar
         try {
             val semFlagsField = Notification::class.java.getDeclaredField("semFlags")
             semFlagsField.isAccessible = true
             val currentFlags = semFlagsField.getInt(notification)
             semFlagsField.setInt(notification, currentFlags or 0x8000)
-        } catch (_: Exception) {
-            // Not a Samsung device or field not available
-        }
+        } catch (_: Exception) { }
+
+        return notification
     }
 
     private fun applyCustomLayout(

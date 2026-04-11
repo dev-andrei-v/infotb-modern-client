@@ -52,6 +52,7 @@ sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.r
 
 # AndroidX
 activity-compose = { group = "androidx.activity", name = "activity-compose", version = "1.9.3" }
+androidx-core = { group = "androidx.core", name = "core-ktx", version = "1.16.0" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

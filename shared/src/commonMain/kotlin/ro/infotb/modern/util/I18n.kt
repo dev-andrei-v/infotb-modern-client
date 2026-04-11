@@ -101,13 +101,14 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "stopDetail.addToDashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
     "stopDetail.notification" to mapOf(Locale.RO to "Notificare", Locale.EN to "Notification"),
     "stopDetail.dynamicIsland" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
+    "stopDetail.liveNotification" to mapOf(Locale.RO to "Live", Locale.EN to "Live"),
     "stopDetail.timetable" to mapOf(Locale.RO to "Orar", Locale.EN to "Timetable"),
     "stopDetail.timetableTitle" to mapOf(Locale.RO to "Orar linia", Locale.EN to "Timetable line"),
     "stopDetail.showOtherLines" to mapOf(Locale.RO to "Arata alte linii", Locale.EN to "Show other lines"),
     "stopDetail.hideOtherLines" to mapOf(Locale.RO to "Ascunde alte linii", Locale.EN to "Hide other lines"),
-    "stopDetail.trackingStarted" to mapOf(Locale.RO to "Dynamic Island pornit:", Locale.EN to "Dynamic Island started:"),
+    "stopDetail.trackingStarted" to mapOf(Locale.RO to "Urmarire pornita:", Locale.EN to "Live tracking started:"),
     "stopDetail.stopTracking" to mapOf(Locale.RO to "Opreste", Locale.EN to "Stop"),
-    "stopDetail.trackingStopped" to mapOf(Locale.RO to "Dynamic Island oprit", Locale.EN to "Dynamic Island stopped"),
+    "stopDetail.trackingStopped" to mapOf(Locale.RO to "Urmarire oprita", Locale.EN to "Live tracking stopped"),
 
     // Settings page
     "settings.title" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),

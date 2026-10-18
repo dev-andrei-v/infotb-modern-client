@@ -53,6 +53,17 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
         Locale.RO to "Adauga statii din pagina Linii sau foloseste butonul de mai sus pentru a monitoriza sosirile in timp real.",
         Locale.EN to "Add stations from the Lines page or use the button above to monitor arrivals in real time."
     ),
+    "dashboard.updated" to mapOf(Locale.RO to "Actualizat", Locale.EN to "Updated"),
+    "dashboard.updating" to mapOf(Locale.RO to "Se actualizeaza...", Locale.EN to "Updating..."),
+    "dashboard.refresh" to mapOf(Locale.RO to "Reimprospateaza", Locale.EN to "Refresh"),
+    "dashboard.stale" to mapOf(Locale.RO to "Date vechi", Locale.EN to "Stale"),
+    "time.justNow" to mapOf(Locale.RO to "chiar acum", Locale.EN to "just now"),
+    "time.secondsAgo" to mapOf(Locale.RO to "acum {n}s", Locale.EN to "{n}s ago"),
+    "time.minutesAgo" to mapOf(Locale.RO to "acum {n} min", Locale.EN to "{n} min ago"),
+    "widget.size" to mapOf(Locale.RO to "Marime", Locale.EN to "Size"),
+    "widget.sizeMedium" to mapOf(Locale.RO to "Normal", Locale.EN to "Normal"),
+    "widget.sizeLarge" to mapOf(Locale.RO to "Mare", Locale.EN to "Large"),
+    "widget.loadFailed" to mapOf(Locale.RO to "Nu s-au putut incarca sosirile", Locale.EN to "Could not load arrivals"),
     "dashboard.allHidden" to mapOf(
         Locale.RO to "Toate statiile sunt ascunse. Apasa Editeaza pentru a le face vizibile.",
         Locale.EN to "All stations are hidden. Tap Edit to make them visible."

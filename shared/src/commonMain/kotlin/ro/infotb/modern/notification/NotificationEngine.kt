@@ -41,6 +41,8 @@ data class NotificationEvent(
     val direction: Int,
     val minutes: Int,
     val isTimetable: Boolean,
+    /** Vehicle type name (BUS, TRAM, CABLE_CAR = trolleybus, SUBWAY) so the island can draw the right glyph. */
+    val lineType: String = "BUS",
     /** True once the tracked vehicle has reached (or passed) the stop. */
     val hasArrived: Boolean = false,
     /** Stops the approaching vehicle still has to reach (1 = yours is next), when known. */
@@ -225,6 +227,7 @@ class NotificationEngine(
                     direction = sub.direction.value,
                     minutes = minutes,
                     isTimetable = line.isTimetable,
+                    lineType = line.type.name,
                     hasArrived = hasArrived,
                     stopsAway = proximity?.stopsAway,
                     distanceMeters = proximity?.distanceMeters,
@@ -242,7 +245,7 @@ class NotificationEngine(
                     val key = "${sub.id}-arrived"
                     if (key !in firedSet) {
                         firedSet[key] = now
-                        fireNotification(sub, 0, line.isTimetable)
+                        fireNotification(sub, 0, line.isTimetable, line.type.name)
                     }
                     if (now - arrivedSince!! >= ARRIVAL_GRACE_MS) {
                         graceExpired = true
@@ -255,7 +258,7 @@ class NotificationEngine(
                         val key = "${sub.id}-once"
                         if (key !in firedSet) {
                             firedSet[key] = now
-                            fireNotification(sub, minutes, line.isTimetable)
+                            fireNotification(sub, minutes, line.isTimetable, line.type.name)
                             // Do NOT toggle/disable — keep subscription active
                             // so live tracking (dynamic island) stays persistent
                         }
@@ -267,7 +270,7 @@ class NotificationEngine(
 
                     if (now - lastFired >= cooldown) {
                         firedSet[key] = now
-                        fireNotification(sub, minutes, line.isTimetable)
+                        fireNotification(sub, minutes, line.isTimetable, line.type.name)
                     }
                 }
             } catch (_: Exception) {
@@ -323,7 +326,7 @@ class NotificationEngine(
         null
     }
 
-    private fun fireNotification(sub: NotificationSubscription, minutes: Int, isTimetable: Boolean) {
+    private fun fireNotification(sub: NotificationSubscription, minutes: Int, isTimetable: Boolean, lineType: String) {
         val event = NotificationEvent(
             lineName = sub.lineName,
             lineColor = sub.lineColor,
@@ -332,7 +335,8 @@ class NotificationEngine(
             lineId = sub.lineId,
             direction = sub.direction.value,
             minutes = minutes,
-            isTimetable = isTimetable
+            isTimetable = isTimetable,
+            lineType = lineType
         )
         // Skip all notifications when live tracking is active — the dynamic island
         // or ongoing notification already shows the info.

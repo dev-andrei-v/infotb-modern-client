@@ -71,6 +71,7 @@ import Foundation
             direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
             minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
             isTimetable: (info["isTimetable"] as? Bool) ?? false,
+            lineType: info["lineType"] as? String ?? "BUS",
             extras: Extras(info)
         )
     }
@@ -87,6 +88,7 @@ import Foundation
             direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
             minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
             isTimetable: (info["isTimetable"] as? Bool) ?? false,
+            lineType: info["lineType"] as? String ?? "BUS",
             extras: Extras(info)
         )
     }
@@ -116,6 +118,7 @@ import Foundation
         direction: Int,
         minutes: Int,
         isTimetable: Bool,
+        lineType: String,
         extras: Extras
     ) {
         guard #available(iOS 16.2, *) else { return }
@@ -140,7 +143,8 @@ import Foundation
                 stopName: stopName,
                 stopId: stopId,
                 lineId: lineId,
-                direction: direction
+                direction: direction,
+                lineType: lineType
             )
             let state = makeState(minutes: minutes, isTimetable: isTimetable, extras: extras)
 
@@ -175,6 +179,7 @@ import Foundation
         direction: Int,
         minutes: Int,
         isTimetable: Bool,
+        lineType: String,
         extras: Extras
     ) {
         guard #available(iOS 16.2, *) else { return }
@@ -191,6 +196,7 @@ import Foundation
                     direction: direction,
                     minutes: minutes,
                     isTimetable: isTimetable,
+                    lineType: lineType,
                     extras: extras
                 )
                 return
@@ -207,6 +213,7 @@ import Foundation
                     direction: direction,
                     minutes: minutes,
                     isTimetable: isTimetable,
+                    lineType: lineType,
                     extras: extras
                 )
                 return

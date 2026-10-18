@@ -45,7 +45,7 @@ struct InfoTBLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 6) {
                         if state.progress != nil && !state.hasArrived {
-                            routeTrack(state: state, color: lineColor, onDark: true)
+                            routeTrack(state: state, color: lineColor, lineType: context.attributes.lineType, onDark: true)
                         }
                         HStack(spacing: 6) {
                             statusLine(state: state, isStale: isStale, textColor: .white.opacity(0.72))
@@ -114,7 +114,7 @@ struct InfoTBLiveActivity: Widget {
                 stopButton()
             }
             if state.progress != nil && !state.hasArrived {
-                routeTrack(state: state, color: color, onDark: false)
+                routeTrack(state: state, color: color, lineType: context.attributes.lineType, onDark: false)
             }
         }
         .padding(16)
@@ -134,6 +134,7 @@ struct InfoTBLiveActivity: Widget {
     private func routeTrack(
         state: TransitActivityAttributes.ContentState,
         color: Color,
+        lineType: String,
         onDark: Bool
     ) -> some View {
         let progress = min(max(state.progress ?? 0, 0), 1)
@@ -166,8 +167,7 @@ struct InfoTBLiveActivity: Widget {
                         .frame(width: 12, height: 12)
                         .position(x: width - 6, y: geo.size.height / 2)
                     // Vehicle
-                    Image(systemName: "bus.fill")
-                        .font(.system(size: 11, weight: .bold))
+                    VehicleGlyph(type: lineType, size: 11)
                         .foregroundStyle(.white)
                         .frame(width: busSize, height: busSize)
                         .background(Circle().fill(color))

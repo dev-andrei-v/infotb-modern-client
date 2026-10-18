@@ -144,6 +144,7 @@ class IosNotifier : PlatformNotifier {
             "direction" to event.direction,
             "minutes" to event.minutes,
             "isTimetable" to event.isTimetable,
+            "lineType" to event.lineType,
             "hasArrived" to event.hasArrived,
             // -1 means "unknown"; NSDictionary can't carry Kotlin nulls cleanly
             "stopsAway" to (event.stopsAway ?: -1),

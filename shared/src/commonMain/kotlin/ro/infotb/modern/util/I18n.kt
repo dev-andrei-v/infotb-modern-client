@@ -186,12 +186,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     ),
     "backup.export" to mapOf(Locale.RO to "Exporta in fisier", Locale.EN to "Export to file"),
     "backup.import" to mapOf(Locale.RO to "Importa din fisier", Locale.EN to "Import from file"),
-    "backup.copy" to mapOf(Locale.RO to "Copiaza in clipboard", Locale.EN to "Copy to clipboard"),
-    "backup.paste" to mapOf(Locale.RO to "Lipeste din clipboard", Locale.EN to "Paste from clipboard"),
     "backup.exported" to mapOf(Locale.RO to "Backup salvat", Locale.EN to "Backup saved"),
-    "backup.copied" to mapOf(Locale.RO to "Backup copiat in clipboard", Locale.EN to "Backup copied to clipboard"),
     "backup.cancelled" to mapOf(Locale.RO to "Anulat", Locale.EN to "Cancelled"),
-    "backup.clipboardEmpty" to mapOf(Locale.RO to "Clipboard-ul nu contine un backup", Locale.EN to "Clipboard does not contain a backup"),
     "backup.invalid" to mapOf(Locale.RO to "Fisierul nu este un backup InfoTB valid", Locale.EN to "This is not a valid InfoTB backup"),
     "backup.unsupportedVersion" to mapOf(
         Locale.RO to "Backup-ul a fost creat cu o versiune mai noua a aplicatiei",

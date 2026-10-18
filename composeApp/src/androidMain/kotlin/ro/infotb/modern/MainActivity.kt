@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
+import ro.infotb.modern.location.AndroidLocationPermission
 import ro.infotb.modern.ui.App
 import ro.infotb.modern.ui.PendingStopNav
 
@@ -25,8 +26,23 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { /* granted or not, we continue */ }
 
+    private var locationPermissionCallback: ((Boolean) -> Unit)? = null
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result.values.any { it }
+        locationPermissionCallback?.invoke(granted)
+        locationPermissionCallback = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AndroidLocationPermission.requester = { onResult ->
+            locationPermissionCallback = onResult
+            locationPermissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+            )
+        }
         enableEdgeToEdge()
         requestNotificationPermission()
         requestBatteryOptimizationExemption()

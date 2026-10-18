@@ -78,6 +78,18 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.groupDelete" to mapOf(Locale.RO to "Sterge grupul", Locale.EN to "Delete group"),
     "dashboard.groupSave" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
     "dashboard.close" to mapOf(Locale.RO to "Inchide", Locale.EN to "Close"),
+    "dashboard.sortGroups" to mapOf(Locale.RO to "Pe grupuri", Locale.EN to "By group"),
+    "dashboard.sortNearest" to mapOf(Locale.RO to "Cele mai apropiate", Locale.EN to "Nearest first"),
+    "dashboard.locationLoading" to mapOf(Locale.RO to "Se cauta pozitia...", Locale.EN to "Finding your position..."),
+    "dashboard.locationUnavailable" to mapOf(
+        Locale.RO to "Pozitia nu este disponibila. Verifica permisiunea de localizare.",
+        Locale.EN to "Location unavailable. Check the location permission."
+    ),
+    "dashboard.locationRetry" to mapOf(Locale.RO to "Reincearca", Locale.EN to "Retry"),
+    "dashboard.locationUnsupported" to mapOf(
+        Locale.RO to "Sortarea dupa distanta nu este disponibila pe acest dispozitiv.",
+        Locale.EN to "Sorting by distance is not available on this device."
+    ),
     "dashboard.allHidden" to mapOf(
         Locale.RO to "Toate statiile sunt ascunse. Apasa Editeaza pentru a le face vizibile.",
         Locale.EN to "All stations are hidden. Tap Edit to make them visible."

@@ -33,6 +33,7 @@ import ro.infotb.modern.data.store.FavoritesStore
 import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
+import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.notification.NotificationEngine
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.notification.NotificationEvent
@@ -72,7 +73,10 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
 
     // Lives for the whole app so switching tabs keeps dashboard data instead
     // of refetching every stop from scratch.
-    val dashboardViewModel = remember { DashboardViewModel(repository, dashboardStore) }
+    val platformLocation: PlatformLocation = koinInject()
+    val dashboardViewModel = remember {
+        DashboardViewModel(repository, dashboardStore, preferencesStore, platformLocation)
+    }
 
     // Start the notification engine
     DisposableEffect(Unit) {

@@ -20,8 +20,13 @@ import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.data.repository.TransitRepository
+import ro.infotb.modern.data.store.DashboardSort
 import ro.infotb.modern.data.store.DashboardStore
+import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.data.store.WidgetConfig
+import ro.infotb.modern.location.GeoPoint
+import ro.infotb.modern.location.PlatformLocation
+import ro.infotb.modern.location.distanceMeters
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.util.Constants
 
@@ -43,8 +48,28 @@ data class StopCardState(
 
 class DashboardViewModel(
     private val repository: TransitRepository,
-    private val dashboardStore: DashboardStore
+    private val dashboardStore: DashboardStore,
+    private val preferencesStore: PreferencesStore,
+    private val platformLocation: PlatformLocation
 ) : ViewModel() {
+
+    val sortMode: StateFlow<DashboardSort> = preferencesStore.dashboardSort
+    val locationSupported: Boolean = platformLocation.isSupported()
+
+    /** Stop coordinates, fetched once per stop from the home-stops endpoint. */
+    private val _stopCoordinates = MutableStateFlow<Map<Long, GeoPoint>>(emptyMap())
+    val stopCoordinates: StateFlow<Map<Long, GeoPoint>> = _stopCoordinates.asStateFlow()
+    private val coordinatesInFlight = mutableSetOf<Long>()
+
+    private val _userLocation = MutableStateFlow<GeoPoint?>(null)
+    val userLocation: StateFlow<GeoPoint?> = _userLocation.asStateFlow()
+
+    private val _locationLoading = MutableStateFlow(false)
+    val locationLoading: StateFlow<Boolean> = _locationLoading.asStateFlow()
+
+    /** True after a location request came back empty (denied, off, or timed out). */
+    private val _locationFailed = MutableStateFlow(false)
+    val locationFailed: StateFlow<Boolean> = _locationFailed.asStateFlow()
 
     val widgets: StateFlow<List<WidgetConfig>> = dashboardStore.widgets
     val groups: StateFlow<List<String>> = dashboardStore.groups
@@ -94,6 +119,7 @@ class DashboardViewModel(
                 if (missing.isNotEmpty() && isActive) {
                     fetchStops(missing, force = false)
                 }
+                if (sortMode.value == DashboardSort.NEAREST) ensureCoordinates(ids)
             }
         }
     }
@@ -105,7 +131,58 @@ class DashboardViewModel(
     fun setScreenActive(active: Boolean) {
         if (isActive == active) return
         isActive = active
-        if (active) startTicker() else stopTicker()
+        if (active) {
+            startTicker()
+            if (sortMode.value == DashboardSort.NEAREST) refreshLocation()
+        } else {
+            stopTicker()
+        }
+    }
+
+    fun setSortMode(mode: DashboardSort) {
+        preferencesStore.setDashboardSort(mode)
+        if (mode == DashboardSort.NEAREST) refreshLocation()
+    }
+
+    /** Re-reads the device position and makes sure every card has coordinates. */
+    fun refreshLocation() {
+        if (!locationSupported) return
+        viewModelScope.launch {
+            _locationLoading.value = true
+            val point = try { platformLocation.current() } catch (_: Exception) { null }
+            _userLocation.value = point ?: _userLocation.value
+            _locationFailed.value = point == null
+            _locationLoading.value = false
+        }
+        ensureCoordinates(widgets.value.map { it.stopId })
+    }
+
+    /** Distance in metres from the user to a stop, when both positions are known. */
+    fun distanceTo(stopId: Long): Double? {
+        val user = _userLocation.value ?: return null
+        val stop = _stopCoordinates.value[stopId] ?: return null
+        return distanceMeters(user, stop)
+    }
+
+    private fun ensureCoordinates(stopIds: Collection<Long>) {
+        val missing = stopIds.distinct().filter { it !in _stopCoordinates.value && it !in coordinatesInFlight }
+        if (missing.isEmpty()) return
+        coordinatesInFlight += missing
+        missing.forEach { stopId ->
+            viewModelScope.launch {
+                try {
+                    val stops = repository.getHomeStops(stopId)
+                    val stop = stops.firstOrNull { it.id == stopId } ?: stops.firstOrNull()
+                    if (stop != null) {
+                        _stopCoordinates.update { it + (stopId to GeoPoint(stop.lat, stop.lng)) }
+                    }
+                } catch (_: Exception) {
+                    // Card simply sorts last until the next attempt
+                } finally {
+                    coordinatesInFlight -= stopId
+                }
+            }
+        }
     }
 
     fun refreshNow() {

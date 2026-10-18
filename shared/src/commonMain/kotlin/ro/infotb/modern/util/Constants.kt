@@ -33,6 +33,7 @@ object Constants {
     const val SETTINGS_KEY_USER_INFO = "stb-user-info"
     const val SETTINGS_KEY_THEME = "stb-theme"
     const val SETTINGS_KEY_LOCALE = "stb-locale"
+    const val SETTINGS_KEY_DASHBOARD_SORT = "stb-dashboard-sort"
 
     // Database
     const val DB_NAME = "stb.db"

@@ -23,6 +23,7 @@ import ro.infotb.modern.data.store.FavoritesStore
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.notification.NotificationEngine
+import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.notification.createPlatformNotifier
 import ro.infotb.modern.util.Constants
 
@@ -78,6 +79,8 @@ val sharedModule: Module = module {
     single { get<StbDatabase>().favoriteDao() }
     single { get<StbDatabase>().notificationDao() }
     single { get<StbDatabase>().groupDao() }
+
+    single { PlatformLocation() }
 
     // Stores
     single {

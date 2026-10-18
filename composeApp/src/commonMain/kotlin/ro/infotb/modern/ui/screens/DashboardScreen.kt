@@ -95,6 +95,8 @@ import ro.infotb.modern.currentMinuteOfHour
 import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.store.WidgetSize
+import ro.infotb.modern.data.store.DashboardSort
+import androidx.compose.material.icons.filled.LocationOn
 import ro.infotb.modern.ui.theme.RealtimeColor
 import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.ui.viewmodel.StopCardState
@@ -136,6 +138,12 @@ fun DashboardScreen(
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
+    val sortMode by viewModel.sortMode.collectAsState()
+    val userLocation by viewModel.userLocation.collectAsState()
+    val locationLoading by viewModel.locationLoading.collectAsState()
+    val locationFailed by viewModel.locationFailed.collectAsState()
+    val stopCoordinates by viewModel.stopCoordinates.collectAsState()
+    val nearestMode = sortMode == DashboardSort.NEAREST && viewModel.locationSupported
     val lineTimetables by viewModel.lineTimetables.collectAsState()
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
@@ -174,6 +182,16 @@ fun DashboardScreen(
     }
     val hasGroups = grouped.size > 1 || (grouped.size == 1 && grouped[0].first.isNotEmpty())
 
+    // Nearest-first: one flat list, closest station on top, unknown distances last
+    val distances: Map<Long, Double?> = remember(widgets, userLocation, stopCoordinates) {
+        widgets.associate { w -> w.stopId to viewModel.distanceTo(w.stopId) }
+    }
+    val nearestOrder = remember(widgets, distances, isEditing) {
+        widgets
+            .filter { !it.hidden || isEditing }
+            .sortedWith(compareBy(nullsLast()) { distances[it.stopId] })
+    }
+
     // Count how many widgets are actually visible
     val visibleCount = widgets.count { w ->
         !w.hidden && w.group !in hiddenGroups
@@ -195,6 +213,42 @@ fun DashboardScreen(
             onSettings = onNavigateToSettings,
             onManageGroups = { showGroupsDialog = true }
         )
+
+        if (widgets.size > 1 && viewModel.locationSupported && !isEditing) {
+            SortToggle(
+                sortMode = sortMode,
+                locale = locale,
+                onChange = { viewModel.setSortMode(it) }
+            )
+        }
+
+        if (nearestMode && !isEditing) {
+            if (locationLoading && userLocation == null) {
+                Text(
+                    text = t("dashboard.locationLoading", locale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalMuted.current,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            } else if (locationFailed && userLocation == null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = t("dashboard.locationUnavailable", locale),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { viewModel.refreshLocation() }) {
+                        Text(t("dashboard.locationRetry", locale), fontSize = 12.sp)
+                    }
+                }
+            }
+        }
 
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -236,12 +290,16 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    grouped.forEach { (groupName, items) ->
-                        val isGroupHidden = groupName in hiddenGroups
+                    val sections: List<Pair<String, List<WidgetConfig>>> =
+                        if (nearestMode) listOf("" to nearestOrder) else grouped
+                    val showHeaders = hasGroups && !nearestMode
+
+                    sections.forEach { (groupName, items) ->
+                        val isGroupHidden = !nearestMode && groupName in hiddenGroups
 
                         if (isGroupHidden && !isEditing) return@forEach
 
-                        if (hasGroups) {
+                        if (showHeaders) {
                             item(
                                 key = "group_header_$groupName",
                                 span = { GridItemSpan(maxLineSpan) }
@@ -291,6 +349,7 @@ fun DashboardScreen(
                             StationWidgetCard(
                                 widget = widget,
                                 cardState = cardStates[widget.stopId],
+                                distanceMeters = if (nearestMode) distances[widget.stopId] else null,
                                 now = now,
                                 isEditing = isEditing,
                                 groups = groups,
@@ -489,6 +548,7 @@ private const val STALE_AFTER_MS = 60_000L
 private fun StationWidgetCard(
     widget: WidgetConfig,
     cardState: StopCardState?,
+    distanceMeters: Double?,
     now: Long,
     isEditing: Boolean,
     groups: List<String>,
@@ -574,6 +634,21 @@ private fun StationWidgetCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (distanceMeters != null) {
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = formatDistance(distanceMeters),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(6.dp))
+                            }
                             if (widget.group.isNotEmpty()) {
                                 Text(
                                     text = widget.group,
@@ -760,6 +835,38 @@ private fun StationWidgetCard(
         )
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SortToggle(
+    sortMode: DashboardSort,
+    locale: Locale,
+    onChange: (DashboardSort) -> Unit
+) {
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        SegmentedButton(
+            selected = sortMode == DashboardSort.GROUPS,
+            onClick = { onChange(DashboardSort.GROUPS) },
+            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+        ) { Text(t("dashboard.sortGroups", locale), fontSize = 12.sp) }
+        SegmentedButton(
+            selected = sortMode == DashboardSort.NEAREST,
+            onClick = { onChange(DashboardSort.NEAREST) },
+            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+            icon = {
+                Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(14.dp))
+            }
+        ) { Text(t("dashboard.sortNearest", locale), fontSize = 12.sp) }
+    }
+}
+
+/** "350 m" or "1.2 km". */
+private fun formatDistance(meters: Double): String =
+    if (meters >= 1000) "${((meters / 100).toInt()) / 10.0} km" else "${meters.toInt()} m"
 
 @Composable
 private fun StaleChip(locale: Locale) {

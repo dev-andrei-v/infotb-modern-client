@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		7555FF7F242A565900829871 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF7E242A565900829871 /* iOSApp.swift */; };
+		DA000000000000A2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA000000000000A1 /* SceneDelegate.swift */; };
 		7555FF81242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF80242A565900829871 /* ContentView.swift */; };
 		A1B2C3D4E5F60001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002 /* Assets.xcassets */; };
 		DA00000000000013 /* TransitActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000001 /* TransitActivityAttributes.swift */; };
@@ -46,6 +47,7 @@
 /* Begin PBXFileReference section */
 		7555FF79242A565900829871 /* InfoTB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InfoTB.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF7E242A565900829871 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		DA000000000000A1 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		7555FF80242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF82242A565900829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D4E5F60002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -98,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				7555FF7E242A565900829871 /* iOSApp.swift */,
+				DA000000000000A1 /* SceneDelegate.swift */,
 				7555FF80242A565900829871 /* ContentView.swift */,
 				DA00000000000001 /* TransitActivityAttributes.swift */,
 				DA00000000000004 /* LiveActivityManager.swift */,
@@ -223,7 +226,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\nexport GRADLE_OPTS=\"-Xmx4g\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode -Dorg.gradle.jvmargs=\"-Xmx4g\" -Pkotlin.native.jvmArgs=-Xmx4g\n";
+			shellScript = "cd \"$SRCROOT/..\"\n# Xcode does not inherit the shell PATH/JAVA_HOME; Gradle 8.x needs JDK 17-21.\nif [ -z \"$JAVA_HOME\" ]; then\n  export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home -v 17 2>/dev/null)\nfi\nexport GRADLE_OPTS=\"-Xmx4g\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode -Dorg.gradle.jvmargs=\"-Xmx4g\" -Pkotlin.native.jvmArgs=-Xmx4g\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -234,6 +237,7 @@
 			files = (
 				7555FF81242A565900829871 /* ContentView.swift in Sources */,
 				7555FF7F242A565900829871 /* iOSApp.swift in Sources */,
+				DA000000000000A2 /* SceneDelegate.swift in Sources */,
 				DA00000000000013 /* TransitActivityAttributes.swift in Sources */,
 				DA00000000000014 /* LiveActivityManager.swift in Sources */,
 				DA00000000000015 /* BackgroundLocationManager.swift in Sources */,

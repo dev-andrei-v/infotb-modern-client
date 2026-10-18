@@ -21,9 +21,12 @@ class IosNotifier : PlatformNotifier {
         const val UPDATE_LIVE_TRACKING = "ro.infotb.modern.UPDATE_LIVE_TRACKING"
         const val STOP_LIVE_TRACKING = "ro.infotb.modern.STOP_LIVE_TRACKING"
         private const val LIVE_ACTIVITY_FAILED = "ro.infotb.modern.LIVE_ACTIVITY_FAILED"
+        /** Posted by Swift when the user taps "Stop" in the island or the app is terminated. */
+        private const val USER_STOP_TRACKING = "ro.infotb.modern.USER_STOP_TRACKING"
     }
 
     private var liveTrackingActive = false
+    private var onUserStopTracking: (() -> Unit)? = null
 
     init {
         UNUserNotificationCenter.currentNotificationCenter()
@@ -52,6 +55,22 @@ class IosNotifier : PlatformNotifier {
                 isTimetable = (info["isTimetable"] as? Boolean) ?: false
             )
         }
+    }
+
+    init {
+        NSNotificationCenter.defaultCenter.addObserverForName(
+            name = USER_STOP_TRACKING,
+            `object` = null,
+            queue = null
+        ) { _ ->
+            println("[IosNotifier] User requested stop tracking")
+            liveTrackingActive = false
+            onUserStopTracking?.invoke()
+        }
+    }
+
+    override fun setOnUserStopTracking(callback: () -> Unit) {
+        onUserStopTracking = callback
     }
 
     override fun showNotification(event: NotificationEvent) {
@@ -124,7 +143,13 @@ class IosNotifier : PlatformNotifier {
             "lineId" to event.lineId,
             "direction" to event.direction,
             "minutes" to event.minutes,
-            "isTimetable" to event.isTimetable
+            "isTimetable" to event.isTimetable,
+            "hasArrived" to event.hasArrived,
+            // -1 means "unknown"; NSDictionary can't carry Kotlin nulls cleanly
+            "stopsAway" to (event.stopsAway ?: -1),
+            "distanceMeters" to (event.distanceMeters ?: -1),
+            "progress" to (event.progress ?: -1.0),
+            "nextMinutes" to event.nextMinutes
         )
         NSNotificationCenter.defaultCenter.postNotificationName(
             aName = name,

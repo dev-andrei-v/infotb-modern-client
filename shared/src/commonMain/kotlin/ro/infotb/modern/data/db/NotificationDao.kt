@@ -16,6 +16,12 @@ interface NotificationDao {
     @Query("SELECT * FROM notification_subscriptions WHERE enabled = 1")
     suspend fun getEnabled(): List<NotificationEntity>
 
+    @Query("SELECT * FROM notification_subscriptions")
+    suspend fun getAll(): List<NotificationEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<NotificationEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: NotificationEntity)
 

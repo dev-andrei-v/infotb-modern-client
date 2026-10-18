@@ -178,6 +178,46 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
         Locale.EN to "Install InfoTB on your phone for quick access and notifications."
     ),
     "settings.install" to mapOf(Locale.RO to "Instaleaza", Locale.EN to "Install"),
+    // Backup & restore
+    "settings.backup" to mapOf(Locale.RO to "Backup si restaurare", Locale.EN to "Backup & restore"),
+    "settings.backupDescription" to mapOf(
+        Locale.RO to "Salveaza statiile, grupurile, favoritele si notificarile intr-un fisier, ca sa le poti readuce dupa o reinstalare sau pe alt dispozitiv.",
+        Locale.EN to "Save your stations, groups, favorites and notifications to a file so you can bring them back after a reinstall or on another device."
+    ),
+    "backup.export" to mapOf(Locale.RO to "Exporta in fisier", Locale.EN to "Export to file"),
+    "backup.import" to mapOf(Locale.RO to "Importa din fisier", Locale.EN to "Import from file"),
+    "backup.copy" to mapOf(Locale.RO to "Copiaza in clipboard", Locale.EN to "Copy to clipboard"),
+    "backup.paste" to mapOf(Locale.RO to "Lipeste din clipboard", Locale.EN to "Paste from clipboard"),
+    "backup.exported" to mapOf(Locale.RO to "Backup salvat", Locale.EN to "Backup saved"),
+    "backup.copied" to mapOf(Locale.RO to "Backup copiat in clipboard", Locale.EN to "Backup copied to clipboard"),
+    "backup.cancelled" to mapOf(Locale.RO to "Anulat", Locale.EN to "Cancelled"),
+    "backup.clipboardEmpty" to mapOf(Locale.RO to "Clipboard-ul nu contine un backup", Locale.EN to "Clipboard does not contain a backup"),
+    "backup.invalid" to mapOf(Locale.RO to "Fisierul nu este un backup InfoTB valid", Locale.EN to "This is not a valid InfoTB backup"),
+    "backup.unsupportedVersion" to mapOf(
+        Locale.RO to "Backup-ul a fost creat cu o versiune mai noua a aplicatiei",
+        Locale.EN to "This backup was created by a newer version of the app"
+    ),
+    "backup.failed" to mapOf(Locale.RO to "Nu s-a putut finaliza", Locale.EN to "Could not complete"),
+    "backup.restoreTitle" to mapOf(Locale.RO to "Restaurezi acest backup?", Locale.EN to "Restore this backup?"),
+    "backup.exportedOn" to mapOf(Locale.RO to "Creat pe", Locale.EN to "Created on"),
+    "backup.summaryWidgets" to mapOf(Locale.RO to "statii", Locale.EN to "stations"),
+    "backup.summaryGroups" to mapOf(Locale.RO to "grupuri", Locale.EN to "groups"),
+    "backup.summaryFavorites" to mapOf(Locale.RO to "linii favorite", Locale.EN to "favorite lines"),
+    "backup.summarySubscriptions" to mapOf(Locale.RO to "notificari", Locale.EN to "notifications"),
+    "backup.modeReplace" to mapOf(Locale.RO to "Inlocuieste", Locale.EN to "Replace"),
+    "backup.modeReplaceDescription" to mapOf(
+        Locale.RO to "Sterge datele curente si incarca backup-ul exact cum a fost salvat.",
+        Locale.EN to "Clears current data and loads the backup exactly as saved."
+    ),
+    "backup.modeMerge" to mapOf(Locale.RO to "Combina", Locale.EN to "Merge"),
+    "backup.modeMergeDescription" to mapOf(
+        Locale.RO to "Pastreaza datele curente si adauga ce lipseste din backup.",
+        Locale.EN to "Keeps current data and adds what the backup has on top."
+    ),
+    "backup.restore" to mapOf(Locale.RO to "Restaureaza", Locale.EN to "Restore"),
+    "backup.cancel" to mapOf(Locale.RO to "Anuleaza", Locale.EN to "Cancel"),
+    "backup.restored" to mapOf(Locale.RO to "Backup restaurat", Locale.EN to "Backup restored"),
+
     "settings.about" to mapOf(Locale.RO to "Despre", Locale.EN to "About"),
     "settings.aboutDescription" to mapOf(
         Locale.RO to "Client modern pentru transportul public din Bucuresti.",
@@ -278,6 +318,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "notification.arrived" to mapOf(Locale.RO to "A sosit!", Locale.EN to "Arrived!"),
     "notification.now" to mapOf(Locale.RO to "ACUM", Locale.EN to "NOW"),
     "notification.min" to mapOf(Locale.RO to "min", Locale.EN to "min"),
+    "notification.stop" to mapOf(Locale.RO to "statie", Locale.EN to "stop"),
+    "notification.stops" to mapOf(Locale.RO to "statii", Locale.EN to "stops"),
     "notification.scheduled" to mapOf(Locale.RO to "Programat", Locale.EN to "Scheduled"),
     "notification.realtime" to mapOf(Locale.RO to "Timp real", Locale.EN to "Real-time"),
     "notification.setFor" to mapOf(Locale.RO to "Notificare setata pentru linia", Locale.EN to "Notification set for line"),

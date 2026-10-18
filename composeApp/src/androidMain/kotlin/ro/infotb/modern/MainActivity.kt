@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
+import io.github.vinceglb.filekit.core.FileKit
 import ro.infotb.modern.location.AndroidLocationPermission
 import ro.infotb.modern.ui.App
 import ro.infotb.modern.ui.PendingStopNav
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FileKit.init(this)
         AndroidLocationPermission.requester = { onResult ->
             locationPermissionCallback = onResult
             locationPermissionLauncher.launch(

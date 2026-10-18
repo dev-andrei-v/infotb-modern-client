@@ -19,6 +19,12 @@ interface GroupDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(entity: GroupEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<GroupEntity>)
+
+    @Query("DELETE FROM dashboard_groups")
+    suspend fun deleteAll()
+
     @Update
     suspend fun update(entity: GroupEntity)
 

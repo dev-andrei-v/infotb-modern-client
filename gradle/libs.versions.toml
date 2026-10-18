@@ -13,6 +13,7 @@ uuid = "0.8.4"
 room = "2.7.1"
 sqlite = "2.5.0"
 ksp = "2.1.10-1.0.31"
+filekit = "0.8.8"
 
 [libraries]
 # Ktor
@@ -49,6 +50,9 @@ uuid = { group = "com.benasher44", name = "uuid", version.ref = "uuid" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+
+# FileKit (native file pickers / savers for backup & restore)
+filekit-compose = { group = "io.github.vinceglb", name = "filekit-compose", version.ref = "filekit" }
 
 # AndroidX
 activity-compose = { group = "androidx.activity", name = "activity-compose", version = "1.9.3" }

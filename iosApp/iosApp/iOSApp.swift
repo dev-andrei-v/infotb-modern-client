@@ -8,6 +8,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private lazy var locationManager = BackgroundLocationManager()
 
+    /// True while the Kotlin engine has a live tracking session running.
+    private var isTracking = false
+    private var isInBackground = false
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -33,6 +37,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             object: nil
         )
 
+        // Mirror the engine's tracking state so background keep-alive only
+        // runs while there is actually something to track.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(trackingStarted),
+            name: NSNotification.Name("ro.infotb.modern.START_LIVE_TRACKING"),
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(trackingStopped),
+            name: NSNotification.Name("ro.infotb.modern.STOP_LIVE_TRACKING"),
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(trackingStopped),
+            name: userStopTrackingNotification,
+            object: nil
+        )
+
         return true
     }
 
@@ -47,15 +72,40 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     @objc private func appDidEnterBackground() {
+        isInBackground = true
+        guard isTracking else {
+            print("[AppDelegate] Backgrounded with no tracking; location stays off")
+            return
+        }
         locationManager.start()
         print("[AppDelegate] Background location started to keep Dynamic Island alive")
     }
 
     @objc private func appWillEnterForeground() {
+        isInBackground = false
+        locationManager.stop()
+    }
+
+    @objc private func trackingStarted() {
+        isTracking = true
+        if isInBackground {
+            locationManager.start()
+        } else {
+            // First time the user tracks something: ask while we are visible,
+            // which is the only time iOS will show the prompt.
+            locationManager.requestPermissionIfNeeded()
+        }
+    }
+
+    @objc private func trackingStopped() {
+        isTracking = false
         locationManager.stop()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
+        // End the session so a relaunch hours later doesn't resurrect the
+        // island and the background keep-alive.
+        NotificationCenter.default.post(name: userStopTrackingNotification, object: nil)
         LiveActivityManager.shared.endAllActivities()
     }
 }

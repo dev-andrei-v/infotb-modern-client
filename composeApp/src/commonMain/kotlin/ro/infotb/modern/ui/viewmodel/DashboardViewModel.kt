@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import ro.infotb.modern.currentTimeMillis
+import ro.infotb.modern.data.model.Announcement
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.TimetableHour
@@ -38,6 +39,8 @@ import ro.infotb.modern.util.Constants
  * card never flashes back to a spinner; [error] and [lastUpdatedMs] let the UI
  * flag stale data instead.
  */
+private const val ANNOUNCEMENTS_TTL_MS = 15 * 60 * 1000L
+
 data class StopCardState(
     val info: StopInfo? = null,
     val lastUpdatedMs: Long = 0L,
@@ -93,6 +96,11 @@ class DashboardViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    /** Service notices; cards show the ones that mention a line they display. */
+    private val _announcements = MutableStateFlow<List<Announcement>>(emptyList())
+    val announcements: StateFlow<List<Announcement>> = _announcements.asStateFlow()
+    private var announcementsFetchedMs = 0L
+
     /** Wall-clock time of the last completed full refresh, 0 if none yet. */
     private val _lastRefreshMs = MutableStateFlow(0L)
     val lastRefreshMs: StateFlow<Long> = _lastRefreshMs.asStateFlow()
@@ -135,6 +143,7 @@ class DashboardViewModel(
         isActive = active
         if (active) {
             startTicker()
+            refreshAnnouncements()
             if (sortMode.value == DashboardSort.NEAREST) refreshLocation()
         } else {
             stopTicker()
@@ -188,6 +197,7 @@ class DashboardViewModel(
     }
 
     fun refreshNow() {
+        refreshAnnouncements(force = true)
         viewModelScope.launch {
             _isRefreshing.value = true
             fetchStops(visibleStopIds.value, force = true)
@@ -198,6 +208,20 @@ class DashboardViewModel(
 
     fun toggleEditing() {
         _isEditing.value = !_isEditing.value
+    }
+
+    /** Fetches notices at most every [ANNOUNCEMENTS_TTL_MS] unless forced; failures keep the last list. */
+    private fun refreshAnnouncements(force: Boolean = false) {
+        val now = currentTimeMillis()
+        if (!force && now - announcementsFetchedMs < ANNOUNCEMENTS_TTL_MS) return
+        viewModelScope.launch {
+            try {
+                _announcements.value = repository.getAnnouncements()
+                announcementsFetchedMs = currentTimeMillis()
+            } catch (_: Exception) {
+                // Notices are a bonus on the dashboard; a failed fetch is not worth an error state
+            }
+        }
     }
 
     fun removeWidget(id: String) {

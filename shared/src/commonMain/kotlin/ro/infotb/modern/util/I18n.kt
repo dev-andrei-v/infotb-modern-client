@@ -241,6 +241,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.addGroup" to mapOf(Locale.RO to "Adauga grup...", Locale.EN to "Add group..."),
     "widget.delete" to mapOf(Locale.RO to "Sterge", Locale.EN to "Delete"),
     "widget.moreLines" to mapOf(Locale.RO to "linii in plus", Locale.EN to "more lines"),
+    "widget.moreNews" to mapOf(Locale.RO to "+{n} alte anunturi", Locale.EN to "+{n} more notices"),
     "widget.noData" to mapOf(Locale.RO to "Fara date", Locale.EN to "No data"),
     "widget.outOfService" to mapOf(Locale.RO to "Nu circula", Locale.EN to "Not in service"),
     "widget.nextArrivals" to mapOf(Locale.RO to "Urmatoarele", Locale.EN to "Next"),

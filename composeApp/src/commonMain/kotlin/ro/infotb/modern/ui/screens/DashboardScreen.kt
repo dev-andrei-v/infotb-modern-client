@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -68,6 +69,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberTimePickerState
+import ro.infotb.modern.data.model.Announcement
 import ro.infotb.modern.data.store.GroupSchedule
 import ro.infotb.modern.ui.theme.parseColor
 import androidx.compose.material3.TextButton
@@ -111,6 +113,7 @@ import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.data.store.WidgetConfig
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
+import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.NotificationDialog
@@ -131,6 +134,7 @@ fun DashboardScreen(
     onNavigateToStop: (stopId: Long) -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onNavigateToLines: () -> Unit,
+    onNavigateToNews: () -> Unit,
     onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
     val widgets by viewModel.widgets.collectAsState()
@@ -139,6 +143,7 @@ fun DashboardScreen(
     val groups by viewModel.groups.collectAsState()
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
     val groupSchedules by viewModel.groupSchedules.collectAsState()
+    val announcements by viewModel.announcements.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
     val sortMode by viewModel.sortMode.collectAsState()
@@ -408,6 +413,8 @@ fun DashboardScreen(
                                 cardState = cardStates[widget.stopId],
                                 distanceMeters = if (nearestMode) distances[widget.stopId] else null,
                                 showGroup = nearestMode,
+                                announcements = announcements,
+                                onNewsClick = onNavigateToNews,
                                 now = now,
                                 isEditing = isEditing,
                                 groups = groups,
@@ -629,15 +636,14 @@ private fun formatAgo(elapsedMs: Long, locale: Locale): String {
 /** Data older than this is flagged on the card. */
 private const val STALE_AFTER_MS = 60_000L
 
-/** Keeps the arrival column the same width on every row ("<1 min" to "45 min"). */
-private val HERO_BADGE_MIN_WIDTH = 78.dp
-
 @Composable
 private fun StationWidgetCard(
     widget: WidgetConfig,
     cardState: StopCardState?,
     distanceMeters: Double?,
     showGroup: Boolean,
+    announcements: List<Announcement>,
+    onNewsClick: () -> Unit,
     now: Long,
     isEditing: Boolean,
     groups: List<String>,
@@ -671,6 +677,12 @@ private fun StationWidgetCard(
                     if (it.arrivingTime >= 0) 0 else 1
                 }.thenBy { it.arrivingTime }
             )
+    }
+
+    // Notices that mention a line shown on this card
+    val relevantNews = remember(announcements, sortedLines) {
+        val ids = sortedLines.map { it.id }.toSet()
+        announcements.filter { a -> a.lines.any { it.id != null && it.id in ids } }
     }
 
     // Seconds since this card's data was fetched; drives the local countdown
@@ -819,6 +831,11 @@ private fun StationWidgetCard(
 
                 Spacer(Modifier.height(6.dp))
 
+                if (relevantNews.isNotEmpty()) {
+                    NewsBanner(news = relevantNews, locale = locale, onClick = onNewsClick)
+                    Spacer(Modifier.height(6.dp))
+                }
+
                 // Line rows
                 if (stopInfo != null && sortedLines.isNotEmpty()) {
                     Column {
@@ -963,6 +980,58 @@ private fun SortToggle(
 private fun formatDistance(meters: Double): String =
     if (meters >= 1000) "${((meters / 100).toInt()) / 10.0} km" else "${meters.toInt()} m"
 
+/** One-line notice strip shown on a card when a notice mentions one of its lines. */
+@Composable
+private fun NewsBanner(news: List<Announcement>, locale: Locale, onClick: () -> Unit) {
+    val first = news.first()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Icon(
+            Icons.Default.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = first.title,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (news.size > 1) {
+                Text(
+                    text = t("widget.moreNews", locale).replace("{n}", (news.size - 1).toString()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.75f)
+                )
+            }
+        }
+        Spacer(Modifier.width(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+            first.lines.take(3).forEach { line ->
+                LineBadge(name = line.name, color = line.color, size = BadgeSize.SMALL)
+            }
+        }
+        Icon(
+            Icons.Default.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
 @Composable
 private fun StaleChip(locale: Locale) {
     Row(
@@ -1095,7 +1164,7 @@ private fun WidgetLineRow(
                         seconds = liveSeconds,
                         isTimetable = line.isTimetable,
                         size = BadgeSize.LARGE,
-                        modifier = Modifier.widthIn(min = HERO_BADGE_MIN_WIDTH)
+                        modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
                     )
                 }
             } else {

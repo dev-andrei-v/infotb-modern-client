@@ -70,6 +70,7 @@ import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberTimePickerState
 import ro.infotb.modern.data.store.GroupSchedule
 import ro.infotb.modern.ui.theme.parseColor
+import ro.infotb.modern.util.formatArrivalBadge
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -629,6 +630,9 @@ private fun formatAgo(elapsedMs: Long, locale: Locale): String {
 /** Data older than this is flagged on the card. */
 private const val STALE_AFTER_MS = 60_000L
 
+/** Keeps the arrival column the same width on every row ("<1 min" to "45 min"). */
+private val HERO_BADGE_MIN_WIDTH = 78.dp
+
 @Composable
 private fun StationWidgetCard(
     widget: WidgetConfig,
@@ -1063,9 +1067,10 @@ private fun WidgetLineRow(
                     )
                 }
                 Spacer(Modifier.width(4.dp))
-                // The hero number, highlighted when the vehicle is about to arrive,
-                // with the following arrivals stacked underneath it on large cards
-                Column(horizontalAlignment = Alignment.End) {
+                // The hero number, highlighted when the vehicle is about to arrive.
+                // It has a fixed minimum width so every row's time column lines up;
+                // large cards list the following arrivals underneath in muted text.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         modifier = if (isImminent) Modifier
                             .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
@@ -1075,23 +1080,20 @@ private fun WidgetLineRow(
                         ArrivalTimeBadge(
                             seconds = liveSeconds,
                             isTimetable = line.isTimetable,
-                            size = BadgeSize.LARGE
+                            size = BadgeSize.LARGE,
+                            modifier = Modifier.widthIn(min = HERO_BADGE_MIN_WIDTH)
                         )
                     }
                     if (followUps.isNotEmpty()) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 3.dp)
-                        ) {
-                            followUps.forEach { arrival ->
-                                ArrivalTimeBadge(
-                                    seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
-                                    isTimetable = arrival.isTimetable,
-                                    size = BadgeSize.SMALL
-                                )
-                            }
-                        }
+                        Text(
+                            text = followUps.joinToString(" \u00b7 ") { arrival ->
+                                formatArrivalBadge((arrival.arrivingTime - elapsedSec).coerceAtLeast(0))
+                            },
+                            fontSize = 11.sp,
+                            color = LocalMuted.current,
+                            maxLines = 1,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
                     }
                 }
             } else {

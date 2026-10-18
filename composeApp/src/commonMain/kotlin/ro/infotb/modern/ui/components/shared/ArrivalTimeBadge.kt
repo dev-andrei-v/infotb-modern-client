@@ -2,6 +2,7 @@ package ro.infotb.modern.ui.components.shared
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -52,7 +53,8 @@ fun ArrivalTimeBadge(
             .background(color.copy(alpha = 0.15f))
             .clickable { showTooltip = true }
             .padding(horizontal = hPad.dp, vertical = vPad.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
         if (isTimetable) {
             Icon(

@@ -13,7 +13,7 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun getHeaders(): Map<String, String> {
+    private fun getHeaders(token: String?): Map<String, String> {
         val headers = mutableMapOf(
             "Content-Type" to "application/json",
             "Accept" to "application/json, text/plain, */*",
@@ -25,70 +25,42 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
             "Source" to Constants.APP_SOURCE,
             "App-Id" to authManager.appId
         )
-        val token = authManager.userInfo
         if (token != null) {
             headers["User-Info"] = token
         }
         return headers
     }
 
-    private suspend fun ensureAuth() {
-        if (!authManager.isAuthenticated) {
-            authManager.authenticate(client)
-        }
-    }
-
-    private suspend fun fetchProto(path: String): ByteArray {
-        ensureAuth()
-
-        var response = client.get("${Constants.API_BASE_URL}$path") {
-            for ((key, value) in getHeaders()) {
+    private suspend fun request(path: String, token: String): HttpResponse {
+        return client.get("${Constants.API_BASE_URL}$path") {
+            for ((key, value) in getHeaders(token)) {
                 header(key, value)
             }
         }
+    }
+
+    /**
+     * Performs an authenticated GET. On 401/412 the token is refreshed once
+     * (shared across concurrent callers) and the request is retried.
+     */
+    private suspend fun fetch(path: String): HttpResponse {
+        val token = authManager.ensureAuthenticated(client)
+        var response = request(path, token)
 
         if (response.status.value == 401 || response.status.value == 412) {
-            authManager.clear()
-            authManager.authenticate(client)
-            response = client.get("${Constants.API_BASE_URL}$path") {
-                for ((key, value) in getHeaders()) {
-                    header(key, value)
-                }
-            }
+            val fresh = authManager.reauthenticate(client, token)
+            response = request(path, fresh)
         }
 
         if (response.status.value !in 200..299) {
             throw RuntimeException("API error: ${response.status.value} ${response.status.description}")
         }
-
-        return response.readRawBytes()
+        return response
     }
 
-    private suspend fun fetchJson(path: String): String {
-        ensureAuth()
+    private suspend fun fetchProto(path: String): ByteArray = fetch(path).readRawBytes()
 
-        var response = client.get("${Constants.API_BASE_URL}$path") {
-            for ((key, value) in getHeaders()) {
-                header(key, value)
-            }
-        }
-
-        if (response.status.value == 401 || response.status.value == 412) {
-            authManager.clear()
-            authManager.authenticate(client)
-            response = client.get("${Constants.API_BASE_URL}$path") {
-                for ((key, value) in getHeaders()) {
-                    header(key, value)
-                }
-            }
-        }
-
-        if (response.status.value !in 200..299) {
-            throw RuntimeException("API error: ${response.status.value} ${response.status.description}")
-        }
-
-        return response.bodyAsText()
-    }
+    private suspend fun fetchJson(path: String): String = fetch(path).bodyAsText()
 
     suspend fun getAllLines(): List<Line> {
         val data = fetchProto("/lines?lang=ro")

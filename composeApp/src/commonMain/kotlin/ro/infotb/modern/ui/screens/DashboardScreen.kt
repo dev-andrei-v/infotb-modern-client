@@ -52,6 +52,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,7 +105,7 @@ fun DashboardScreen(
     onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
     val widgets by viewModel.widgets.collectAsState()
-    val widgetData by viewModel.widgetData.collectAsState()
+    val cardStates by viewModel.cardStates.collectAsState()
     val isEditing by viewModel.isEditing.collectAsState()
     val groups by viewModel.groups.collectAsState()
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
@@ -112,6 +113,12 @@ fun DashboardScreen(
     val lineTimetables by viewModel.lineTimetables.collectAsState()
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
+
+    // Only poll while this screen is on screen
+    DisposableEffect(viewModel) {
+        viewModel.setScreenActive(true)
+        onDispose { viewModel.setScreenActive(false) }
+    }
 
     // Notification dialog state
     data class BellTarget(val stopId: Long, val stopName: String, val lineId: Long, val lineName: String, val lineColor: String, val direction: Direction)
@@ -235,7 +242,7 @@ fun DashboardScreen(
                         ) { widget ->
                             StationWidgetCard(
                                 widget = widget,
-                                stopInfo = widgetData[widget.stopId],
+                                stopInfo = cardStates[widget.stopId]?.info,
                                 isEditing = isEditing,
                                 groups = groups,
                                 lineTimetables = lineTimetables,

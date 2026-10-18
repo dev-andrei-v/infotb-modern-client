@@ -1,6 +1,7 @@
 package ro.infotb.modern.di
 
 import io.ktor.client.*
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,7 @@ import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.notification.NotificationEngine
 import ro.infotb.modern.notification.createPlatformNotifier
+import ro.infotb.modern.util.Constants
 
 val sharedModule: Module = module {
 
@@ -46,6 +48,10 @@ val sharedModule: Module = module {
         HttpClient {
             install(ContentNegotiation) {
                 json(get())
+            }
+            install(HttpTimeout) {
+                requestTimeoutMillis = Constants.REQUEST_TIMEOUT_MS
+                connectTimeoutMillis = Constants.REQUEST_TIMEOUT_MS
             }
         }
     }

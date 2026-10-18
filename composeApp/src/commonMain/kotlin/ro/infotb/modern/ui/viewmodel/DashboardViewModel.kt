@@ -3,11 +3,19 @@ package ro.infotb.modern.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.TimetableHour
@@ -16,6 +24,22 @@ import ro.infotb.modern.data.store.DashboardStore
 import ro.infotb.modern.data.store.WidgetConfig
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.util.Constants
+
+/**
+ * Per-stop state shown by a dashboard card.
+ *
+ * [info] keeps the last successful result even after a failed refresh so the
+ * card never flashes back to a spinner; [error] and [lastUpdatedMs] let the UI
+ * flag stale data instead.
+ */
+data class StopCardState(
+    val info: StopInfo? = null,
+    val lastUpdatedMs: Long = 0L,
+    val isLoading: Boolean = false,
+    val error: String? = null
+) {
+    val hasData: Boolean get() = info != null
+}
 
 class DashboardViewModel(
     private val repository: TransitRepository,
@@ -29,8 +53,8 @@ class DashboardViewModel(
     private val _isEditing = MutableStateFlow(false)
     val isEditing: StateFlow<Boolean> = _isEditing.asStateFlow()
 
-    private val _widgetData = MutableStateFlow<Map<Long, StopInfo>>(emptyMap())
-    val widgetData: StateFlow<Map<Long, StopInfo>> = _widgetData.asStateFlow()
+    private val _cardStates = MutableStateFlow<Map<Long, StopCardState>>(emptyMap())
+    val cardStates: StateFlow<Map<Long, StopCardState>> = _cardStates.asStateFlow()
 
     /** On-demand timetable cache: key = "stopId_lineId_direction" */
     private val _lineTimetables = MutableStateFlow<Map<String, List<TimetableHour>>>(emptyMap())
@@ -42,19 +66,54 @@ class DashboardViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    private var refreshJob: Job? = null
+    /** Wall-clock time of the last completed full refresh, 0 if none yet. */
+    private val _lastRefreshMs = MutableStateFlow(0L)
+    val lastRefreshMs: StateFlow<Long> = _lastRefreshMs.asStateFlow()
+
+    private val fetchSemaphore = Semaphore(Constants.DASHBOARD_MAX_PARALLEL_FETCHES)
+
+    /** Stops currently shown on screen, derived from widget + group visibility. */
+    private val visibleStopIds: StateFlow<Set<Long>> = combine(widgets, hiddenGroups) { ws, hidden ->
+        ws.filter { !it.hidden && it.group !in hidden }.map { it.stopId }.toSet()
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    private var tickerJob: Job? = null
+    private var isActive = false
 
     init {
-        startWidgetDataRefresh()
+        // React to widgets being added, removed, hidden or unhidden: fetch the
+        // newcomers right away and drop state for stops that are gone.
+        viewModelScope.launch {
+            visibleStopIds.collect { ids ->
+                val known = _cardStates.value.keys
+                val removed = known - ids
+                if (removed.isNotEmpty()) {
+                    _cardStates.update { it - removed }
+                }
+                val missing = ids.filter { it !in known || !_cardStates.value.getValue(it).hasData }
+                if (missing.isNotEmpty() && isActive) {
+                    fetchStops(missing, force = false)
+                }
+            }
+        }
+    }
+
+    /**
+     * Called by the screen when it enters or leaves the composition so the
+     * periodic refresh only runs while the dashboard is actually visible.
+     */
+    fun setScreenActive(active: Boolean) {
+        if (isActive == active) return
+        isActive = active
+        if (active) startTicker() else stopTicker()
     }
 
     fun refreshNow() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            loadAllWidgetData()
+            fetchStops(visibleStopIds.value, force = true)
             _isRefreshing.value = false
-            // Reset the periodic timer
-            startWidgetDataRefresh()
+            if (isActive) startTicker()
         }
     }
 
@@ -68,7 +127,7 @@ class DashboardViewModel(
 
     fun clearAll() {
         dashboardStore.clearWidgets()
-        _widgetData.value = emptyMap()
+        _cardStates.value = emptyMap()
     }
 
     fun resizeWidget(id: String, size: WidgetSize) {
@@ -116,39 +175,68 @@ class DashboardViewModel(
         }
     }
 
-    private fun startWidgetDataRefresh() {
-        refreshJob?.cancel()
-        refreshJob = viewModelScope.launch {
+    private fun startTicker() {
+        tickerJob?.cancel()
+        tickerJob = viewModelScope.launch {
             while (true) {
-                loadAllWidgetData()
+                fetchStops(visibleStopIds.value, force = false)
                 delay(Constants.REFETCH_ARRIVALS_MS)
             }
         }
     }
 
-    private suspend fun loadAllWidgetData() {
-        val currentWidgets = widgets.value
-        val currentHiddenGroups = hiddenGroups.value
-        // Only fetch data for visible widgets (not hidden individually or by group)
-        val visibleWidgets = currentWidgets.filter { w ->
-            !w.hidden && w.group !in currentHiddenGroups
-        }
-        val stopIds = visibleWidgets.map { it.stopId }.distinct()
-        val dataMap = _widgetData.value.toMutableMap()
+    private fun stopTicker() {
+        tickerJob?.cancel()
+        tickerJob = null
+    }
 
-        for (stopId in stopIds) {
-            try {
-                val info = repository.getStopInfo(stopId)
-                dataMap[stopId] = info
-            } catch (e: Exception) {
-                println("Dashboard: failed to load stop $stopId: ${e.message}")
+    /**
+     * Fetches every stop in [stopIds] concurrently (bounded by the semaphore)
+     * and publishes each result as soon as it lands, so fast stops don't wait
+     * for slow ones. A failure only marks that one card.
+     */
+    private suspend fun fetchStops(stopIds: Collection<Long>, force: Boolean) {
+        if (stopIds.isEmpty()) return
+        val ids = stopIds.distinct()
+
+        _cardStates.update { states ->
+            states + ids.associateWith { id -> (states[id] ?: StopCardState()).copy(isLoading = true) }
+        }
+
+        coroutineScope {
+            for (stopId in ids) {
+                launch {
+                    fetchSemaphore.withPermit {
+                        val maxAge = if (force) 0L else Constants.STOP_INFO_CACHE_MS
+                        try {
+                            val info = repository.getStopInfo(stopId, maxAgeMs = maxAge)
+                            _cardStates.update { states ->
+                                states + (stopId to StopCardState(
+                                    info = info,
+                                    lastUpdatedMs = currentTimeMillis(),
+                                    isLoading = false,
+                                    error = null
+                                ))
+                            }
+                        } catch (e: Exception) {
+                            println("Dashboard: failed to load stop $stopId: ${e.message}")
+                            _cardStates.update { states ->
+                                val previous = states[stopId] ?: StopCardState()
+                                states + (stopId to previous.copy(
+                                    isLoading = false,
+                                    error = e.message ?: "error"
+                                ))
+                            }
+                        }
+                    }
+                }
             }
         }
-        _widgetData.value = dataMap
+        _lastRefreshMs.value = currentTimeMillis()
     }
 
     override fun onCleared() {
         super.onCleared()
-        refreshJob?.cancel()
+        stopTicker()
     }
 }

@@ -141,7 +141,8 @@ class AndroidNotifier : PlatformNotifier {
             event.minutes <= 0 -> t("notification.now", l)
             else -> "${event.minutes} ${t("notification.min", l)}"
         }
-        val source = if (event.isTimetable) t("notification.scheduled", l) else t("notification.realtime", l)
+        val baseSource = if (event.isTimetable) t("notification.scheduled", l) else t("notification.realtime", l)
+        val source = proximityText(event)?.let { "$baseSource \u2022 $it" } ?: baseSource
         val lineColor = parseHexColor(event.lineColor)
         val contentIntent = buildStopDetailIntent(context, event, LIVE_NOTIF_ID)
         val sourceIconRes = if (event.isTimetable) "ic_notification_scheduled" else "ic_notification_realtime"
@@ -326,6 +327,16 @@ class AndroidNotifier : PlatformNotifier {
             context, requestCode, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    /** "4 stops · 1.2 km" when the engine located the vehicle, else null. */
+    private fun proximityText(event: NotificationEvent): String? {
+        val stops = event.stopsAway ?: return null
+        val l = locale
+        val stopsText = "$stops ${if (stops == 1) t("notification.stop", l) else t("notification.stops", l)}"
+        val meters = event.distanceMeters ?: return stopsText
+        val distance = if (meters >= 1000) "${(meters / 100) / 10.0} km" else "$meters m"
+        return "$stopsText \u2022 $distance"
     }
 
     private fun parseHexColor(hex: String): Int {

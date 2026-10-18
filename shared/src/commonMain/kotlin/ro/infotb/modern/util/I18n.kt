@@ -228,6 +228,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "notification.arrived" to mapOf(Locale.RO to "A sosit!", Locale.EN to "Arrived!"),
     "notification.now" to mapOf(Locale.RO to "ACUM", Locale.EN to "NOW"),
     "notification.min" to mapOf(Locale.RO to "min", Locale.EN to "min"),
+    "notification.stop" to mapOf(Locale.RO to "statie", Locale.EN to "stop"),
+    "notification.stops" to mapOf(Locale.RO to "statii", Locale.EN to "stops"),
     "notification.scheduled" to mapOf(Locale.RO to "Programat", Locale.EN to "Scheduled"),
     "notification.realtime" to mapOf(Locale.RO to "Timp real", Locale.EN to "Real-time"),
     "notification.setFor" to mapOf(Locale.RO to "Notificare setata pentru linia", Locale.EN to "Notification set for line"),

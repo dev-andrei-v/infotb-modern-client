@@ -100,6 +100,14 @@ class NotificationStore(
         scope.launch { dao.deleteById(id) }
     }
 
+    /** Turns off every subscription, ending live tracking on the next poll. */
+    fun disableAll(onComplete: (() -> Unit)? = null) {
+        scope.launch {
+            dao.disableAll()
+            onComplete?.invoke()
+        }
+    }
+
     fun toggleSubscription(id: String) {
         scope.launch {
             val current = subscriptions.value.find { it.id == id } ?: return@launch

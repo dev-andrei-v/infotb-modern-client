@@ -9,6 +9,26 @@ import Foundation
 
     private var currentActivity: Any? = nil
 
+    /// Extra per-update fields decoded from the Kotlin notification payload.
+    private struct Extras {
+        var hasArrived: Bool
+        var stopsAway: Int?
+        var distanceMeters: Int?
+        var progress: Double?
+        var nextMinutes: [Int]
+
+        init(_ info: [AnyHashable: Any]) {
+            hasArrived = (info["hasArrived"] as? Bool) ?? false
+            let stops = (info["stopsAway"] as? NSNumber)?.intValue ?? -1
+            stopsAway = stops >= 0 ? stops : nil
+            let meters = (info["distanceMeters"] as? NSNumber)?.intValue ?? -1
+            distanceMeters = meters >= 0 ? meters : nil
+            let prog = (info["progress"] as? NSNumber)?.doubleValue ?? -1
+            progress = prog >= 0 ? prog : nil
+            nextMinutes = (info["nextMinutes"] as? [NSNumber])?.map { $0.intValue } ?? []
+        }
+    }
+
     private override init() {
         super.init()
         registerObservers()
@@ -50,7 +70,8 @@ import Foundation
             lineId: (info["lineId"] as? NSNumber)?.int64Value ?? 0,
             direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
             minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
-            isTimetable: (info["isTimetable"] as? Bool) ?? false
+            isTimetable: (info["isTimetable"] as? Bool) ?? false,
+            extras: Extras(info)
         )
     }
 
@@ -65,7 +86,8 @@ import Foundation
             lineId: (info["lineId"] as? NSNumber)?.int64Value ?? 0,
             direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
             minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
-            isTimetable: (info["isTimetable"] as? Bool) ?? false
+            isTimetable: (info["isTimetable"] as? Bool) ?? false,
+            extras: Extras(info)
         )
     }
 
@@ -93,7 +115,8 @@ import Foundation
         lineId: Int64,
         direction: Int,
         minutes: Int,
-        isTimetable: Bool
+        isTimetable: Bool,
+        extras: Extras
     ) {
         guard #available(iOS 16.2, *) else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
@@ -119,10 +142,7 @@ import Foundation
                 lineId: lineId,
                 direction: direction
             )
-            let state = TransitActivityAttributes.ContentState(
-                minutes: minutes,
-                isTimetable: isTimetable
-            )
+            let state = makeState(minutes: minutes, isTimetable: isTimetable, extras: extras)
 
             do {
                 let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
@@ -154,7 +174,8 @@ import Foundation
         lineId: Int64,
         direction: Int,
         minutes: Int,
-        isTimetable: Bool
+        isTimetable: Bool,
+        extras: Extras
     ) {
         guard #available(iOS 16.2, *) else { return }
 
@@ -169,7 +190,8 @@ import Foundation
                     lineId: lineId,
                     direction: direction,
                     minutes: minutes,
-                    isTimetable: isTimetable
+                    isTimetable: isTimetable,
+                    extras: extras
                 )
                 return
             }
@@ -184,19 +206,29 @@ import Foundation
                     lineId: lineId,
                     direction: direction,
                     minutes: minutes,
-                    isTimetable: isTimetable
+                    isTimetable: isTimetable,
+                    extras: extras
                 )
                 return
             }
 
-            let state = TransitActivityAttributes.ContentState(
-                minutes: minutes,
-                isTimetable: isTimetable
-            )
+            let state = makeState(minutes: minutes, isTimetable: isTimetable, extras: extras)
             let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
             await activity.update(content)
             print("[LiveActivity] Updated: \(minutes) min")
         }
+    }
+
+    private func makeState(minutes: Int, isTimetable: Bool, extras: Extras) -> TransitActivityAttributes.ContentState {
+        TransitActivityAttributes.ContentState(
+            minutes: minutes,
+            isTimetable: isTimetable,
+            hasArrived: extras.hasArrived,
+            stopsAway: extras.stopsAway,
+            distanceMeters: extras.distanceMeters,
+            progress: extras.progress,
+            nextMinutes: extras.nextMinutes
+        )
     }
 
     private func stopTracking() {

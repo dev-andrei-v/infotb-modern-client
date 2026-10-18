@@ -4,6 +4,8 @@ import com.russhwolf.settings.Settings
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -12,6 +14,9 @@ import ro.infotb.modern.util.Constants
 class AuthManager(private val settings: Settings) {
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    /** Serialises authentication so concurrent requests share one auth round-trip. */
+    private val authMutex = Mutex()
 
     var appId: String
         get() {
@@ -36,6 +41,35 @@ class AuthManager(private val settings: Settings) {
         }
 
     val isAuthenticated: Boolean get() = userInfo != null
+
+    /**
+     * Returns a valid token, authenticating only if none is stored.
+     * Safe to call from many coroutines at once: only the first one performs
+     * the network call, the rest wait for it and reuse the result.
+     */
+    suspend fun ensureAuthenticated(client: HttpClient): String {
+        userInfo?.let { return it }
+        return authMutex.withLock {
+            userInfo ?: authenticate(client)
+        }
+    }
+
+    /**
+     * Replaces [rejectedToken] with a fresh one. If another coroutine already
+     * refreshed the token in the meantime, the fresh token is returned without
+     * a second auth call.
+     */
+    suspend fun reauthenticate(client: HttpClient, rejectedToken: String?): String {
+        return authMutex.withLock {
+            val current = userInfo
+            if (current != null && current != rejectedToken) {
+                current
+            } else {
+                userInfo = null
+                authenticate(client)
+            }
+        }
+    }
 
     suspend fun authenticate(client: HttpClient): String {
         val currentAppId = appId

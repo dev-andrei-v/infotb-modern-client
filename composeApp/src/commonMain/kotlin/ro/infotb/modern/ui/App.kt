@@ -70,6 +70,10 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val notificationStore: NotificationStore = koinInject()
     val notificationEngine: NotificationEngine = koinInject()
 
+    // Lives for the whole app so switching tabs keeps dashboard data instead
+    // of refetching every stop from scratch.
+    val dashboardViewModel = remember { DashboardViewModel(repository, dashboardStore) }
+
     // Start the notification engine
     DisposableEffect(Unit) {
         notificationEngine.start()
@@ -172,9 +176,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                 startDestination = Screen.Dashboard.route
             ) {
                 composable(Screen.Dashboard.route) {
-                    val viewModel = remember { DashboardViewModel(repository, dashboardStore) }
                     DashboardScreen(
-                        viewModel = viewModel,
+                        viewModel = dashboardViewModel,
                         notificationStore = notificationStore,
                         useDirectNotificationAction = hasLiveNotification,
                         locale = locale,

@@ -12,6 +12,15 @@ object Constants {
     const val REFETCH_VEHICLES_MS = 10_000L
     const val STALE_LINES_MS = 5 * 60_000L
 
+    /** Hard cap for a single HTTP request so one hung call can't stall a card. */
+    const val REQUEST_TIMEOUT_MS = 10_000L
+
+    /** Stop info younger than this is served from the in-memory cache. */
+    const val STOP_INFO_CACHE_MS = 5_000L
+
+    /** Max simultaneous stop-info requests from the dashboard. */
+    const val DASHBOARD_MAX_PARALLEL_FETCHES = 4
+
     val TRANSPORT_COLORS: Map<TransportType, String> = mapOf(
         TransportType.BUS to "#1E88E5",
         TransportType.TRAM to "#E53935",

@@ -10,7 +10,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import ro.infotb.modern.currentTimeMillis
+import ro.infotb.modern.data.model.Direction
+import ro.infotb.modern.data.model.Stop
+import ro.infotb.modern.data.model.VehiclePosition
 import ro.infotb.modern.data.repository.TransitRepository
+import ro.infotb.modern.util.computeVehicleProximity
+import ro.infotb.modern.util.decodePolyline
 import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.NotificationSubscription
@@ -37,7 +42,15 @@ data class NotificationEvent(
     val minutes: Int,
     val isTimetable: Boolean,
     /** True once the tracked vehicle has reached (or passed) the stop. */
-    val hasArrived: Boolean = false
+    val hasArrived: Boolean = false,
+    /** Stops the approaching vehicle still has to reach (1 = yours is next), when known. */
+    val stopsAway: Int? = null,
+    /** Distance along the route from the vehicle to the stop, when known. */
+    val distanceMeters: Int? = null,
+    /** 0..1 position of the vehicle inside the last few stops before yours, when known. */
+    val progress: Double? = null,
+    /** Minutes until the arrivals after this one. */
+    val nextMinutes: List<Int> = emptyList()
 ) {
     val activityId: String
         get() = "$stopId-$lineId-$direction"
@@ -57,6 +70,10 @@ class NotificationEngine(
     private val arrivedAt = mutableMapOf<String, Long>()
     /** subscription id -> minutes reported by the previous poll */
     private val lastMinutes = mutableMapOf<String, Int>()
+
+    /** Route shape and ordered stops per "lineId_direction", used to place vehicles. */
+    private data class RouteInfo(val polyline: List<Pair<Double, Double>>, val stops: List<Stop>)
+    private val routeCache = mutableMapOf<String, RouteInfo>()
     private val pollMutex = Mutex()
 
     init {
@@ -195,6 +212,10 @@ class NotificationEngine(
                 val hasArrived = arrivedSince != null
                 val minutes = if (hasArrived) 0 else reportedMinutes
 
+                val proximity = if (hasArrived || line.isTimetable) null else {
+                    locateVehicle(sub.lineId, sub.direction, sub.stopId, line.segmentPath, line.vehicles)
+                }
+
                 val event = NotificationEvent(
                     lineName = sub.lineName,
                     lineColor = sub.lineColor,
@@ -204,7 +225,12 @@ class NotificationEngine(
                     direction = sub.direction.value,
                     minutes = minutes,
                     isTimetable = line.isTimetable,
-                    hasArrived = hasArrived
+                    hasArrived = hasArrived,
+                    stopsAway = proximity?.stopsAway,
+                    distanceMeters = proximity?.distanceMeters,
+                    progress = proximity?.progress,
+                    nextMinutes = line.arrivingTimes.drop(1).take(2)
+                        .map { (it.arrivingTime / 60).toInt().coerceAtLeast(0) }
                 )
 
                 // Always update the pill with the closest arrival
@@ -268,6 +294,33 @@ class NotificationEngine(
         } else if (liveTrackingActive) {
             endLiveTracking()
         }
+    }
+
+    /**
+     * Works out where the next approaching vehicle is relative to the stop.
+     * The route shape and stop list are fetched once per line/direction and
+     * cached for the life of the engine; vehicles come with the stop info,
+     * with a direct vehicles call as fallback. Any failure just means no
+     * proximity for this poll.
+     */
+    private suspend fun locateVehicle(
+        lineId: Long,
+        direction: Direction,
+        stopId: Long,
+        segmentPath: String?,
+        vehiclesFromStop: List<VehiclePosition>
+    ) = try {
+        val key = "${lineId}_${direction.value}"
+        val route = routeCache[key] ?: run {
+            val detail = repository.getLineDirection(lineId, direction)
+            val polyline = detail.segmentPath?.let { decodePolyline(it) } ?: emptyList()
+            RouteInfo(polyline, detail.stops).also { routeCache[key] = it }
+        }
+        val polyline = segmentPath?.let { decodePolyline(it) }?.takeIf { it.size >= 2 } ?: route.polyline
+        val vehicles = vehiclesFromStop.ifEmpty { repository.getVehicles(lineId, direction) }
+        computeVehicleProximity(polyline, route.stops, stopId, vehicles)
+    } catch (_: Exception) {
+        null
     }
 
     private fun fireNotification(sub: NotificationSubscription, minutes: Int, isTimetable: Boolean) {

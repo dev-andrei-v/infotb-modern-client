@@ -43,13 +43,19 @@ struct InfoTBLiveActivity: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack(spacing: 6) {
-                        statusLine(state: state, isStale: isStale, textColor: .white.opacity(0.72))
-                        Spacer()
-                        if !state.isTimetable && !state.hasArrived && !isStale {
-                            liveIndicator()
+                    VStack(spacing: 6) {
+                        if state.progress != nil && !state.hasArrived {
+                            routeTrack(state: state, color: lineColor, onDark: true)
                         }
-                        stopButton()
+                        HStack(spacing: 6) {
+                            statusLine(state: state, isStale: isStale, textColor: .white.opacity(0.72))
+                            Spacer()
+                            nextArrivals(state: state, textColor: .white.opacity(0.72))
+                            if !state.isTimetable && !state.hasArrived && !isStale {
+                                liveIndicator()
+                            }
+                            stopButton()
+                        }
                     }
                     .padding(.horizontal, 8)
                 }
@@ -85,25 +91,31 @@ struct InfoTBLiveActivity: Widget {
         let state = context.state
         let isStale = context.isStale
 
-        HStack(spacing: 14) {
-            lineBadge(name: lineName, color: color, size: 48)
+        VStack(spacing: 10) {
+            HStack(spacing: 14) {
+                lineBadge(name: lineName, color: color, size: 48)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(stopName)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                statusLine(state: state, isStale: isStale, textColor: .secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(stopName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    statusLine(state: state, isStale: isStale, textColor: .secondary)
+                    nextArrivals(state: state, textColor: .secondary)
+                }
+
+                Spacer()
+
+                countdownView(
+                    state: state,
+                    isStale: isStale,
+                    large: true
+                )
+
+                stopButton()
             }
-
-            Spacer()
-
-            countdownView(
-                state: state,
-                isStale: isStale,
-                large: true
-            )
-
-            stopButton()
+            if state.progress != nil && !state.hasArrived {
+                routeTrack(state: state, color: color, onDark: false)
+            }
         }
         .padding(16)
         .background(
@@ -111,6 +123,94 @@ struct InfoTBLiveActivity: Widget {
                 .fill(color.opacity(0.12))
         )
         .activityBackgroundTint(Color(.systemBackground))
+    }
+
+    // MARK: - Route track ("how close is the bus")
+
+    /// A horizontal line with a dot per stop in the window, your stop as the
+    /// big dot at the end, and the vehicle sliding along as `progress` grows.
+    /// Below it: "4 stops · 1.2 km".
+    @ViewBuilder
+    private func routeTrack(
+        state: TransitActivityAttributes.ContentState,
+        color: Color,
+        onDark: Bool
+    ) -> some View {
+        let progress = min(max(state.progress ?? 0, 0), 1)
+        let windowStops = 5
+        let lineColor: Color = onDark ? .white.opacity(0.3) : .secondary.opacity(0.3)
+        let dotColor: Color = onDark ? .white.opacity(0.6) : .secondary
+        VStack(spacing: 3) {
+            GeometryReader { geo in
+                let width = geo.size.width
+                let trackHeight: CGFloat = 3
+                let busSize: CGFloat = 16
+                ZStack(alignment: .leading) {
+                    // Track
+                    Capsule().fill(lineColor)
+                        .frame(height: trackHeight)
+                    // Travelled part
+                    Capsule().fill(color)
+                        .frame(width: max(width * progress, trackHeight), height: trackHeight)
+                    // Intermediate stop dots
+                    ForEach(1..<windowStops, id: \.self) { i in
+                        Circle()
+                            .fill(dotColor)
+                            .frame(width: 6, height: 6)
+                            .position(x: width * CGFloat(i) / CGFloat(windowStops), y: geo.size.height / 2)
+                    }
+                    // Your stop
+                    Circle()
+                        .strokeBorder(color, lineWidth: 2)
+                        .background(Circle().fill(onDark ? Color.black : Color(.systemBackground)))
+                        .frame(width: 12, height: 12)
+                        .position(x: width - 6, y: geo.size.height / 2)
+                    // Vehicle
+                    Image(systemName: "bus.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: busSize, height: busSize)
+                        .background(Circle().fill(color))
+                        .position(x: min(max(width * progress, busSize / 2), width - busSize / 2), y: geo.size.height / 2)
+                        .animation(.easeInOut(duration: 0.6), value: progress)
+                }
+            }
+            .frame(height: 18)
+            if let stops = state.stopsAway {
+                HStack(spacing: 4) {
+                    Text(stopsAwayText(stops))
+                    if let meters = state.distanceMeters {
+                        Text("·")
+                        Text(distanceText(meters))
+                    }
+                    Spacer()
+                }
+                .font(.caption2)
+                .foregroundStyle(onDark ? .white.opacity(0.72) : .secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func nextArrivals(state: TransitActivityAttributes.ContentState, textColor: Color) -> some View {
+        if !state.nextMinutes.isEmpty && !state.hasArrived {
+            Text(L("apoi ", "then ") + state.nextMinutes.map { "\($0)" }.joined(separator: " · ") + " min")
+                .font(.caption2)
+                .foregroundStyle(textColor)
+                .lineLimit(1)
+        }
+    }
+
+    private func stopsAwayText(_ stops: Int) -> String {
+        if stops == 1 { return L("Urmatoarea statie", "Next stop") }
+        return "\(stops) " + L("statii", "stops")
+    }
+
+    private func distanceText(_ meters: Int) -> String {
+        if meters >= 1000 {
+            return String(format: "%.1f km", Double(meters) / 1000)
+        }
+        return "\(meters) m"
     }
 
     // MARK: - Shared Components

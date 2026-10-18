@@ -31,7 +31,7 @@ import ro.infotb.modern.ui.theme.ScheduledColor
 import ro.infotb.modern.util.formatArrivalBadge
 
 /** Minimum width of the big arrival badge so "<1 min" and "45 min" rows keep their columns aligned. */
-val HERO_ARRIVAL_MIN_WIDTH = 78.dp
+val HERO_ARRIVAL_MIN_WIDTH = 92.dp
 
 @Composable
 fun ArrivalTimeBadge(

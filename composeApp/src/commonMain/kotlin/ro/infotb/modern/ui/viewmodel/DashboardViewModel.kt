@@ -154,6 +154,39 @@ class DashboardViewModel(
         dashboardStore.toggleGroupHidden(name)
     }
 
+    fun renameGroup(oldName: String, newName: String) {
+        dashboardStore.renameGroup(oldName, newName)
+    }
+
+    fun removeGroup(name: String) {
+        dashboardStore.removeGroup(name)
+    }
+
+    /** Moves a group one step up (-1) or down (+1) in the dashboard order. */
+    fun moveGroup(name: String, delta: Int) {
+        val current = groups.value
+        val from = current.indexOf(name)
+        val to = from + delta
+        if (from == -1 || to !in current.indices) return
+        dashboardStore.reorderGroups(from, to)
+    }
+
+    /**
+     * Moves a card one step up (-1) or down (+1) among the cards of its own
+     * group. Positions are translated to the global sort order the store keeps.
+     */
+    fun moveWidget(id: String, delta: Int) {
+        val all = widgets.value
+        val widget = all.find { it.id == id } ?: return
+        val siblings = all.filter { it.group == widget.group }
+        val pos = siblings.indexOf(widget)
+        val target = pos + delta
+        if (target !in siblings.indices) return
+        val from = all.indexOf(widget)
+        val to = all.indexOf(siblings[target])
+        dashboardStore.reorderWidgets(from, to)
+    }
+
     fun loadLineTimetable(stopId: Long, lineId: Long, direction: Direction) {
         val key = "${stopId}_${lineId}_${direction.value}"
         if (_lineTimetables.value.containsKey(key)) return

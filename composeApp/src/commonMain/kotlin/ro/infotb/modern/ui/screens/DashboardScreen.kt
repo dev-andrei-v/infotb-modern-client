@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Place
@@ -49,6 +52,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -127,6 +139,7 @@ fun DashboardScreen(
     val lineTimetables by viewModel.lineTimetables.collectAsState()
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
+    var showGroupsDialog by remember { mutableStateOf(false) }
 
     // Only poll while this screen is on screen
     DisposableEffect(viewModel) {
@@ -179,7 +192,8 @@ fun DashboardScreen(
             onReset = { showResetDialog = true },
             onRefresh = { viewModel.refreshNow() },
             onAddStation = onNavigateToLines,
-            onSettings = onNavigateToSettings
+            onSettings = onNavigateToSettings,
+            onManageGroups = { showGroupsDialog = true }
         )
 
         PullToRefreshBox(
@@ -291,6 +305,7 @@ fun DashboardScreen(
                                 onSetGroup = { group -> viewModel.setWidgetGroup(widget.id, group) },
                                 onAddGroup = { name -> viewModel.addGroup(name) },
                                 onResize = { size -> viewModel.resizeWidget(widget.id, size) },
+                                onMove = { delta -> viewModel.moveWidget(widget.id, delta) },
                                 onClick = { onNavigateToStop(widget.stopId) },
                                 onLineClick = { lineId -> onNavigateToLine(lineId) },
                                 onLoadTimetable = { lineId, direction ->
@@ -341,6 +356,20 @@ fun DashboardScreen(
         )
     }
 
+    if (showGroupsDialog) {
+        GroupsDialog(
+            groups = groups,
+            hiddenGroups = hiddenGroups,
+            locale = locale,
+            onAdd = { viewModel.addGroup(it) },
+            onRename = { old, new -> viewModel.renameGroup(old, new) },
+            onRemove = { viewModel.removeGroup(it) },
+            onMove = { name, delta -> viewModel.moveGroup(name, delta) },
+            onToggleHidden = { viewModel.toggleGroupHidden(it) },
+            onDismiss = { showGroupsDialog = false }
+        )
+    }
+
     if (!useDirectNotificationAction) bellTarget?.let { target ->
         NotificationDialog(
             lineName = target.lineName,
@@ -377,7 +406,8 @@ private fun DashboardHeader(
     onReset: () -> Unit,
     onRefresh: () -> Unit,
     onAddStation: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onManageGroups: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -406,6 +436,10 @@ private fun DashboardHeader(
         }
 
         if (isEditing) {
+            OutlinedButton(onClick = onManageGroups) {
+                Text(t("dashboard.manageGroups", locale), fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(8.dp))
             OutlinedButton(onClick = onReset) {
                 Text(t("dashboard.reset", locale), fontSize = 13.sp)
             }
@@ -467,11 +501,13 @@ private fun StationWidgetCard(
     onSetGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onResize: (WidgetSize) -> Unit,
+    onMove: (delta: Int) -> Unit,
     onClick: () -> Unit,
     onLineClick: (lineId: Long) -> Unit,
     onLoadTimetable: (lineId: Long, direction: Direction) -> Unit,
     onBellClick: (lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
+    var showOptions by remember { mutableStateOf(false) }
     val stopInfo = cardState?.info
     val allLines = stopInfo?.lines ?: emptyList()
     val visibleLines = widget.visibleLines
@@ -557,23 +593,41 @@ private fun StationWidgetCard(
                     }
 
                     if (isEditing) {
-                        Row {
-                            IconButton(
-                                onClick = onToggleHidden,
-                                modifier = Modifier.size(36.dp)
-                            ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { onMove(-1) }, modifier = Modifier.size(36.dp)) {
                                 Icon(
-                                    if (widget.hidden) Icons.Default.Lock
-                                    else Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = LocalMuted.current,
-                                    modifier = Modifier.size(18.dp)
+                                    Icons.Default.KeyboardArrowUp,
+                                    contentDescription = t("widget.moveUp", locale),
+                                    tint = LocalMuted.current
                                 )
                             }
-                            IconButton(
-                                onClick = onDelete,
-                                modifier = Modifier.size(36.dp)
+                            IconButton(onClick = { onMove(1) }, modifier = Modifier.size(36.dp)) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = t("widget.moveDown", locale),
+                                    tint = LocalMuted.current
+                                )
+                            }
+                            // Visible / Hidden toggle as a labelled chip, no cryptic icons
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        if (widget.hidden) MaterialTheme.colorScheme.surfaceVariant
+                                        else MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                    .clickable(onClick = onToggleHidden)
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
+                                Text(
+                                    text = if (widget.hidden) t("widget.hidden", locale) else t("widget.visible", locale),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (widget.hidden) LocalMuted.current
+                                    else MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = t("widget.delete", locale),
@@ -583,17 +637,14 @@ private fun StationWidgetCard(
                             }
                         }
                     } else {
-                        WidgetDropdownMenu(
-                            widget = widget,
-                            allLines = allLines,
-                            groups = groups,
-                            locale = locale,
-                            onToggleLineVisibility = onToggleLineVisibility,
-                            onSetGroup = onSetGroup,
-                            onAddGroup = onAddGroup,
-                            onResize = onResize,
-                            onDelete = onDelete
-                        )
+                        IconButton(onClick = { showOptions = true }, modifier = Modifier.size(36.dp)) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = t("widget.options", locale),
+                                tint = LocalMuted.current,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
 
@@ -688,6 +739,25 @@ private fun StationWidgetCard(
                 }
             }
         }
+    }
+
+    if (showOptions) {
+        WidgetOptionsSheet(
+            widget = widget,
+            allLines = allLines,
+            groups = groups,
+            locale = locale,
+            onToggleLineVisibility = onToggleLineVisibility,
+            onSetGroup = onSetGroup,
+            onAddGroup = onAddGroup,
+            onResize = onResize,
+            onToggleHidden = onToggleHidden,
+            onDelete = {
+                showOptions = false
+                onDelete()
+            },
+            onDismiss = { showOptions = false }
+        )
     }
 }
 
@@ -935,8 +1005,9 @@ private fun WidgetLineRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun WidgetDropdownMenu(
+private fun WidgetOptionsSheet(
     widget: WidgetConfig,
     allLines: List<LineArrivalDetail>,
     groups: List<String>,
@@ -945,261 +1016,351 @@ private fun WidgetDropdownMenu(
     onSetGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onResize: (WidgetSize) -> Unit,
-    onDelete: () -> Unit
+    onToggleHidden: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var showFilterMenu by remember { mutableStateOf(false) }
-    var showGroupMenu by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var newGroupName by remember { mutableStateOf("") }
 
-    Box {
-        IconButton(
-            onClick = { expanded = true },
-            modifier = Modifier.size(36.dp)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                Icons.Default.MoreVert,
-                contentDescription = null,
-                tint = LocalMuted.current,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+            Column {
+                Text(
+                    text = widget.stopName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = t("widget.options", locale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalMuted.current
+                )
+            }
 
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            // Filter lines
+            // Lines: tap a chip to hide/show it on the card
             if (allLines.isNotEmpty()) {
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(t("widget.filterLines", locale), fontSize = 13.sp)
-                            if (widget.visibleLines.isNotEmpty()) {
-                                Spacer(Modifier.weight(1f))
+                SheetSection(title = t("widget.lines", locale), hint = t("widget.linesHint", locale)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        allLines.forEach { line ->
+                            val lineKey = "${line.id}_${line.direction.value}"
+                            val isVisible = widget.visibleLines.isEmpty() || widget.visibleLines.contains(lineKey)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isVisible) MaterialTheme.colorScheme.secondaryContainer
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    .clickable { onToggleLineVisibility(lineKey) }
+                                    .padding(start = 6.dp, end = 10.dp, top = 6.dp, bottom = 6.dp)
+                                    .alpha(if (isVisible) 1f else 0.55f)
+                            ) {
+                                LineBadge(name = line.name, color = line.color, size = BadgeSize.SMALL)
+                                Spacer(Modifier.width(6.dp))
                                 Text(
-                                    "${widget.visibleLines.size}/${allLines.size}",
+                                    text = line.directionName,
                                     fontSize = 11.sp,
-                                    color = LocalMuted.current
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 140.dp)
                                 )
+                                if (isVisible) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
-                    },
-                    onClick = {
-                        expanded = false
-                        showFilterMenu = true
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
                     }
-                )
+                }
             }
 
             // Size
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(t("widget.size", locale), fontSize = 13.sp)
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            if (widget.size == WidgetSize.LARGE) t("widget.sizeLarge", locale)
-                            else t("widget.sizeMedium", locale),
-                            fontSize = 11.sp,
-                            color = LocalMuted.current
-                        )
-                    }
-                },
-                onClick = {
-                    expanded = false
-                    onResize(if (widget.size == WidgetSize.LARGE) WidgetSize.MEDIUM else WidgetSize.LARGE)
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Home,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+            SheetSection(title = t("widget.size", locale)) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = widget.size == WidgetSize.MEDIUM,
+                        onClick = { onResize(WidgetSize.MEDIUM) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    ) { Text(t("widget.sizeMedium", locale), fontSize = 13.sp) }
+                    SegmentedButton(
+                        selected = widget.size == WidgetSize.LARGE,
+                        onClick = { onResize(WidgetSize.LARGE) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                    ) { Text(t("widget.sizeLarge", locale), fontSize = 13.sp) }
                 }
-            )
+            }
 
             // Group
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(t("widget.group", locale), fontSize = 13.sp)
-                        if (widget.group.isNotEmpty()) {
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                widget.group,
-                                fontSize = 11.sp,
-                                color = LocalMuted.current
-                            )
-                        }
-                    }
-                },
-                onClick = {
-                    expanded = false
-                    showGroupMenu = true
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Edit, // Tag icon
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+            SheetSection(title = t("widget.group", locale)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    GroupChip(
+                        label = t("widget.noGroup", locale),
+                        selected = widget.group.isEmpty(),
+                        onClick = { onSetGroup("") }
                     )
-                }
-            )
-
-            // Delete
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        t("widget.delete", locale),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                },
-                onClick = {
-                    onDelete()
-                    expanded = false
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            )
-        }
-
-        // Filter lines sub-menu
-        DropdownMenu(
-            expanded = showFilterMenu,
-            onDismissRequest = { showFilterMenu = false }
-        ) {
-            allLines.forEach { line ->
-                val lineKey = "${line.id}_${line.direction.value}"
-                val isVisible = widget.visibleLines.isEmpty() || widget.visibleLines.contains(lineKey)
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            LineBadge(
-                                name = line.name,
-                                color = line.color,
-                                size = BadgeSize.SMALL
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                line.directionName,
-                                fontSize = 11.sp,
-                                color = LocalMuted.current,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    },
-                    onClick = { onToggleLineVisibility(lineKey) },
-                    leadingIcon = {
-                        Icon(
-                            if (isVisible) Icons.Default.Check else Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = if (isVisible) MaterialTheme.colorScheme.onSurface else LocalMuted.current,
-                            modifier = Modifier.size(16.dp)
+                    groups.forEach { group ->
+                        GroupChip(
+                            label = group,
+                            selected = widget.group == group,
+                            onClick = { onSetGroup(group) }
                         )
-                    },
-                    modifier = if (!isVisible) Modifier.alpha(0.5f) else Modifier
-                )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newGroupName,
+                        onValueChange = { newGroupName = it },
+                        placeholder = { Text(t("widget.newGroupName", locale), fontSize = 13.sp) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    FilledTonalButton(
+                        enabled = newGroupName.isNotBlank(),
+                        onClick = {
+                            val trimmed = newGroupName.trim()
+                            onAddGroup(trimmed)
+                            onSetGroup(trimmed)
+                            newGroupName = ""
+                        }
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            // Hide / delete
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        onToggleHidden()
+                        onDismiss()
+                    }
+                ) {
+                    Text(if (widget.hidden) t("widget.show", locale) else t("widget.hide", locale), fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onDelete,
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(t("widget.delete", locale), fontSize = 13.sp)
+                }
             }
         }
+    }
+}
 
-        // Group sub-menu
-        DropdownMenu(
-            expanded = showGroupMenu,
-            onDismissRequest = { showGroupMenu = false }
-        ) {
-            // No group option
-            DropdownMenuItem(
-                text = { Text(t("widget.noGroup", locale), fontSize = 13.sp) },
-                onClick = {
-                    onSetGroup("")
-                    showGroupMenu = false
-                },
-                trailingIcon = {
-                    if (widget.group.isEmpty()) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
+@Composable
+private fun SheetSection(title: String, hint: String? = null, content: @Composable () -> Unit) {
+    Column {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = LocalMuted.current,
+            letterSpacing = 1.sp
+        )
+        if (hint != null) {
+            Text(text = hint, style = MaterialTheme.typography.bodySmall, color = LocalMuted.current)
+        }
+        Spacer(Modifier.height(8.dp))
+        content()
+    }
+}
+
+@Composable
+private fun GroupChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
             )
-            if (groups.isNotEmpty()) {
-                HorizontalDivider()
-                groups.forEach { group ->
-                    DropdownMenuItem(
-                        text = { Text(group, fontSize = 13.sp) },
-                        onClick = {
-                            onSetGroup(group)
-                            showGroupMenu = false
-                        },
-                        trailingIcon = {
-                            if (widget.group == group) {
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        if (selected) {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+/** Rename, reorder, hide and delete groups; only reachable from edit mode. */
+@Composable
+private fun GroupsDialog(
+    groups: List<String>,
+    hiddenGroups: List<String>,
+    locale: Locale,
+    onAdd: (String) -> Unit,
+    onRename: (String, String) -> Unit,
+    onRemove: (String) -> Unit,
+    onMove: (String, Int) -> Unit,
+    onToggleHidden: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var renaming by remember { mutableStateOf<String?>(null) }
+    var renameValue by remember { mutableStateOf("") }
+    var newName by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(t("dashboard.manageGroupsTitle", locale)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = t("dashboard.manageGroupsDescription", locale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalMuted.current
+                )
+                if (groups.isEmpty()) {
+                    Text(
+                        text = t("dashboard.noGroups", locale),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+                groups.forEachIndexed { index, group ->
+                    val isHidden = group in hiddenGroups
+                    if (renaming == group) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = renameValue,
+                                onValueChange = { renameValue = it },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                enabled = renameValue.isNotBlank(),
+                                onClick = {
+                                    onRename(group, renameValue.trim())
+                                    renaming = null
+                                }
+                            ) { Text(t("dashboard.groupSave", locale), fontSize = 12.sp) }
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (isHidden) 0.5f else 1f)
+                        ) {
+                            Text(
+                                text = group,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        renaming = group
+                                        renameValue = group
+                                    }
+                            )
+                            IconButton(
+                                onClick = { onMove(group, -1) },
+                                enabled = index > 0,
+                                modifier = Modifier.size(32.dp)
+                            ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = t("widget.moveUp", locale)) }
+                            IconButton(
+                                onClick = { onMove(group, 1) },
+                                enabled = index < groups.lastIndex,
+                                modifier = Modifier.size(32.dp)
+                            ) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = t("widget.moveDown", locale)) }
+                            IconButton(onClick = { onToggleHidden(group) }, modifier = Modifier.size(32.dp)) {
                                 Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    if (isHidden) Icons.Default.Lock else Icons.Default.Check,
+                                    contentDescription = if (isHidden) t("widget.show", locale) else t("widget.hide", locale),
+                                    tint = LocalMuted.current,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            IconButton(onClick = { onRemove(group) }, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = t("dashboard.groupDelete", locale),
+                                    tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
+                    }
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        placeholder = { Text(t("widget.newGroupName", locale), fontSize = 13.sp) },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(8.dp))
+                    FilledTonalButton(
+                        enabled = newName.isNotBlank(),
+                        onClick = {
+                            onAdd(newName.trim())
+                            newName = ""
+                        }
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
-            // Add new group inline
-            HorizontalDivider()
-            var newGroupName by remember { mutableStateOf("") }
-            DropdownMenuItem(
-                text = {
-                    androidx.compose.material3.OutlinedTextField(
-                        value = newGroupName,
-                        onValueChange = { newGroupName = it },
-                        placeholder = {
-                            Text(t("widget.addGroup", locale), fontSize = 12.sp)
-                        },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                },
-                onClick = {
-                    val trimmed = newGroupName.trim()
-                    if (trimmed.isNotEmpty()) {
-                        onAddGroup(trimmed)
-                        onSetGroup(trimmed)
-                        newGroupName = ""
-                        showGroupMenu = false
-                    }
-                },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(t("dashboard.close", locale)) }
         }
-    }
+    )
 }

@@ -20,7 +20,8 @@ struct InfoTBLiveActivity: Widget {
                     lineBadge(
                         name: lineName,
                         color: lineColor,
-                        size: 44
+                        lineType: context.attributes.lineType,
+                        size: 40
                     )
                     .padding(.leading, 4)
                 }
@@ -62,7 +63,8 @@ struct InfoTBLiveActivity: Widget {
             } compactLeading: {
                 compactRouteBadge(
                     name: lineName,
-                    color: lineColor
+                    color: lineColor,
+                    lineType: context.attributes.lineType
                 )
             } compactTrailing: {
                 compactCountdown(
@@ -93,7 +95,7 @@ struct InfoTBLiveActivity: Widget {
 
         VStack(spacing: 10) {
             HStack(spacing: 14) {
-                lineBadge(name: lineName, color: color, size: 48)
+                lineBadge(name: lineName, color: color, lineType: context.attributes.lineType, size: 48)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(stopName)
@@ -258,17 +260,22 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func lineBadge(name: String, color: Color, size: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
-                .fill(color)
-                .frame(width: size, height: size)
-            Text(name)
-                .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-                .padding(.horizontal, 2)
+    /// Line number on its colour, with the vehicle type glyph tucked under it.
+    private func lineBadge(name: String, color: Color, lineType: String, size: CGFloat) -> some View {
+        VStack(spacing: 3) {
+            ZStack {
+                RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
+                    .fill(color)
+                    .frame(width: size, height: size)
+                Text(name)
+                    .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .padding(.horizontal, 2)
+            }
+            VehicleGlyph(type: lineType, size: size * 0.28)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -346,11 +353,10 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func compactRouteBadge(name: String, color: Color) -> some View {
+    private func compactRouteBadge(name: String, color: Color, lineType: String) -> some View {
         HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
+            VehicleGlyph(type: lineType, size: 11)
+                .foregroundStyle(color)
             Text(name)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)

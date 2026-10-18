@@ -22,6 +22,7 @@ import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardSort
 import ro.infotb.modern.data.store.DashboardStore
+import ro.infotb.modern.data.store.GroupSchedule
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.data.store.WidgetConfig
 import ro.infotb.modern.location.GeoPoint
@@ -74,6 +75,7 @@ class DashboardViewModel(
     val widgets: StateFlow<List<WidgetConfig>> = dashboardStore.widgets
     val groups: StateFlow<List<String>> = dashboardStore.groups
     val hiddenGroups: StateFlow<List<String>> = dashboardStore.hiddenGroups
+    val groupSchedules: StateFlow<Map<String, GroupSchedule>> = dashboardStore.groupSchedules
 
     private val _isEditing = MutableStateFlow(false)
     val isEditing: StateFlow<Boolean> = _isEditing.asStateFlow()
@@ -229,6 +231,10 @@ class DashboardViewModel(
 
     fun toggleGroupHidden(name: String) {
         dashboardStore.toggleGroupHidden(name)
+    }
+
+    fun setGroupSchedule(name: String, schedule: GroupSchedule?) {
+        dashboardStore.setGroupSchedule(name, schedule)
     }
 
     fun renameGroup(oldName: String, newName: String) {

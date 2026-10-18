@@ -63,6 +63,10 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.size" to mapOf(Locale.RO to "Marime", Locale.EN to "Size"),
     "widget.sizeMedium" to mapOf(Locale.RO to "Normal", Locale.EN to "Normal"),
     "widget.sizeLarge" to mapOf(Locale.RO to "Mare", Locale.EN to "Large"),
+    "widget.sizeHint" to mapOf(
+        Locale.RO to "Normal: randuri compacte, cel mult 4 linii. Mare: toate liniile, cu urmatoarele sosiri.",
+        Locale.EN to "Normal: compact rows, up to 4 lines. Large: every line, with the following arrivals."
+    ),
     "widget.loadFailed" to mapOf(Locale.RO to "Nu s-au putut incarca sosirile", Locale.EN to "Could not load arrivals"),
     "widget.options" to mapOf(Locale.RO to "Optiuni card", Locale.EN to "Card options"),
     "widget.lines" to mapOf(Locale.RO to "Linii afisate", Locale.EN to "Shown lines"),
@@ -78,6 +82,15 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.groupDelete" to mapOf(Locale.RO to "Sterge grupul", Locale.EN to "Delete group"),
     "dashboard.groupSave" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
     "dashboard.close" to mapOf(Locale.RO to "Inchide", Locale.EN to "Close"),
+    "dashboard.groupHours" to mapOf(Locale.RO to "Interval orar", Locale.EN to "Active hours"),
+    "dashboard.groupHoursDescription" to mapOf(
+        Locale.RO to "Grupul apare desfasurat pe panou doar in acest interval. In restul zilei ramane restrans.",
+        Locale.EN to "The group is expanded on the dashboard only between these times. The rest of the day it stays collapsed."
+    ),
+    "dashboard.groupHoursFrom" to mapOf(Locale.RO to "De la", Locale.EN to "From"),
+    "dashboard.groupHoursTo" to mapOf(Locale.RO to "Pana la", Locale.EN to "Until"),
+    "dashboard.groupHoursAlways" to mapOf(Locale.RO to "Afiseaza mereu", Locale.EN to "Always show"),
+    "dashboard.groupHoursSet" to mapOf(Locale.RO to "Orar", Locale.EN to "Hours"),
     "dashboard.sortGroups" to mapOf(Locale.RO to "Pe grupuri", Locale.EN to "By group"),
     "dashboard.sortNearest" to mapOf(Locale.RO to "Cele mai apropiate", Locale.EN to "Nearest first"),
     "dashboard.locationLoading" to mapOf(Locale.RO to "Se cauta pozitia...", Locale.EN to "Finding your position..."),

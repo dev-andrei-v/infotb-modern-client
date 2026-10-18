@@ -194,9 +194,6 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         onNavigateToLines = {
                             navController.navigate(Screen.Lines.route)
                         },
-                        onNavigateToSettings = {
-                            navController.navigate(Screen.Settings.route)
-                        },
                         onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
                             handleTrackedStationSelection(
                                 stopId = sid,

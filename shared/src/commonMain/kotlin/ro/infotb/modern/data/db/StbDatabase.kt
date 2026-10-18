@@ -12,7 +12,7 @@ import androidx.room.RoomDatabaseConstructor
         NotificationEntity::class,
         GroupEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @ConstructedBy(StbDatabaseConstructor::class)

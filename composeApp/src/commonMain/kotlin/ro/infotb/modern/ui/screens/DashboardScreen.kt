@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 // Lock = hidden, Check = visible
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,6 +66,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.rememberTimePickerState
+import ro.infotb.modern.data.store.GroupSchedule
+import ro.infotb.modern.ui.theme.parseColor
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -128,7 +131,6 @@ fun DashboardScreen(
     onNavigateToStop: (stopId: Long) -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onNavigateToLines: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit
 ) {
     val widgets by viewModel.widgets.collectAsState()
@@ -136,6 +138,7 @@ fun DashboardScreen(
     val isEditing by viewModel.isEditing.collectAsState()
     val groups by viewModel.groups.collectAsState()
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
+    val groupSchedules by viewModel.groupSchedules.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
     val sortMode by viewModel.sortMode.collectAsState()
@@ -168,17 +171,31 @@ fun DashboardScreen(
     data class BellTarget(val stopId: Long, val stopName: String, val lineId: Long, val lineName: String, val lineColor: String, val direction: Direction)
     var bellTarget by remember { mutableStateOf<BellTarget?>(null) }
 
-    // Group widgets
-    val grouped = remember(widgets, groups) {
+    // Scheduled groups outside their window are collapsed unless the user expands them
+    val nowMinute = remember(now) { currentHourOfDay() * 60 + currentMinuteOfHour() }
+    val inactiveGroups: Set<String> = remember(groupSchedules, nowMinute) {
+        groupSchedules.filterValues { !it.isActiveAt(nowMinute) }.keys
+    }
+    var expandedInactive by remember { mutableStateOf(setOf<String>()) }
+
+    // Group widgets. Outside edit mode, groups active right now float to the top
+    // and inactive scheduled groups sink to the bottom; user order applies within a tier.
+    val grouped = remember(widgets, groups, groupSchedules, inactiveGroups, isEditing) {
         val map = mutableMapOf<String, MutableList<WidgetConfig>>()
         widgets.forEach { w ->
             map.getOrPut(w.group) { mutableListOf() }.add(w)
         }
         val order = groups + ""
-        map.entries.sortedBy { entry ->
-            val idx = order.indexOf(entry.key)
-            if (idx == -1) order.size else idx
-        }.map { it.key to it.value.toList() }
+        fun userIndex(name: String): Int = order.indexOf(name).let { if (it == -1) order.size else it }
+        fun tier(name: String): Int = when {
+            isEditing -> 0
+            name in inactiveGroups -> 2
+            name in groupSchedules -> 0
+            else -> 1
+        }
+        map.entries
+            .sortedWith(compareBy<Map.Entry<String, List<WidgetConfig>>> { tier(it.key) }.thenBy { userIndex(it.key) })
+            .map { it.key to it.value.toList() }
     }
     val hasGroups = grouped.size > 1 || (grouped.size == 1 && grouped[0].first.isNotEmpty())
 
@@ -210,7 +227,6 @@ fun DashboardScreen(
             onReset = { showResetDialog = true },
             onRefresh = { viewModel.refreshNow() },
             onAddStation = onNavigateToLines,
-            onSettings = onNavigateToSettings,
             onManageGroups = { showGroupsDialog = true }
         )
 
@@ -299,6 +315,10 @@ fun DashboardScreen(
 
                         if (isGroupHidden && !isEditing) return@forEach
 
+                        val schedule = if (nearestMode) null else groupSchedules[groupName]
+                        val isInactive = schedule != null && groupName in inactiveGroups
+                        val collapsed = isInactive && !isEditing && groupName !in expandedInactive
+
                         if (showHeaders) {
                             item(
                                 key = "group_header_$groupName",
@@ -308,8 +328,18 @@ fun DashboardScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .then(
+                                            if (isInactive && !isEditing) Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    expandedInactive =
+                                                        if (collapsed) expandedInactive + groupName
+                                                        else expandedInactive - groupName
+                                                }
+                                            else Modifier
+                                        )
                                         .padding(horizontal = 4.dp, vertical = 4.dp)
-                                        .alpha(if (isEditing && isGroupHidden) 0.4f else 1f)
+                                        .alpha(if ((isEditing && isGroupHidden) || collapsed) 0.5f else 1f)
                                 ) {
                                     Text(
                                         text = groupName.ifEmpty { t("widget.noGroup", locale) }.uppercase(),
@@ -318,6 +348,22 @@ fun DashboardScreen(
                                         color = LocalMuted.current,
                                         letterSpacing = 1.sp
                                     )
+                                    if (schedule != null) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(
+                                            Icons.Default.DateRange,
+                                            contentDescription = null,
+                                            tint = LocalMuted.current,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            text = formatSchedule(schedule),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = LocalMuted.current,
+                                            maxLines = 1
+                                        )
+                                    }
                                     if (isEditing) {
                                         Spacer(Modifier.width(8.dp))
                                         IconButton(
@@ -332,10 +378,21 @@ fun DashboardScreen(
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }
+                                    } else if (isInactive) {
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(
+                                            if (collapsed) Icons.Default.KeyboardArrowRight
+                                            else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = LocalMuted.current,
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
                                 }
                             }
                         }
+
+                        if (collapsed) return@forEach
 
                         items(
                             items.filter { !it.hidden || isEditing },
@@ -350,6 +407,7 @@ fun DashboardScreen(
                                 widget = widget,
                                 cardState = cardStates[widget.stopId],
                                 distanceMeters = if (nearestMode) distances[widget.stopId] else null,
+                                showGroup = nearestMode,
                                 now = now,
                                 isEditing = isEditing,
                                 groups = groups,
@@ -425,6 +483,8 @@ fun DashboardScreen(
             onRemove = { viewModel.removeGroup(it) },
             onMove = { name, delta -> viewModel.moveGroup(name, delta) },
             onToggleHidden = { viewModel.toggleGroupHidden(it) },
+            schedules = groupSchedules,
+            onSetSchedule = { name, schedule -> viewModel.setGroupSchedule(name, schedule) },
             onDismiss = { showGroupsDialog = false }
         )
     }
@@ -465,71 +525,96 @@ private fun DashboardHeader(
     onReset: () -> Unit,
     onRefresh: () -> Unit,
     onAddStation: () -> Unit,
-    onSettings: () -> Unit,
     onManageGroups: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = t("dashboard.title", locale),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            if (widgetCount > 0) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = when {
-                        isRefreshing -> t("dashboard.updating", locale)
-                        lastRefreshMs == 0L -> ""
-                        else -> "${t("dashboard.updated", locale)} ${formatAgo(now - lastRefreshMs, locale)}"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalMuted.current
+                    text = t("dashboard.title", locale),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
+                if (widgetCount > 0) {
+                    Text(
+                        text = when {
+                            isEditing -> t("dashboard.edit", locale)
+                            isRefreshing -> t("dashboard.updating", locale)
+                            lastRefreshMs == 0L -> ""
+                            else -> "${t("dashboard.updated", locale)} ${formatAgo(now - lastRefreshMs, locale)}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalMuted.current
+                    )
+                }
+            }
+
+            if (isEditing) {
+                FilledTonalButton(onClick = onToggleEditing) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(t("dashboard.done", locale), fontSize = 13.sp)
+                }
+            } else {
+                IconButton(onClick = onAddStation) {
+                    Icon(Icons.Default.Add, contentDescription = t("widget.addStation", locale))
+                }
+                if (widgetCount > 0) {
+                    IconButton(onClick = onRefresh, enabled = !isRefreshing) {
+                        if (isRefreshing) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = t("dashboard.refresh", locale))
+                        }
+                    }
+                    IconButton(onClick = onToggleEditing) {
+                        Icon(Icons.Default.Edit, contentDescription = t("dashboard.edit", locale))
+                    }
+                }
             }
         }
 
+        // Secondary edit actions get their own row so the title is never squeezed
         if (isEditing) {
-            OutlinedButton(onClick = onManageGroups) {
-                Text(t("dashboard.manageGroups", locale), fontSize = 13.sp)
-            }
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(onClick = onReset) {
-                Text(t("dashboard.reset", locale), fontSize = 13.sp)
-            }
-            Spacer(Modifier.width(8.dp))
-            FilledTonalButton(onClick = onToggleEditing) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(t("dashboard.done", locale), fontSize = 13.sp)
-            }
-        } else {
-            IconButton(onClick = onAddStation) {
-                Icon(Icons.Default.Add, contentDescription = t("widget.addStation", locale))
-            }
-            if (widgetCount > 0) {
-                IconButton(onClick = onRefresh, enabled = !isRefreshing) {
-                    if (isRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = t("dashboard.refresh", locale))
-                    }
+            Spacer(Modifier.height(6.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp)
+            ) {
+                OutlinedButton(onClick = onManageGroups, modifier = Modifier.weight(1f)) {
+                    Text(t("dashboard.manageGroups", locale), fontSize = 13.sp)
                 }
-                IconButton(onClick = onToggleEditing) {
-                    Icon(Icons.Default.Edit, contentDescription = t("dashboard.edit", locale))
+                OutlinedButton(
+                    onClick = onReset,
+                    modifier = Modifier.weight(1f),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(t("dashboard.reset", locale), fontSize = 13.sp)
                 }
-            }
-            IconButton(onClick = onSettings) {
-                Icon(Icons.Default.Settings, contentDescription = t("nav.settings", locale))
             }
         }
     }
 }
+
+/** "07:30" from minutes after midnight. */
+private fun formatMinutesOfDay(minutes: Int): String =
+    "${(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
+
+/** "07:30-09:00" for a group's active window. */
+private fun formatSchedule(schedule: GroupSchedule): String =
+    "${formatMinutesOfDay(schedule.fromMinutes)}-${formatMinutesOfDay(schedule.toMinutes)}"
 
 /** "just now", "12s ago", "3 min ago" in the active locale. */
 private fun formatAgo(elapsedMs: Long, locale: Locale): String {
@@ -549,6 +634,7 @@ private fun StationWidgetCard(
     widget: WidgetConfig,
     cardState: StopCardState?,
     distanceMeters: Double?,
+    showGroup: Boolean,
     now: Long,
     isEditing: Boolean,
     groups: List<String>,
@@ -591,12 +677,17 @@ private fun StationWidgetCard(
     val isStale = cardState != null && cardState.hasData &&
         (cardState.error != null || now - cardState.lastUpdatedMs > STALE_AFTER_MS)
 
-    val maxLines = if (widget.size == WidgetSize.LARGE) Int.MAX_VALUE else 4
+    // Large cards list every line and show the following arrivals; normal cards stay compact
+    val detailed = widget.size == WidgetSize.LARGE
+    val maxLines = if (detailed) Int.MAX_VALUE else 4
 
-    // Accent colour follows the dominant transport type at this stop
-    val accent = remember(allLines) {
+    // Accent colour follows the line arriving next, falling back to the stop's dominant transport type
+    val fallbackAccent = remember(allLines) {
         allLines.groupingBy { it.type }.eachCount().maxByOrNull { it.value }?.key
     }?.let { transportColor(it) } ?: MaterialTheme.colorScheme.primary
+    val accent = sortedLines.firstOrNull { it.arrivingTime >= 0 }
+        ?.let { runCatching { parseColor(it.color) }.getOrNull() }
+        ?: fallbackAccent
 
     Card(
         modifier = Modifier
@@ -649,7 +740,7 @@ private fun StationWidgetCard(
                                 )
                                 Spacer(Modifier.width(6.dp))
                             }
-                            if (widget.group.isNotEmpty()) {
+                            if (showGroup && widget.group.isNotEmpty()) {
                                 Text(
                                     text = widget.group,
                                     style = MaterialTheme.typography.labelSmall,
@@ -739,6 +830,7 @@ private fun StationWidgetCard(
                             WidgetLineRow(
                                 line = line,
                                 elapsedSec = elapsedSec,
+                                detailed = detailed,
                                 timetable = lineTimetables[timetableKey],
                                 timetableLoading = timetableKey in timetableLoading,
                                 locale = locale,
@@ -896,6 +988,7 @@ private fun StaleChip(locale: Locale) {
 private fun WidgetLineRow(
     line: LineArrivalDetail,
     elapsedSec: Long,
+    detailed: Boolean,
     timetable: List<TimetableHour>?,
     timetableLoading: Boolean,
     locale: Locale,
@@ -909,6 +1002,7 @@ private fun WidgetLineRow(
     // Countdown keeps moving between fetches
     val liveSeconds = (line.arrivingTime - elapsedSec).coerceAtLeast(0)
     val isImminent = inService && liveSeconds < 120
+    val followUps = if (detailed && inService) line.arrivingTimes.drop(1).take(upcomingCount) else emptyList()
 
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(
@@ -923,37 +1017,17 @@ private fun WidgetLineRow(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = line.directionName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalMuted.current,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                // Following arrivals, inline under the direction
-                if (inService && line.arrivingTimes.size > 1) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 2.dp)
-                    ) {
-                        Text(
-                            text = "${t("widget.nextArrivals", locale)}:",
-                            fontSize = 10.sp,
-                            color = LocalMuted.current
-                        )
-                        line.arrivingTimes.drop(1).take(upcomingCount).forEach { arrival ->
-                            ArrivalTimeBadge(
-                                seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
-                                isTimetable = arrival.isTimetable,
-                                size = BadgeSize.SMALL
-                            )
-                        }
-                    }
-                }
-            }
+            // Direction gets whatever width is left; it never pushes the time off the card
+            Text(
+                text = line.directionName,
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalMuted.current,
+                maxLines = if (detailed) 2 else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
             if (inService) {
+                Spacer(Modifier.width(4.dp))
                 IconButton(
                     onClick = {
                         if (!showTimetable) {
@@ -961,7 +1035,7 @@ private fun WidgetLineRow(
                         }
                         showTimetable = !showTimetable
                     },
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     if (timetableLoading) {
                         CircularProgressIndicator(
@@ -979,7 +1053,7 @@ private fun WidgetLineRow(
                 }
                 IconButton(
                     onClick = onBellClick,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         Icons.Default.Notifications,
@@ -988,21 +1062,40 @@ private fun WidgetLineRow(
                         modifier = Modifier.size(16.dp)
                     )
                 }
-                Spacer(Modifier.width(2.dp))
-                // The hero number: big, and highlighted when the vehicle is about to arrive
-                Box(
-                    modifier = if (isImminent) Modifier
-                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                        .clip(RoundedCornerShape(8.dp))
-                    else Modifier
-                ) {
-                    ArrivalTimeBadge(
-                        seconds = liveSeconds,
-                        isTimetable = line.isTimetable,
-                        size = BadgeSize.LARGE
-                    )
+                Spacer(Modifier.width(4.dp))
+                // The hero number, highlighted when the vehicle is about to arrive,
+                // with the following arrivals stacked underneath it on large cards
+                Column(horizontalAlignment = Alignment.End) {
+                    Box(
+                        modifier = if (isImminent) Modifier
+                            .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(8.dp))
+                        else Modifier
+                    ) {
+                        ArrivalTimeBadge(
+                            seconds = liveSeconds,
+                            isTimetable = line.isTimetable,
+                            size = BadgeSize.LARGE
+                        )
+                    }
+                    if (followUps.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 3.dp)
+                        ) {
+                            followUps.forEach { arrival ->
+                                ArrivalTimeBadge(
+                                    seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
+                                    isTimetable = arrival.isTimetable,
+                                    size = BadgeSize.SMALL
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
+                Spacer(Modifier.width(4.dp))
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
@@ -1201,7 +1294,7 @@ private fun WidgetOptionsSheet(
             }
 
             // Size
-            SheetSection(title = t("widget.size", locale)) {
+            SheetSection(title = t("widget.size", locale), hint = t("widget.sizeHint", locale)) {
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SegmentedButton(
                         selected = widget.size == WidgetSize.MEDIUM,
@@ -1347,11 +1440,31 @@ private fun GroupsDialog(
     onRemove: (String) -> Unit,
     onMove: (String, Int) -> Unit,
     onToggleHidden: (String) -> Unit,
+    schedules: Map<String, GroupSchedule>,
+    onSetSchedule: (String, GroupSchedule?) -> Unit,
     onDismiss: () -> Unit
 ) {
     var renaming by remember { mutableStateOf<String?>(null) }
     var renameValue by remember { mutableStateOf("") }
     var newName by remember { mutableStateOf("") }
+    var schedulingGroup by remember { mutableStateOf<String?>(null) }
+
+    schedulingGroup?.let { name ->
+        GroupHoursDialog(
+            groupName = name,
+            current = schedules[name],
+            locale = locale,
+            onSave = { schedule ->
+                onSetSchedule(name, schedule)
+                schedulingGroup = null
+            },
+            onClear = {
+                onSetSchedule(name, null)
+                schedulingGroup = null
+            },
+            onDismiss = { schedulingGroup = null }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1401,30 +1514,49 @@ private fun GroupsDialog(
                                 .fillMaxWidth()
                                 .alpha(if (isHidden) 0.5f else 1f)
                         ) {
-                            Text(
-                                text = group,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                            val schedule = schedules[group]
+                            Column(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
                                         renaming = group
                                         renameValue = group
                                     }
-                            )
+                            ) {
+                                Text(
+                                    text = group,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (schedule != null) {
+                                    Text(
+                                        text = formatSchedule(schedule),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { schedulingGroup = group }, modifier = Modifier.size(28.dp)) {
+                                Icon(
+                                    Icons.Default.DateRange,
+                                    contentDescription = t("dashboard.groupHours", locale),
+                                    tint = if (schedule != null) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                             IconButton(
                                 onClick = { onMove(group, -1) },
                                 enabled = index > 0,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(28.dp)
                             ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = t("widget.moveUp", locale)) }
                             IconButton(
                                 onClick = { onMove(group, 1) },
                                 enabled = index < groups.lastIndex,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(28.dp)
                             ) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = t("widget.moveDown", locale)) }
-                            IconButton(onClick = { onToggleHidden(group) }, modifier = Modifier.size(32.dp)) {
+                            IconButton(onClick = { onToggleHidden(group) }, modifier = Modifier.size(28.dp)) {
                                 Icon(
                                     if (isHidden) Icons.Default.Lock else Icons.Default.Check,
                                     contentDescription = if (isHidden) t("widget.show", locale) else t("widget.hide", locale),
@@ -1432,7 +1564,7 @@ private fun GroupsDialog(
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
-                            IconButton(onClick = { onRemove(group) }, modifier = Modifier.size(32.dp)) {
+                            IconButton(onClick = { onRemove(group) }, modifier = Modifier.size(28.dp)) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = t("dashboard.groupDelete", locale),
@@ -1468,6 +1600,78 @@ private fun GroupsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(t("dashboard.close", locale)) }
+        }
+    )
+}
+
+/** Picks the daily window during which a group is expanded on the dashboard. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GroupHoursDialog(
+    groupName: String,
+    current: GroupSchedule?,
+    locale: Locale,
+    onSave: (GroupSchedule) -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val fromMinutes = current?.fromMinutes ?: (7 * 60)
+    val toMinutes = current?.toMinutes ?: (9 * 60 + 30)
+    val fromState = rememberTimePickerState(
+        initialHour = fromMinutes / 60,
+        initialMinute = fromMinutes % 60,
+        is24Hour = true
+    )
+    val toState = rememberTimePickerState(
+        initialHour = toMinutes / 60,
+        initialMinute = toMinutes % 60,
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("$groupName \u00b7 ${t("dashboard.groupHours", locale)}") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = t("dashboard.groupHoursDescription", locale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalMuted.current
+                )
+                Text(
+                    text = t("dashboard.groupHoursFrom", locale),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TimeInput(state = fromState)
+                Text(
+                    text = t("dashboard.groupHoursTo", locale),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TimeInput(state = toState)
+                if (current != null) {
+                    TextButton(onClick = onClear) {
+                        Text(t("dashboard.groupHoursAlways", locale))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(
+                    GroupSchedule(
+                        fromMinutes = fromState.hour * 60 + fromState.minute,
+                        toMinutes = toState.hour * 60 + toState.minute
+                    )
+                )
+            }) { Text(t("dashboard.groupSave", locale)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(t("dashboard.cancel", locale)) }
         }
     )
 }

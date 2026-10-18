@@ -70,7 +70,6 @@ import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberTimePickerState
 import ro.infotb.modern.data.store.GroupSchedule
 import ro.infotb.modern.ui.theme.parseColor
-import ro.infotb.modern.util.formatArrivalBadge
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -681,7 +680,7 @@ private fun StationWidgetCard(
     val isStale = cardState != null && cardState.hasData &&
         (cardState.error != null || now - cardState.lastUpdatedMs > STALE_AFTER_MS)
 
-    // Large cards list every line and show the following arrivals; normal cards stay compact
+    // Large cards list every line, with three following arrivals instead of two
     val detailed = widget.size == WidgetSize.LARGE
     val maxLines = if (detailed) Int.MAX_VALUE else 4
 
@@ -1000,13 +999,13 @@ private fun WidgetLineRow(
     onBellClick: () -> Unit,
     onLoadTimetable: () -> Unit
 ) {
-    val upcomingCount = 2
+    val upcomingCount = if (detailed) 3 else 2
     var showTimetable by remember { mutableStateOf(false) }
     val inService = line.arrivingTime >= 0
     // Countdown keeps moving between fetches
     val liveSeconds = (line.arrivingTime - elapsedSec).coerceAtLeast(0)
     val isImminent = inService && liveSeconds < 120
-    val followUps = if (detailed && inService) line.arrivingTimes.drop(1).take(upcomingCount) else emptyList()
+    val followUps = if (inService) line.arrivingTimes.drop(1).take(upcomingCount) else emptyList()
 
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(
@@ -1021,15 +1020,32 @@ private fun WidgetLineRow(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            // Direction gets whatever width is left; it never pushes the time off the card
-            Text(
-                text = line.directionName,
-                style = MaterialTheme.typography.bodySmall,
-                color = LocalMuted.current,
-                maxLines = if (detailed) 2 else 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            // Direction and the following arrivals take whatever width is left;
+            // they never push the time off the card
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = line.directionName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalMuted.current,
+                    maxLines = if (detailed) 2 else 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (followUps.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 3.dp)
+                    ) {
+                        followUps.forEach { arrival ->
+                            ArrivalTimeBadge(
+                                seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
+                                isTimetable = arrival.isTimetable,
+                                size = BadgeSize.SMALL
+                            )
+                        }
+                    }
+                }
+            }
             if (inService) {
                 Spacer(Modifier.width(4.dp))
                 IconButton(
@@ -1068,33 +1084,19 @@ private fun WidgetLineRow(
                 }
                 Spacer(Modifier.width(4.dp))
                 // The hero number, highlighted when the vehicle is about to arrive.
-                // It has a fixed minimum width so every row's time column lines up;
-                // large cards list the following arrivals underneath in muted text.
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = if (isImminent) Modifier
-                            .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                            .clip(RoundedCornerShape(8.dp))
-                        else Modifier
-                    ) {
-                        ArrivalTimeBadge(
-                            seconds = liveSeconds,
-                            isTimetable = line.isTimetable,
-                            size = BadgeSize.LARGE,
-                            modifier = Modifier.widthIn(min = HERO_BADGE_MIN_WIDTH)
-                        )
-                    }
-                    if (followUps.isNotEmpty()) {
-                        Text(
-                            text = followUps.joinToString(" \u00b7 ") { arrival ->
-                                formatArrivalBadge((arrival.arrivingTime - elapsedSec).coerceAtLeast(0))
-                            },
-                            fontSize = 11.sp,
-                            color = LocalMuted.current,
-                            maxLines = 1,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
+                // It has a fixed minimum width so every row's time column lines up.
+                Box(
+                    modifier = if (isImminent) Modifier
+                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                    else Modifier
+                ) {
+                    ArrivalTimeBadge(
+                        seconds = liveSeconds,
+                        isTimetable = line.isTimetable,
+                        size = BadgeSize.LARGE,
+                        modifier = Modifier.widthIn(min = HERO_BADGE_MIN_WIDTH)
+                    )
                 }
             } else {
                 Spacer(Modifier.width(4.dp))
@@ -1517,36 +1519,39 @@ private fun GroupsDialog(
                                 .alpha(if (isHidden) 0.5f else 1f)
                         ) {
                             val schedule = schedules[group]
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        renaming = group
-                                        renameValue = group
-                                    }
-                            ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = group,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.clickable {
+                                        renaming = group
+                                        renameValue = group
+                                    }
                                 )
-                                if (schedule != null) {
+                                // Hours live right under the name so the feature is discoverable
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable { schedulingGroup = group }
+                                        .padding(vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        tint = if (schedule != null) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(Modifier.width(3.dp))
                                     Text(
-                                        text = formatSchedule(schedule),
+                                        text = schedule?.let { formatSchedule(it) } ?: t("dashboard.groupHoursSet", locale),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = if (schedule != null) MaterialTheme.colorScheme.primary else LocalMuted.current
                                     )
                                 }
-                            }
-                            IconButton(onClick = { schedulingGroup = group }, modifier = Modifier.size(28.dp)) {
-                                Icon(
-                                    Icons.Default.DateRange,
-                                    contentDescription = t("dashboard.groupHours", locale),
-                                    tint = if (schedule != null) MaterialTheme.colorScheme.primary else LocalMuted.current,
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
                             IconButton(
                                 onClick = { onMove(group, -1) },

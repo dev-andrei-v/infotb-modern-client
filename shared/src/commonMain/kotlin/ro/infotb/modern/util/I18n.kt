@@ -36,8 +36,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.manageGroups" to mapOf(Locale.RO to "Grupuri", Locale.EN to "Groups"),
     "dashboard.manageGroupsTitle" to mapOf(Locale.RO to "Gestioneaza grupuri", Locale.EN to "Manage groups"),
     "dashboard.manageGroupsDescription" to mapOf(
-        Locale.RO to "Redenumeste sau sterge grupurile existente.",
-        Locale.EN to "Rename or delete existing groups."
+        Locale.RO to "Atinge numele ca sa-l redenumesti. Seteaza un interval orar ca grupul sa apara doar atunci, de exemplu dimineata spre serviciu si seara spre casa.",
+        Locale.EN to "Tap a name to rename it. Give a group active hours to show it only then, for example mornings for the way to work and evenings for the way home."
     ),
     "dashboard.noGroups" to mapOf(Locale.RO to "Niciun grup creat.", Locale.EN to "No groups created."),
     "dashboard.reset" to mapOf(Locale.RO to "Reseteaza", Locale.EN to "Reset"),
@@ -64,8 +64,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.sizeMedium" to mapOf(Locale.RO to "Normal", Locale.EN to "Normal"),
     "widget.sizeLarge" to mapOf(Locale.RO to "Mare", Locale.EN to "Large"),
     "widget.sizeHint" to mapOf(
-        Locale.RO to "Normal: randuri compacte, cel mult 4 linii. Mare: toate liniile, cu urmatoarele sosiri.",
-        Locale.EN to "Normal: compact rows, up to 4 lines. Large: every line, with the following arrivals."
+        Locale.RO to "Normal: cel mult 4 linii si 2 sosiri urmatoare. Mare: toate liniile si 3 sosiri urmatoare.",
+        Locale.EN to "Normal: up to 4 lines with 2 following arrivals. Large: every line with 3 following arrivals."
     ),
     "widget.loadFailed" to mapOf(Locale.RO to "Nu s-au putut incarca sosirile", Locale.EN to "Could not load arrivals"),
     "widget.options" to mapOf(Locale.RO to "Optiuni card", Locale.EN to "Card options"),
@@ -90,7 +90,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.groupHoursFrom" to mapOf(Locale.RO to "De la", Locale.EN to "From"),
     "dashboard.groupHoursTo" to mapOf(Locale.RO to "Pana la", Locale.EN to "Until"),
     "dashboard.groupHoursAlways" to mapOf(Locale.RO to "Afiseaza mereu", Locale.EN to "Always show"),
-    "dashboard.groupHoursSet" to mapOf(Locale.RO to "Orar", Locale.EN to "Hours"),
+    "dashboard.groupHoursSet" to mapOf(Locale.RO to "Seteaza interval orar", Locale.EN to "Set active hours"),
     "dashboard.sortGroups" to mapOf(Locale.RO to "Pe grupuri", Locale.EN to "By group"),
     "dashboard.sortNearest" to mapOf(Locale.RO to "Cele mai apropiate", Locale.EN to "Nearest first"),
     "dashboard.locationLoading" to mapOf(Locale.RO to "Se cauta pozitia...", Locale.EN to "Finding your position..."),

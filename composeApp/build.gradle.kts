@@ -43,6 +43,8 @@ kotlin {
                 implementation(libs.koin.compose)
                 implementation(libs.navigation.compose)
                 implementation(libs.lifecycle.viewmodel.compose)
+                implementation(libs.filekit.compose)
+                implementation(libs.kotlinx.serialization.json)
             }
         }
 

@@ -22,6 +22,9 @@ interface WidgetDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(widget: WidgetEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(widgets: List<WidgetEntity>)
+
     @Update
     suspend fun update(widget: WidgetEntity)
 

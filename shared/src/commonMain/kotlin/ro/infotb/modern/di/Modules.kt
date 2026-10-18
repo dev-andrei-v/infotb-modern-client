@@ -13,6 +13,7 @@ import org.koin.dsl.module
 import ro.infotb.modern.createSettings
 import ro.infotb.modern.data.api.AuthManager
 import ro.infotb.modern.data.api.StbApi
+import ro.infotb.modern.data.backup.BackupManager
 import ro.infotb.modern.data.db.StbDatabase
 import ro.infotb.modern.data.db.buildDatabase
 import ro.infotb.modern.data.db.createDatabaseBuilder
@@ -97,6 +98,17 @@ val sharedModule: Module = module {
         NotificationStore(
             dao = get(),
             scope = get(named("appScope"))
+        )
+    }
+
+    single {
+        BackupManager(
+            widgetDao = get(),
+            groupDao = get(),
+            favoriteDao = get(),
+            notificationDao = get(),
+            preferencesStore = get(),
+            json = get()
         )
     }
 

@@ -888,6 +888,13 @@ private fun StationWidgetCard(
                             )
                         }
                     }
+                } else if (stopInfo == null && widget.hidden) {
+                    // Hidden cards are not fetched, so there is nothing to wait for
+                    Text(
+                        text = t("widget.hidden", locale),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalMuted.current
+                    )
                 } else if (stopInfo == null && cardState?.error == null) {
                     Box(
                         modifier = Modifier

@@ -24,6 +24,9 @@ import ro.infotb.modern.data.store.FavoritesStore
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.notification.NotificationEngine
+import ro.infotb.modern.notification.NoticeWatcher
+import ro.infotb.modern.notification.PlatformNotifier
+import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.notification.createPlatformNotifier
 import ro.infotb.modern.util.Constants
 
@@ -80,6 +83,8 @@ val sharedModule: Module = module {
     single { get<StbDatabase>().notificationDao() }
     single { get<StbDatabase>().groupDao() }
 
+    single { PlatformLocation() }
+
     // Stores
     single {
         PreferencesStore(settings = get())
@@ -118,12 +123,27 @@ val sharedModule: Module = module {
         )
     }
 
+    single<PlatformNotifier> { createPlatformNotifier() }
+
+    single {
+        NoticeWatcher(
+            repository = get(),
+            dashboardStore = get(),
+            favoritesStore = get(),
+            notificationStore = get(),
+            preferencesStore = get(),
+            settings = get(),
+            notifier = get()
+        )
+    }
+
     single {
         NotificationEngine(
             notificationStore = get(),
             repository = get(),
             scope = get(named("appScope")),
-            platformNotifier = createPlatformNotifier()
+            platformNotifier = get(),
+            noticeWatcher = get()
         )
     }
 }

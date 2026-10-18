@@ -56,3 +56,7 @@ keystore.properties
 .env.*
 *.secret
 java_pid*.hprof
+
+# Xcode user state
+xcuserdata/
+iosApp/iosApp.xcodeproj/project.xcworkspace/

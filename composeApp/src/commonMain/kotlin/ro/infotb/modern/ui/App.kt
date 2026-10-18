@@ -34,7 +34,9 @@ import ro.infotb.modern.data.store.FavoritesStore
 import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
+import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.notification.NotificationEngine
+import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.notification.NotificationEvent
 import ro.infotb.modern.ui.components.layout.AppShell
@@ -71,10 +73,14 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val notificationStore: NotificationStore = koinInject()
     val notificationEngine: NotificationEngine = koinInject()
     val backupManager: BackupManager = koinInject()
+    val noticeWatcher: NoticeWatcher = koinInject()
 
     // Lives for the whole app so switching tabs keeps dashboard data instead
     // of refetching every stop from scratch.
-    val dashboardViewModel = remember { DashboardViewModel(repository, dashboardStore) }
+    val platformLocation: PlatformLocation = koinInject()
+    val dashboardViewModel = remember {
+        DashboardViewModel(repository, dashboardStore, preferencesStore, platformLocation, noticeWatcher)
+    }
 
     // Start the notification engine
     DisposableEffect(Unit) {
@@ -99,7 +105,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         lineColor: String,
         direction: Direction,
         minutes: Int,
-        isTimetable: Boolean
+        isTimetable: Boolean,
+        lineType: String
     ) {
         if (hasLiveNotification) {
             notificationEngine.startLiveTrackingNow(
@@ -111,7 +118,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     lineId = lineId,
                     direction = direction.value,
                     minutes = minutes,
-                    isTimetable = isTimetable
+                    isTimetable = isTimetable,
+                    lineType = lineType
                 )
             )
             coroutineScope.launch {
@@ -192,10 +200,13 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         onNavigateToLines = {
                             navController.navigate(Screen.Lines.route)
                         },
-                        onNavigateToSettings = {
-                            navController.navigate(Screen.Settings.route)
+                        onNavigateToNews = {
+                            navController.navigate(Screen.Announcements.route) {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                launchSingleTop = true
+                            }
                         },
-                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
+                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable, lineType ->
                             handleTrackedStationSelection(
                                 stopId = sid,
                                 stopName = stopName,
@@ -204,7 +215,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 lineColor = lineColor,
                                 direction = dir,
                                 minutes = minutes,
-                                isTimetable = isTimetable
+                                isTimetable = isTimetable,
+                                lineType = lineType
                             )
                         }
                     )
@@ -294,7 +306,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 launchSingleTop = true
                             }
                         },
-                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable ->
+                        onSetNotification = { sid, stopName, lid, lineName, lineColor, dir, minutes, isTimetable, lineType ->
                             handleTrackedStationSelection(
                                 stopId = sid,
                                 stopName = stopName,
@@ -303,7 +315,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                                 lineColor = lineColor,
                                 direction = dir,
                                 minutes = minutes,
-                                isTimetable = isTimetable
+                                isTimetable = isTimetable,
+                                lineType = lineType
                             )
                         },
                         onStopNotification = { subscriptionId ->
@@ -319,7 +332,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                 }
 
                 composable(Screen.Announcements.route) {
-                    val viewModel = remember { AnnouncementsViewModel(repository) }
+                    val viewModel = remember { AnnouncementsViewModel(repository, noticeWatcher) }
                     AnnouncementsScreen(
                         viewModel = viewModel,
                         locale = locale

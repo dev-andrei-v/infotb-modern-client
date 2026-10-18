@@ -14,6 +14,14 @@ import kotlin.random.Random
 
 enum class WidgetSize { MEDIUM, LARGE }
 
+/** Daily window (minutes after midnight) during which a group is shown expanded. */
+data class GroupSchedule(val fromMinutes: Int, val toMinutes: Int) {
+    /** True when [minuteOfDay] falls inside the window; windows may wrap past midnight. */
+    fun isActiveAt(minuteOfDay: Int): Boolean =
+        if (fromMinutes <= toMinutes) minuteOfDay in fromMinutes..toMinutes
+        else minuteOfDay >= fromMinutes || minuteOfDay <= toMinutes
+}
+
 data class WidgetConfig(
     val id: String,
     val stopId: Long,
@@ -41,6 +49,25 @@ class DashboardStore(
     val hiddenGroups: StateFlow<List<String>> = groupDao.observeAll()
         .map { entities -> entities.filter { it.hidden }.map { it.name } }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    /** Groups that only show during part of the day, keyed by name. */
+    val groupSchedules: StateFlow<Map<String, GroupSchedule>> = groupDao.observeAll()
+        .map { entities ->
+            entities.mapNotNull { e ->
+                val from = e.activeFrom
+                val to = e.activeTo
+                if (from != null && to != null) e.name to GroupSchedule(from, to) else null
+            }.toMap()
+        }
+        .stateIn(scope, SharingStarted.Eagerly, emptyMap())
+
+    /** Sets or clears (null) the daily window during which [name] is shown. */
+    fun setGroupSchedule(name: String, schedule: GroupSchedule?) {
+        scope.launch {
+            val group = groupDao.getAll().find { it.name == name } ?: return@launch
+            groupDao.update(group.copy(activeFrom = schedule?.fromMinutes, activeTo = schedule?.toMinutes))
+        }
+    }
 
     fun addWidget(stopId: Long, stopName: String, size: WidgetSize, lineKey: String): Boolean {
         scope.launch {
@@ -154,7 +181,15 @@ class DashboardStore(
             if (trimmed != oldName && existing.any { it.name.equals(trimmed, ignoreCase = true) }) return@launch
             val old = existing.find { it.name == oldName } ?: return@launch
             groupDao.deleteByName(oldName)
-            groupDao.insert(GroupEntity(name = trimmed, sortOrder = old.sortOrder, hidden = old.hidden))
+            groupDao.insert(
+                GroupEntity(
+                    name = trimmed,
+                    sortOrder = old.sortOrder,
+                    hidden = old.hidden,
+                    activeFrom = old.activeFrom,
+                    activeTo = old.activeTo
+                )
+            )
             // Update widgets referencing old group
             val widgets = widgetDao.getAll()
             widgets.filter { it.groupName == oldName }.forEach { widget ->

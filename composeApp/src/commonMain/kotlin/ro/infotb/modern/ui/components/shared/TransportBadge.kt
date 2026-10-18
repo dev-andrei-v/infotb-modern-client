@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,12 +34,6 @@ fun TransportBadge(
         TransportType.CABLE_CAR -> "TROLLEY"
         TransportType.SUBWAY -> "METRO"
     }
-    val icon = when (type) {
-        TransportType.BUS -> "\uD83D\uDE8C"
-        TransportType.TRAM -> "\uD83D\uDE8B"
-        TransportType.CABLE_CAR -> "\uD83D\uDE8E"
-        TransportType.SUBWAY -> "\uD83D\uDE87"
-    }
 
     Box(
         modifier = modifier
@@ -47,7 +43,12 @@ fun TransportBadge(
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = icon, fontSize = 14.sp)
+            Icon(
+                imageVector = vehicleIcon(type),
+                contentDescription = label,
+                tint = color,
+                modifier = Modifier.size(16.dp)
+            )
             if (showLabel) {
                 Spacer(Modifier.width(4.dp))
                 Text(

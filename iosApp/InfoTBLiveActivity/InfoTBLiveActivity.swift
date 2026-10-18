@@ -20,6 +20,7 @@ struct InfoTBLiveActivity: Widget {
                     lineBadge(
                         name: lineName,
                         color: lineColor,
+                        lineType: context.attributes.lineType,
                         size: 44
                     )
                     .padding(.leading, 4)
@@ -45,7 +46,7 @@ struct InfoTBLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(spacing: 6) {
                         if state.progress != nil && !state.hasArrived {
-                            routeTrack(state: state, color: lineColor, onDark: true)
+                            routeTrack(state: state, color: lineColor, lineType: context.attributes.lineType, onDark: true)
                         }
                         HStack(spacing: 6) {
                             statusLine(state: state, isStale: isStale, textColor: .white.opacity(0.72))
@@ -54,7 +55,7 @@ struct InfoTBLiveActivity: Widget {
                             if !state.isTimetable && !state.hasArrived && !isStale {
                                 liveIndicator()
                             }
-                            stopButton()
+                            stopButton(onDark: true)
                         }
                     }
                     .padding(.horizontal, 8)
@@ -62,7 +63,8 @@ struct InfoTBLiveActivity: Widget {
             } compactLeading: {
                 compactRouteBadge(
                     name: lineName,
-                    color: lineColor
+                    color: lineColor,
+                    lineType: context.attributes.lineType
                 )
             } compactTrailing: {
                 compactCountdown(
@@ -93,7 +95,7 @@ struct InfoTBLiveActivity: Widget {
 
         VStack(spacing: 10) {
             HStack(spacing: 14) {
-                lineBadge(name: lineName, color: color, size: 48)
+                lineBadge(name: lineName, color: color, lineType: context.attributes.lineType, size: 48)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(stopName)
@@ -111,10 +113,10 @@ struct InfoTBLiveActivity: Widget {
                     large: true
                 )
 
-                stopButton()
+                stopButton(onDark: false)
             }
             if state.progress != nil && !state.hasArrived {
-                routeTrack(state: state, color: color, onDark: false)
+                routeTrack(state: state, color: color, lineType: context.attributes.lineType, onDark: false)
             }
         }
         .padding(16)
@@ -134,6 +136,7 @@ struct InfoTBLiveActivity: Widget {
     private func routeTrack(
         state: TransitActivityAttributes.ContentState,
         color: Color,
+        lineType: String,
         onDark: Bool
     ) -> some View {
         let progress = min(max(state.progress ?? 0, 0), 1)
@@ -166,8 +169,7 @@ struct InfoTBLiveActivity: Widget {
                         .frame(width: 12, height: 12)
                         .position(x: width - 6, y: geo.size.height / 2)
                     // Vehicle
-                    Image(systemName: "bus.fill")
-                        .font(.system(size: 11, weight: .bold))
+                    VehicleGlyph(type: lineType, size: 11)
                         .foregroundStyle(.white)
                         .frame(width: busSize, height: busSize)
                         .background(Circle().fill(color))
@@ -244,13 +246,24 @@ struct InfoTBLiveActivity: Widget {
         return state.isTimetable ? L("Orar", "Scheduled") : L("Urmărire în timp real", "Real-time tracking")
     }
 
+    /// A labelled "Stop" pill instead of a bare X, so it reads as "stop tracking".
     @ViewBuilder
-    private func stopButton() -> some View {
+    private func stopButton(onDark: Bool) -> some View {
         if #available(iOS 17.0, *) {
             Button(intent: StopTrackingIntent()) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(0.85))
+                HStack(spacing: 4) {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 9, weight: .bold))
+                    Text(L("Stop", "Stop"))
+                        .font(.caption2.weight(.semibold))
+                }
+                .foregroundStyle(onDark ? Color.white : Color.primary)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(onDark ? Color.white.opacity(0.18) : Color.primary.opacity(0.08))
+                )
             }
             .buttonStyle(.plain)
             .accessibilityLabel(L("Oprește urmărirea", "Stop tracking"))
@@ -258,17 +271,22 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func lineBadge(name: String, color: Color, size: CGFloat) -> some View {
+    /// Line number on its colour, with the vehicle type glyph above the number inside the badge.
+    private func lineBadge(name: String, color: Color, lineType: String, size: CGFloat) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
                 .fill(color)
                 .frame(width: size, height: size)
-            Text(name)
-                .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-                .padding(.horizontal, 2)
+            VStack(spacing: size * 0.04) {
+                VehicleGlyph(type: lineType, size: size * 0.3)
+                    .foregroundStyle(.white.opacity(0.9))
+                Text(name)
+                    .font(.system(size: size * 0.36, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .padding(.horizontal, 2)
+            }
         }
     }
 
@@ -346,11 +364,10 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func compactRouteBadge(name: String, color: Color) -> some View {
+    private func compactRouteBadge(name: String, color: Color, lineType: String) -> some View {
         HStack(spacing: 4) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
+            VehicleGlyph(type: lineType, size: 11)
+                .foregroundStyle(color)
             Text(name)
                 .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)

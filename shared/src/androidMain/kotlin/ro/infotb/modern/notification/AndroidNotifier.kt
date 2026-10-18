@@ -23,6 +23,8 @@ class AndroidNotifier : PlatformNotifier {
         private const val CHANNEL_NAME = "Arrival Alerts"
         private const val LIVE_CHANNEL_ID = "stb_live_tracking"
         private const val LIVE_CHANNEL_NAME = "Live Arrival Tracking"
+        private const val NOTICE_CHANNEL_ID = "stb_notices"
+        private const val NOTICE_CHANNEL_NAME = "STB Notices"
         const val LIVE_NOTIF_ID = 9001
     }
 
@@ -57,6 +59,39 @@ class AndroidNotifier : PlatformNotifier {
             setShowBadge(false)
         }
         manager.createNotificationChannel(liveChannel)
+
+        val noticeChannel = NotificationChannel(
+            NOTICE_CHANNEL_ID,
+            NOTICE_CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Service notices about lines you follow"
+        }
+        manager.createNotificationChannel(noticeChannel)
+    }
+
+    override fun showNoticeNotification(noticeId: Long, title: String, body: String) {
+        val context = AndroidContext.appContext
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!.apply {
+            putExtra("navigate_news", true)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val notifId = ("notice-$noticeId").hashCode()
+        val contentIntent = PendingIntent.getActivity(
+            context, notifId, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val icon = context.resources.getIdentifier("ic_notification_bus", "drawable", context.packageName)
+        val notification = Notification.Builder(context, NOTICE_CHANNEL_ID)
+            .setSmallIcon(if (icon != 0) icon else android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(Notification.BigTextStyle().bigText(body))
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        manager.notify(notifId, notification)
     }
 
     override fun showNotification(event: NotificationEvent) {

@@ -46,7 +46,13 @@ data class BackupWidget(
 )
 
 @Serializable
-data class BackupGroup(val name: String, val sortOrder: Int = 0, val hidden: Boolean = false)
+data class BackupGroup(
+    val name: String,
+    val sortOrder: Int = 0,
+    val hidden: Boolean = false,
+    val activeFrom: Int? = null,
+    val activeTo: Int? = null
+)
 
 @Serializable
 data class BackupSubscription(
@@ -103,7 +109,7 @@ class BackupManager(
                 locale = preferencesStore.locale.value
             ),
             widgets = widgetDao.getAll().map { it.toBackup() },
-            groups = groupDao.getAll().map { BackupGroup(it.name, it.sortOrder, it.hidden) },
+            groups = groupDao.getAll().map { BackupGroup(it.name, it.sortOrder, it.hidden, it.activeFrom, it.activeTo) },
             favorites = favoriteDao.getAllIds(),
             subscriptions = notificationDao.getAll().map { it.toBackup() }
         )
@@ -149,7 +155,7 @@ class BackupManager(
         favoriteDao.deleteAll()
         notificationDao.deleteAll()
 
-        groupDao.upsertAll(payload.groups.map { GroupEntity(it.name, it.sortOrder, it.hidden) })
+        groupDao.upsertAll(payload.groups.map { GroupEntity(it.name, it.sortOrder, it.hidden, it.activeFrom, it.activeTo) })
         widgetDao.upsertAll(payload.widgets.map { it.toEntity() })
         favoriteDao.insertAll(payload.favorites.map { FavoriteEntity(it) })
         notificationDao.upsertAll(singleEnabled(payload.subscriptions).map { it.toEntity() })
@@ -165,7 +171,7 @@ class BackupManager(
         payload.groups
             .filter { it.name.lowercase() !in existingGroups }
             .sortedBy { it.sortOrder }
-            .forEach { groupDao.insert(GroupEntity(it.name, nextGroupOrder++, it.hidden)) }
+            .forEach { groupDao.insert(GroupEntity(it.name, nextGroupOrder++, it.hidden, it.activeFrom, it.activeTo)) }
 
         // Widgets: match by stop. Existing cards gain the backup's visible
         // lines; unknown stops are appended after the current cards.

@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -54,6 +56,7 @@ import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
+import ro.infotb.modern.ui.components.shared.vehicleIcon
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.ui.viewmodel.LinesViewModel
@@ -114,6 +117,8 @@ fun LinesScreen(
 
         // Transport type filters
         var showNightOnly by remember { mutableStateOf(false) }
+        // Type sections the user folded away; headers stay visible so they can be reopened
+        var collapsedTypes by remember { mutableStateOf(setOf<TransportType>()) }
         FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -132,9 +137,17 @@ fun LinesScreen(
                         viewModel.toggleTypeFilter(type)
                     },
                     label = { Text(label, fontSize = 12.sp) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = vehicleIcon(type),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = color.copy(alpha = 0.2f),
-                        selectedLabelColor = color
+                        selectedLabelColor = color,
+                        selectedLeadingIconColor = color
                     )
                 )
             }
@@ -293,19 +306,27 @@ fun LinesScreen(
 
                         typeOrder.forEach { type ->
                             val linesOfType = sortLines(grouped[type] ?: return@forEach)
-                            val typeIcon = when (type) {
-                                TransportType.BUS -> "\uD83D\uDE8C"
-                                TransportType.TRAM -> "\uD83D\uDE8B"
-                                TransportType.CABLE_CAR -> "\uD83D\uDE8E"
-                                TransportType.SUBWAY -> "\uD83D\uDE87"
-                            }
+                            val collapsed = type in collapsedTypes
 
+                            // Section header: tap anywhere on it to fold or unfold the section
                             item(key = "header_${type.name}") {
                                 Row(
-                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            collapsedTypes =
+                                                if (collapsed) collapsedTypes - type else collapsedTypes + type
+                                        }
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(text = typeIcon, fontSize = 16.sp)
+                                    Icon(
+                                        imageVector = vehicleIcon(type),
+                                        contentDescription = null,
+                                        tint = transportColor(type),
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
                                         text = t("transport.${type.name}", locale),
@@ -319,8 +340,17 @@ fun LinesScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = LocalMuted.current
                                     )
+                                    Spacer(Modifier.weight(1f))
+                                    Icon(
+                                        if (collapsed) Icons.Default.KeyboardArrowRight
+                                        else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = LocalMuted.current,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
+                            if (collapsed) return@forEach
                             items(linesOfType, key = { "line_${it.id}" }) { line ->
                                 LineRow(
                                     line = line,

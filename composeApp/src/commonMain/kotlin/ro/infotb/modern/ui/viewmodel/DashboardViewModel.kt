@@ -16,12 +16,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import ro.infotb.modern.currentTimeMillis
+import ro.infotb.modern.data.model.Announcement
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.data.repository.TransitRepository
+import ro.infotb.modern.data.store.DashboardSort
 import ro.infotb.modern.data.store.DashboardStore
+import ro.infotb.modern.data.store.GroupSchedule
+import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.data.store.WidgetConfig
+import ro.infotb.modern.location.GeoPoint
+import ro.infotb.modern.location.PlatformLocation
+import ro.infotb.modern.location.distanceMeters
+import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.util.Constants
 
@@ -32,6 +40,8 @@ import ro.infotb.modern.util.Constants
  * card never flashes back to a spinner; [error] and [lastUpdatedMs] let the UI
  * flag stale data instead.
  */
+private const val ANNOUNCEMENTS_TTL_MS = 15 * 60 * 1000L
+
 data class StopCardState(
     val info: StopInfo? = null,
     val lastUpdatedMs: Long = 0L,
@@ -43,12 +53,34 @@ data class StopCardState(
 
 class DashboardViewModel(
     private val repository: TransitRepository,
-    private val dashboardStore: DashboardStore
+    private val dashboardStore: DashboardStore,
+    private val preferencesStore: PreferencesStore,
+    private val platformLocation: PlatformLocation,
+    private val noticeWatcher: NoticeWatcher? = null
 ) : ViewModel() {
+
+    val sortMode: StateFlow<DashboardSort> = preferencesStore.dashboardSort
+    val locationSupported: Boolean = platformLocation.isSupported()
+
+    /** Stop coordinates, fetched once per stop from the home-stops endpoint. */
+    private val _stopCoordinates = MutableStateFlow<Map<Long, GeoPoint>>(emptyMap())
+    val stopCoordinates: StateFlow<Map<Long, GeoPoint>> = _stopCoordinates.asStateFlow()
+    private val coordinatesInFlight = mutableSetOf<Long>()
+
+    private val _userLocation = MutableStateFlow<GeoPoint?>(null)
+    val userLocation: StateFlow<GeoPoint?> = _userLocation.asStateFlow()
+
+    private val _locationLoading = MutableStateFlow(false)
+    val locationLoading: StateFlow<Boolean> = _locationLoading.asStateFlow()
+
+    /** True after a location request came back empty (denied, off, or timed out). */
+    private val _locationFailed = MutableStateFlow(false)
+    val locationFailed: StateFlow<Boolean> = _locationFailed.asStateFlow()
 
     val widgets: StateFlow<List<WidgetConfig>> = dashboardStore.widgets
     val groups: StateFlow<List<String>> = dashboardStore.groups
     val hiddenGroups: StateFlow<List<String>> = dashboardStore.hiddenGroups
+    val groupSchedules: StateFlow<Map<String, GroupSchedule>> = dashboardStore.groupSchedules
 
     private val _isEditing = MutableStateFlow(false)
     val isEditing: StateFlow<Boolean> = _isEditing.asStateFlow()
@@ -65,6 +97,11 @@ class DashboardViewModel(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    /** Service notices; cards show the ones that mention a line they display. */
+    private val _announcements = MutableStateFlow<List<Announcement>>(emptyList())
+    val announcements: StateFlow<List<Announcement>> = _announcements.asStateFlow()
+    private var announcementsFetchedMs = 0L
 
     /** Wall-clock time of the last completed full refresh, 0 if none yet. */
     private val _lastRefreshMs = MutableStateFlow(0L)
@@ -94,6 +131,7 @@ class DashboardViewModel(
                 if (missing.isNotEmpty() && isActive) {
                     fetchStops(missing, force = false)
                 }
+                if (sortMode.value == DashboardSort.NEAREST) ensureCoordinates(ids)
             }
         }
     }
@@ -105,10 +143,63 @@ class DashboardViewModel(
     fun setScreenActive(active: Boolean) {
         if (isActive == active) return
         isActive = active
-        if (active) startTicker() else stopTicker()
+        if (active) {
+            startTicker()
+            refreshAnnouncements()
+            if (sortMode.value == DashboardSort.NEAREST) refreshLocation()
+        } else {
+            stopTicker()
+        }
+    }
+
+    fun setSortMode(mode: DashboardSort) {
+        preferencesStore.setDashboardSort(mode)
+        if (mode == DashboardSort.NEAREST) refreshLocation()
+    }
+
+    /** Re-reads the device position and makes sure every card has coordinates. */
+    fun refreshLocation() {
+        if (!locationSupported) return
+        viewModelScope.launch {
+            _locationLoading.value = true
+            val point = try { platformLocation.current() } catch (_: Exception) { null }
+            _userLocation.value = point ?: _userLocation.value
+            _locationFailed.value = point == null
+            _locationLoading.value = false
+        }
+        ensureCoordinates(widgets.value.map { it.stopId })
+    }
+
+    /** Distance in metres from the user to a stop, when both positions are known. */
+    fun distanceTo(stopId: Long): Double? {
+        val user = _userLocation.value ?: return null
+        val stop = _stopCoordinates.value[stopId] ?: return null
+        return distanceMeters(user, stop)
+    }
+
+    private fun ensureCoordinates(stopIds: Collection<Long>) {
+        val missing = stopIds.distinct().filter { it !in _stopCoordinates.value && it !in coordinatesInFlight }
+        if (missing.isEmpty()) return
+        coordinatesInFlight += missing
+        missing.forEach { stopId ->
+            viewModelScope.launch {
+                try {
+                    val stops = repository.getHomeStops(stopId)
+                    val stop = stops.firstOrNull { it.id == stopId } ?: stops.firstOrNull()
+                    if (stop != null) {
+                        _stopCoordinates.update { it + (stopId to GeoPoint(stop.lat, stop.lng)) }
+                    }
+                } catch (_: Exception) {
+                    // Card simply sorts last until the next attempt
+                } finally {
+                    coordinatesInFlight -= stopId
+                }
+            }
+        }
     }
 
     fun refreshNow() {
+        refreshAnnouncements(force = true)
         viewModelScope.launch {
             _isRefreshing.value = true
             fetchStops(visibleStopIds.value, force = true)
@@ -119,6 +210,22 @@ class DashboardViewModel(
 
     fun toggleEditing() {
         _isEditing.value = !_isEditing.value
+    }
+
+    /** Fetches notices at most every [ANNOUNCEMENTS_TTL_MS] unless forced; failures keep the last list. */
+    private fun refreshAnnouncements(force: Boolean = false) {
+        val now = currentTimeMillis()
+        if (!force && now - announcementsFetchedMs < ANNOUNCEMENTS_TTL_MS) return
+        viewModelScope.launch {
+            try {
+                val notices = repository.getAnnouncements()
+                _announcements.value = notices
+                announcementsFetchedMs = currentTimeMillis()
+                noticeWatcher?.process(notices)
+            } catch (_: Exception) {
+                // Notices are a bonus on the dashboard; a failed fetch is not worth an error state
+            }
+        }
     }
 
     fun removeWidget(id: String) {
@@ -152,6 +259,43 @@ class DashboardViewModel(
 
     fun toggleGroupHidden(name: String) {
         dashboardStore.toggleGroupHidden(name)
+    }
+
+    fun setGroupSchedule(name: String, schedule: GroupSchedule?) {
+        dashboardStore.setGroupSchedule(name, schedule)
+    }
+
+    fun renameGroup(oldName: String, newName: String) {
+        dashboardStore.renameGroup(oldName, newName)
+    }
+
+    fun removeGroup(name: String) {
+        dashboardStore.removeGroup(name)
+    }
+
+    /** Moves a group one step up (-1) or down (+1) in the dashboard order. */
+    fun moveGroup(name: String, delta: Int) {
+        val current = groups.value
+        val from = current.indexOf(name)
+        val to = from + delta
+        if (from == -1 || to !in current.indices) return
+        dashboardStore.reorderGroups(from, to)
+    }
+
+    /**
+     * Moves a card one step up (-1) or down (+1) among the cards of its own
+     * group. Positions are translated to the global sort order the store keeps.
+     */
+    fun moveWidget(id: String, delta: Int) {
+        val all = widgets.value
+        val widget = all.find { it.id == id } ?: return
+        val siblings = all.filter { it.group == widget.group }
+        val pos = siblings.indexOf(widget)
+        val target = pos + delta
+        if (target !in siblings.indices) return
+        val from = all.indexOf(widget)
+        val to = all.indexOf(siblings[target])
+        dashboardStore.reorderWidgets(from, to)
     }
 
     fun loadLineTimetable(stopId: Long, lineId: Long, direction: Direction) {

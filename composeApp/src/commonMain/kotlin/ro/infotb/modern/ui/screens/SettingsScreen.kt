@@ -31,7 +31,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -47,8 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,6 +80,7 @@ fun SettingsScreen(
     onNotificationChanged: (() -> Unit)? = null
 ) {
     val theme by preferencesStore.theme.collectAsState()
+    val noticeAlerts by preferencesStore.noticeAlerts.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
     val isDynamicIsland = supportsDynamicIsland()
     val isLiveNotification = supportsLiveNotification()
@@ -225,6 +223,29 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Notices about followed lines
+        SettingsSection(
+            title = t("settings.noticeAlerts", locale),
+            description = t("settings.noticeAlertsDescription", locale)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = t("settings.noticeAlerts", locale),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = noticeAlerts,
+                    onCheckedChange = { preferencesStore.setNoticeAlerts(it) }
+                )
             }
         }
 
@@ -490,7 +511,6 @@ private fun BackupSection(
     onRestored: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
 
     var status by remember { mutableStateOf<String?>(null) }
     var statusIsError by remember { mutableStateOf(false) }
@@ -508,10 +528,10 @@ private fun BackupSection(
         else -> "${t("backup.failed", locale)}: ${error.message ?: ""}"
     }
 
-    /** Validate incoming text and, if it is a backup, ask how to apply it. */
+    /** Validate the file's text and, if it is a backup, ask how to apply it. */
     fun offerRestore(text: String?) {
         if (text.isNullOrBlank()) {
-            showStatus(t("backup.clipboardEmpty", locale), isError = true)
+            showStatus(t("backup.invalid", locale), isError = true)
             return
         }
         try {
@@ -580,31 +600,6 @@ private fun BackupSection(
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(t("backup.import", locale), fontSize = 13.sp)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                enabled = !isBusy,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    scope.launch {
-                        try {
-                            clipboard.setText(AnnotatedString(backupManager.export()))
-                            showStatus(t("backup.copied", locale))
-                        } catch (e: Exception) {
-                            showStatus(describe(e), isError = true)
-                        }
-                    }
-                }
-            ) {
-                Text(t("backup.copy", locale), fontSize = 13.sp)
-            }
-            OutlinedButton(
-                enabled = !isBusy,
-                modifier = Modifier.weight(1f),
-                onClick = { offerRestore(clipboard.getText()?.text) }
-            ) {
-                Text(t("backup.paste", locale), fontSize = 13.sp)
             }
         }
         status?.let { message ->

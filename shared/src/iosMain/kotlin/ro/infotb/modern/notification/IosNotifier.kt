@@ -106,6 +106,26 @@ class IosNotifier : PlatformNotifier {
         )
     }
 
+    override fun showNoticeNotification(noticeId: Long, title: String, body: String) {
+        val content = UNMutableNotificationContent().apply {
+            setTitle(title)
+            setBody(body)
+            setThreadIdentifier("stb-notices")
+            setSound(UNNotificationSound.defaultSound())
+        }
+        val request = UNNotificationRequest.requestWithIdentifier(
+            identifier = "notice-$noticeId",
+            content = content,
+            trigger = null
+        )
+        UNUserNotificationCenter.currentNotificationCenter()
+            .addNotificationRequest(request) { error ->
+                if (error != null) {
+                    println("[IosNotifier] Failed to deliver notice: ${error.localizedDescription}")
+                }
+            }
+    }
+
     private fun showLocalNotification(lineName: String, stopName: String, minutes: Int, isTimetable: Boolean) {
         val content = UNMutableNotificationContent().apply {
             setTitle("Line $lineName")
@@ -144,6 +164,7 @@ class IosNotifier : PlatformNotifier {
             "direction" to event.direction,
             "minutes" to event.minutes,
             "isTimetable" to event.isTimetable,
+            "lineType" to event.lineType,
             "hasArrived" to event.hasArrived,
             // -1 means "unknown"; NSDictionary can't carry Kotlin nulls cleanly
             "stopsAway" to (event.stopsAway ?: -1),

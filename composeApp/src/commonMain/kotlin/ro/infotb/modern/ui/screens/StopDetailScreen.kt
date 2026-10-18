@@ -6,11 +6,14 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -22,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,13 +38,13 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -65,12 +67,13 @@ import ro.infotb.modern.data.model.LineArrivalDetail
 import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
+import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
 import ro.infotb.modern.ui.components.shared.LeafletMap
 import ro.infotb.modern.ui.components.shared.LineBadge
-import ro.infotb.modern.supportsDynamicIsland
-import ro.infotb.modern.supportsLiveNotification
 import ro.infotb.modern.ui.theme.LocalMuted
+import ro.infotb.modern.ui.theme.RealtimeColor
 import ro.infotb.modern.ui.theme.parseColor
+import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
 import ro.infotb.modern.currentHourOfDay
 import ro.infotb.modern.currentMinuteOfHour
@@ -91,7 +94,7 @@ fun StopDetailScreen(
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
-    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit,
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean, lineType: String) -> Unit,
     onStopNotification: (subscriptionId: String) -> Unit = {},
     onRefresh: (() -> Unit)? = null
 ) {
@@ -199,14 +202,29 @@ fun StopDetailScreen(
                     }
                 }
 
-                // Lines count
+                // Lines count + the one place to add this stop to the dashboard
                 item(key = "count") {
-                    Text(
-                        text = "${info.lines.size} ${t("stopDetail.lines", locale)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${info.lines.size} ${t("stopDetail.lines", locale)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilledTonalButton(
+                            onClick = { onAddToDashboard(stopId, info.name) },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(t("stopDetail.addToDashboard", locale), fontSize = 12.sp, maxLines = 1)
+                        }
+                    }
                 }
 
                 if (info.lines.isEmpty()) {
@@ -220,69 +238,66 @@ fun StopDetailScreen(
                     }
                 }
 
-                // Sort: primary line first (if navigated from line detail)
-                val sortedLines = if (lineId != null) {
-                    val primary = info.lines.filter { it.id == lineId }
-                    val others = info.lines.filter { it.id != lineId }
-                    primary + others
-                } else {
-                    info.lines
-                }
+                // Primary line first (when opened from a line), then by arrival, out-of-service last
+                val sortedLines = info.lines.sortedWith(
+                    compareBy<LineArrivalDetail> { if (it.id == lineId) 0 else 1 }
+                        .thenBy { if (it.arrivingTime >= 0) 0 else 1 }
+                        .thenBy { it.arrivingTime }
+                )
 
-                items(sortedLines, key = { "${it.id}_${it.direction.value}" }) { line ->
-                    val timetableKey = "${line.id}_${line.direction.value}"
-                    val isTimetableExpanded = expandedTimetables[timetableKey] == true
-                    val isPrimary = line.id == lineId
-
-                    // Determine which timetable to show
-                    val timetableData = if (line.timetable.isNotEmpty()) {
-                        line.timetable
-                    } else {
-                        lineTimetables[timetableKey]
-                    }
-                    val isTimetableLoading = timetableLoading.contains(timetableKey)
-
-                    val activeSub = activeSubscriptions.find { sub ->
-                        sub.stopId == stopId && sub.lineId == line.id && sub.direction == line.direction && sub.enabled
-                    }
-
-                    LineArrivalCard(
-                        line = line,
-                        isPrimary = isPrimary,
-                        isTracking = activeSub != null,
-                        isTimetableExpanded = isTimetableExpanded,
-                        timetableData = timetableData,
-                        isTimetableLoading = isTimetableLoading,
-                        locale = locale,
-                        onNavigateToLine = { onNavigateToLine(line.id) },
-                        onToggleTimetable = {
-                            val newExpanded = !isTimetableExpanded
-                            expandedTimetables[timetableKey] = newExpanded
-                            // Fetch timetable on-demand if not already available
-                            if (newExpanded && line.timetable.isEmpty() && !lineTimetables.containsKey(timetableKey)) {
-                                viewModel.loadLineTimetable(line.id, line.direction)
+                if (sortedLines.isNotEmpty()) {
+                    item(key = "lines") {
+                        StopLinesCard(
+                            lines = sortedLines,
+                            primaryLineId = lineId,
+                            locale = locale,
+                            isTracking = { line ->
+                                activeSubscriptions.any { sub ->
+                                    sub.stopId == stopId && sub.lineId == line.id &&
+                                        sub.direction == line.direction && sub.enabled
+                                }
+                            },
+                            isTimetableExpanded = { line ->
+                                expandedTimetables["${line.id}_${line.direction.value}"] == true
+                            },
+                            timetableFor = { line ->
+                                val key = "${line.id}_${line.direction.value}"
+                                if (line.timetable.isNotEmpty()) line.timetable else lineTimetables[key]
+                            },
+                            isTimetableLoading = { line ->
+                                "${line.id}_${line.direction.value}" in timetableLoading
+                            },
+                            onNavigateToLine = { line -> onNavigateToLine(line.id) },
+                            onToggleTimetable = { line ->
+                                val key = "${line.id}_${line.direction.value}"
+                                val newExpanded = expandedTimetables[key] != true
+                                expandedTimetables[key] = newExpanded
+                                // Fetch timetable on-demand if not already available
+                                if (newExpanded && line.timetable.isEmpty() && !lineTimetables.containsKey(key)) {
+                                    viewModel.loadLineTimetable(line.id, line.direction)
+                                }
+                            },
+                            onSetNotification = { line ->
+                                onSetNotification(
+                                    stopId,
+                                    info.name,
+                                    line.id,
+                                    line.name,
+                                    line.color,
+                                    line.direction,
+                                    (line.arrivingTime / 60).toInt().coerceAtLeast(0),
+                                    line.isTimetable,
+                                    line.type.name
+                                )
+                            },
+                            onStopNotification = { line ->
+                                activeSubscriptions.find { sub ->
+                                    sub.stopId == stopId && sub.lineId == line.id &&
+                                        sub.direction == line.direction && sub.enabled
+                                }?.let { onStopNotification(it.id) }
                             }
-                        },
-                        onAddToDashboard = {
-                            onAddToDashboard(stopId, info.name)
-                        },
-                        onSetNotification = {
-                            onSetNotification(
-                                stopId,
-                                info.name,
-                                line.id,
-                                line.name,
-                                line.color,
-                                line.direction,
-                                (line.arrivingTime / 60).toInt().coerceAtLeast(0),
-                                line.isTimetable
-                            )
-                        },
-                        onStopNotification = {
-                            activeSub?.let { onStopNotification(it.id) }
-                        }
-                    )
-                    Spacer(Modifier.height(8.dp))
+                        )
+                    }
                 }
             }
             }
@@ -290,8 +305,72 @@ fun StopDetailScreen(
     }
 }
 
+/**
+ * Every line at the stop in one card, laid out like a dashboard card: a colour
+ * strip for the line arriving next, one row per line with the big arrival on
+ * the right, and the timetable folding out under its row.
+ */
 @Composable
-private fun LineArrivalCard(
+private fun StopLinesCard(
+    lines: List<LineArrivalDetail>,
+    primaryLineId: Long?,
+    locale: Locale,
+    isTracking: (LineArrivalDetail) -> Boolean,
+    isTimetableExpanded: (LineArrivalDetail) -> Boolean,
+    timetableFor: (LineArrivalDetail) -> List<TimetableHour>?,
+    isTimetableLoading: (LineArrivalDetail) -> Boolean,
+    onNavigateToLine: (LineArrivalDetail) -> Unit,
+    onToggleTimetable: (LineArrivalDetail) -> Unit,
+    onSetNotification: (LineArrivalDetail) -> Unit,
+    onStopNotification: (LineArrivalDetail) -> Unit
+) {
+    val fallbackAccent = lines.groupingBy { it.type }.eachCount().maxByOrNull { it.value }?.key
+        ?.let { transportColor(it) } ?: MaterialTheme.colorScheme.primary
+    val accent = lines.firstOrNull { it.arrivingTime >= 0 }
+        ?.let { runCatching { parseColor(it.color) }.getOrNull() }
+        ?: fallbackAccent
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(5.dp)
+                    .fillMaxHeight()
+                    .background(accent)
+            )
+            Column(modifier = Modifier.padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)) {
+                lines.forEachIndexed { index, line ->
+                    if (index > 0) {
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                    StopLineRow(
+                        line = line,
+                        isPrimary = line.id == primaryLineId,
+                        isTracking = isTracking(line),
+                        isTimetableExpanded = isTimetableExpanded(line),
+                        timetableData = timetableFor(line),
+                        isTimetableLoading = isTimetableLoading(line),
+                        locale = locale,
+                        onNavigateToLine = { onNavigateToLine(line) },
+                        onToggleTimetable = { onToggleTimetable(line) },
+                        onSetNotification = { onSetNotification(line) },
+                        onStopNotification = { onStopNotification(line) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StopLineRow(
     line: LineArrivalDetail,
     isPrimary: Boolean,
     isTracking: Boolean,
@@ -301,194 +380,154 @@ private fun LineArrivalCard(
     locale: Locale,
     onNavigateToLine: () -> Unit,
     onToggleTimetable: () -> Unit,
-    onAddToDashboard: () -> Unit,
     onSetNotification: () -> Unit,
     onStopNotification: () -> Unit
 ) {
-    val borderColor = if (isPrimary) {
-        try {
-            parseColor(line.color)
-        } catch (_: Exception) {
-            MaterialTheme.colorScheme.primary
-        }
-    } else {
-        Color.Transparent
-    }
+    val inService = line.arrivingTime >= 0
+    val isImminent = inService && line.arrivingTime < 120
+    val followUps = if (inService) line.arrivingTimes.drop(1).take(3) else emptyList()
+    val lineTint = remember(line.color) { runCatching { parseColor(line.color) }.getOrNull() }
 
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isPrimary) Modifier.border(
-                    2.dp,
-                    borderColor,
-                    RoundedCornerShape(12.dp)
-                ) else Modifier
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isPrimary) 3.dp else 1.dp)
+                // The line this screen was opened for gets a faint wash of its own colour
+                if (isPrimary && lineTint != null) Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(lineTint.copy(alpha = 0.08f))
+                    .padding(horizontal = 4.dp)
+                else Modifier
+            )
+            .padding(vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // Header: badge + direction + arrival time
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(modifier = Modifier.clickable(onClick = onNavigateToLine)) {
-                    LineBadge(
-                        name = line.name,
-                        color = line.color,
-                        size = BadgeSize.MEDIUM
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.clickable(onClick = onNavigateToLine)) {
+                LineBadge(name = line.name, color = line.color, size = BadgeSize.MEDIUM)
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = line.directionName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (followUps.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 3.dp)
+                    ) {
+                        followUps.forEach { arrival ->
+                            ArrivalTimeBadge(
+                                seconds = arrival.arrivingTime,
+                                isTimetable = arrival.isTimetable,
+                                size = BadgeSize.SMALL
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onToggleTimetable, modifier = Modifier.size(28.dp)) {
+                if (isTimetableLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp)
+                } else {
+                    Icon(
+                        Icons.Default.DateRange,
+                        contentDescription = t("stopDetail.timetable", locale),
+                        tint = if (isTimetableExpanded) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = line.directionName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+            }
+            if (inService) {
+                IconButton(
+                    onClick = if (isTracking) onStopNotification else onSetNotification,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = if (isTracking) t("stopDetail.stopTracking", locale)
+                        else t("stopDetail.notification", locale),
+                        tint = if (isTracking) MaterialTheme.colorScheme.error else LocalMuted.current,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                if (line.arrivingTime >= 0) {
+                Spacer(Modifier.width(4.dp))
+                Box(
+                    modifier = if (isImminent) Modifier
+                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                    else Modifier
+                ) {
                     ArrivalTimeBadge(
                         seconds = line.arrivingTime,
                         isTimetable = line.isTimetable,
-                        size = BadgeSize.MEDIUM
+                        size = BadgeSize.LARGE,
+                        modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = t("widget.outOfService", locale),
-                            fontSize = 10.sp,
-                            color = LocalMuted.current
-                        )
-                    }
                 }
-            }
-
-            // Next arrivals (skip duplicating the first one already shown in header)
-            if (line.arrivingTime >= 0 && line.arrivingTimes.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.horizontalScroll(rememberScrollState())
+            } else {
+                Spacer(Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "${t("widget.nextArrivals", locale)}:",
+                        text = t("widget.outOfService", locale),
+                        fontSize = 11.sp,
+                        color = LocalMuted.current
+                    )
+                }
+            }
+        }
+
+        // Expandable timetable
+        AnimatedVisibility(
+            visible = isTimetableExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            when {
+                isTimetableLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                }
+                timetableData != null && timetableData.isNotEmpty() -> {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        Text(
+                            text = "${t("stopDetail.timetableTitle", locale)} ${line.name}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        TimetableGrid(
+                            timetable = timetableData,
+                            locale = locale
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = t("widget.noData", locale),
                         style = MaterialTheme.typography.bodySmall,
                         color = LocalMuted.current,
-                        modifier = Modifier.align(Alignment.CenterVertically)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    line.arrivingTimes.drop(1).forEach { arrival ->
-                        ArrivalTimeBadge(
-                            seconds = arrival.arrivingTime,
-                            isTimetable = arrival.isTimetable,
-                            size = BadgeSize.SMALL
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(4.dp))
-
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                TextButton(onClick = onAddToDashboard) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(2.dp))
-                    Text(t("stopDetail.addToDashboard", locale), fontSize = 11.sp, maxLines = 1)
-                }
-                if (line.arrivingTime >= 0) {
-                    if (isTracking) {
-                        TextButton(
-                            onClick = onStopNotification,
-                            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(2.dp))
-                            Text(t("stopDetail.stopTracking", locale), fontSize = 11.sp, maxLines = 1)
-                        }
-                    } else {
-                        TextButton(onClick = onSetNotification) {
-                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(2.dp))
-                            Text(
-                                when {
-                                    supportsDynamicIsland() -> t("stopDetail.dynamicIsland", locale)
-                                    supportsLiveNotification() -> t("stopDetail.liveNotification", locale)
-                                    else -> t("stopDetail.notification", locale)
-                                },
-                                fontSize = 11.sp, maxLines = 1
-                            )
-                        }
-                    }
-                }
-                TextButton(onClick = onToggleTimetable) {
-                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(2.dp))
-                    Text(t("stopDetail.timetable", locale), fontSize = 11.sp, maxLines = 1)
-                    Icon(
-                        if (isTimetableExpanded) Icons.Default.KeyboardArrowUp
-                        else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-
-            // Expandable timetable
-            AnimatedVisibility(
-                visible = isTimetableExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                when {
-                    isTimetableLoading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                        }
-                    }
-                    timetableData != null && timetableData.isNotEmpty() -> {
-                        Column(modifier = Modifier.padding(top = 8.dp)) {
-                            Text(
-                                text = "${t("stopDetail.timetableTitle", locale)} ${line.name}",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            TimetableGrid(
-                                timetable = timetableData,
-                                locale = locale
-                            )
-                        }
-                    }
-                    else -> {
-                        Text(
-                            text = t("widget.noData", locale),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LocalMuted.current,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
                 }
             }
         }

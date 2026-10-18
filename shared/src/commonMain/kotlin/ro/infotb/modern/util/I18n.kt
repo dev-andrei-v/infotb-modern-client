@@ -36,8 +36,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.manageGroups" to mapOf(Locale.RO to "Grupuri", Locale.EN to "Groups"),
     "dashboard.manageGroupsTitle" to mapOf(Locale.RO to "Gestioneaza grupuri", Locale.EN to "Manage groups"),
     "dashboard.manageGroupsDescription" to mapOf(
-        Locale.RO to "Redenumeste sau sterge grupurile existente.",
-        Locale.EN to "Rename or delete existing groups."
+        Locale.RO to "Atinge numele ca sa-l redenumesti. Seteaza un interval orar ca grupul sa apara doar atunci, de exemplu dimineata spre serviciu si seara spre casa.",
+        Locale.EN to "Tap a name to rename it. Give a group active hours to show it only then, for example mornings for the way to work and evenings for the way home."
     ),
     "dashboard.noGroups" to mapOf(Locale.RO to "Niciun grup creat.", Locale.EN to "No groups created."),
     "dashboard.reset" to mapOf(Locale.RO to "Reseteaza", Locale.EN to "Reset"),
@@ -52,6 +52,56 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.emptyDescription" to mapOf(
         Locale.RO to "Adauga statii din pagina Linii sau foloseste butonul de mai sus pentru a monitoriza sosirile in timp real.",
         Locale.EN to "Add stations from the Lines page or use the button above to monitor arrivals in real time."
+    ),
+    "dashboard.updated" to mapOf(Locale.RO to "Actualizat", Locale.EN to "Updated"),
+    "dashboard.updating" to mapOf(Locale.RO to "Se actualizeaza...", Locale.EN to "Updating..."),
+    "dashboard.refresh" to mapOf(Locale.RO to "Reimprospateaza", Locale.EN to "Refresh"),
+    "dashboard.stale" to mapOf(Locale.RO to "Date vechi", Locale.EN to "Stale"),
+    "time.justNow" to mapOf(Locale.RO to "chiar acum", Locale.EN to "just now"),
+    "time.secondsAgo" to mapOf(Locale.RO to "acum {n}s", Locale.EN to "{n}s ago"),
+    "time.minutesAgo" to mapOf(Locale.RO to "acum {n} min", Locale.EN to "{n} min ago"),
+    "widget.size" to mapOf(Locale.RO to "Marime", Locale.EN to "Size"),
+    "widget.sizeMedium" to mapOf(Locale.RO to "Normal", Locale.EN to "Normal"),
+    "widget.sizeLarge" to mapOf(Locale.RO to "Mare", Locale.EN to "Large"),
+    "widget.sizeHint" to mapOf(
+        Locale.RO to "Normal: cel mult 4 linii si 2 sosiri urmatoare. Mare: toate liniile si 3 sosiri urmatoare.",
+        Locale.EN to "Normal: up to 4 lines with 2 following arrivals. Large: every line with 3 following arrivals."
+    ),
+    "widget.loadFailed" to mapOf(Locale.RO to "Nu s-au putut incarca sosirile", Locale.EN to "Could not load arrivals"),
+    "widget.options" to mapOf(Locale.RO to "Optiuni card", Locale.EN to "Card options"),
+    "widget.lines" to mapOf(Locale.RO to "Linii afisate", Locale.EN to "Shown lines"),
+    "widget.linesHint" to mapOf(Locale.RO to "Atinge o linie ca s-o ascunzi sau s-o afisezi", Locale.EN to "Tap a line to hide or show it"),
+    "widget.hide" to mapOf(Locale.RO to "Ascunde", Locale.EN to "Hide"),
+    "widget.show" to mapOf(Locale.RO to "Afiseaza", Locale.EN to "Show"),
+    "widget.hidden" to mapOf(Locale.RO to "Ascuns", Locale.EN to "Hidden"),
+    "widget.visible" to mapOf(Locale.RO to "Vizibil", Locale.EN to "Visible"),
+    "widget.moveUp" to mapOf(Locale.RO to "Muta in sus", Locale.EN to "Move up"),
+    "widget.moveDown" to mapOf(Locale.RO to "Muta in jos", Locale.EN to "Move down"),
+    "widget.newGroupName" to mapOf(Locale.RO to "Nume grup nou", Locale.EN to "New group name"),
+    "dashboard.groupRename" to mapOf(Locale.RO to "Redenumeste", Locale.EN to "Rename"),
+    "dashboard.groupDelete" to mapOf(Locale.RO to "Sterge grupul", Locale.EN to "Delete group"),
+    "dashboard.groupSave" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
+    "dashboard.close" to mapOf(Locale.RO to "Inchide", Locale.EN to "Close"),
+    "dashboard.groupHours" to mapOf(Locale.RO to "Interval orar", Locale.EN to "Active hours"),
+    "dashboard.groupHoursDescription" to mapOf(
+        Locale.RO to "Grupul apare desfasurat pe panou doar in acest interval. In restul zilei ramane restrans.",
+        Locale.EN to "The group is expanded on the dashboard only between these times. The rest of the day it stays collapsed."
+    ),
+    "dashboard.groupHoursFrom" to mapOf(Locale.RO to "De la", Locale.EN to "From"),
+    "dashboard.groupHoursTo" to mapOf(Locale.RO to "Pana la", Locale.EN to "Until"),
+    "dashboard.groupHoursAlways" to mapOf(Locale.RO to "Afiseaza mereu", Locale.EN to "Always show"),
+    "dashboard.groupHoursSet" to mapOf(Locale.RO to "Seteaza interval orar", Locale.EN to "Set active hours"),
+    "dashboard.sortGroups" to mapOf(Locale.RO to "Pe grupuri", Locale.EN to "By group"),
+    "dashboard.sortNearest" to mapOf(Locale.RO to "Cele mai apropiate", Locale.EN to "Nearest first"),
+    "dashboard.locationLoading" to mapOf(Locale.RO to "Se cauta pozitia...", Locale.EN to "Finding your position..."),
+    "dashboard.locationUnavailable" to mapOf(
+        Locale.RO to "Pozitia nu este disponibila. Verifica permisiunea de localizare.",
+        Locale.EN to "Location unavailable. Check the location permission."
+    ),
+    "dashboard.locationRetry" to mapOf(Locale.RO to "Reincearca", Locale.EN to "Retry"),
+    "dashboard.locationUnsupported" to mapOf(
+        Locale.RO to "Sortarea dupa distanta nu este disponibila pe acest dispozitiv.",
+        Locale.EN to "Sorting by distance is not available on this device."
     ),
     "dashboard.allHidden" to mapOf(
         Locale.RO to "Toate statiile sunt ascunse. Apasa Editeaza pentru a le face vizibile.",
@@ -136,12 +186,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     ),
     "backup.export" to mapOf(Locale.RO to "Exporta in fisier", Locale.EN to "Export to file"),
     "backup.import" to mapOf(Locale.RO to "Importa din fisier", Locale.EN to "Import from file"),
-    "backup.copy" to mapOf(Locale.RO to "Copiaza in clipboard", Locale.EN to "Copy to clipboard"),
-    "backup.paste" to mapOf(Locale.RO to "Lipeste din clipboard", Locale.EN to "Paste from clipboard"),
     "backup.exported" to mapOf(Locale.RO to "Backup salvat", Locale.EN to "Backup saved"),
-    "backup.copied" to mapOf(Locale.RO to "Backup copiat in clipboard", Locale.EN to "Backup copied to clipboard"),
     "backup.cancelled" to mapOf(Locale.RO to "Anulat", Locale.EN to "Cancelled"),
-    "backup.clipboardEmpty" to mapOf(Locale.RO to "Clipboard-ul nu contine un backup", Locale.EN to "Clipboard does not contain a backup"),
     "backup.invalid" to mapOf(Locale.RO to "Fisierul nu este un backup InfoTB valid", Locale.EN to "This is not a valid InfoTB backup"),
     "backup.unsupportedVersion" to mapOf(
         Locale.RO to "Backup-ul a fost creat cu o versiune mai noua a aplicatiei",
@@ -191,6 +237,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.addGroup" to mapOf(Locale.RO to "Adauga grup...", Locale.EN to "Add group..."),
     "widget.delete" to mapOf(Locale.RO to "Sterge", Locale.EN to "Delete"),
     "widget.moreLines" to mapOf(Locale.RO to "linii in plus", Locale.EN to "more lines"),
+    "widget.moreNews" to mapOf(Locale.RO to "+{n} alte anunturi", Locale.EN to "+{n} more notices"),
     "widget.noData" to mapOf(Locale.RO to "Fara date", Locale.EN to "No data"),
     "widget.outOfService" to mapOf(Locale.RO to "Nu circula", Locale.EN to "Not in service"),
     "widget.nextArrivals" to mapOf(Locale.RO to "Urmatoarele", Locale.EN to "Next"),
@@ -227,6 +274,12 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "announcements.showMore" to mapOf(Locale.RO to "Citeste mai mult", Locale.EN to "Read more"),
     "announcements.showLess" to mapOf(Locale.RO to "Arata mai putin", Locale.EN to "Show less"),
     "announcements.relatedAlert" to mapOf(Locale.RO to "Anunt STB", Locale.EN to "STB announcement"),
+    "notice.alertTitle" to mapOf(Locale.RO to "Anunt STB \u00b7 linia", Locale.EN to "STB notice \u00b7 line"),
+    "settings.noticeAlerts" to mapOf(Locale.RO to "Anunturi pentru liniile mele", Locale.EN to "Notices for my lines"),
+    "settings.noticeAlertsDescription" to mapOf(
+        Locale.RO to "Primesti o notificare cand STB publica un anunt despre o linie de pe panou, din favorite sau urmarita.",
+        Locale.EN to "Get a notification when STB publishes a notice about a line on your dashboard, in favorites or being tracked."
+    ),
 
     // Notifications page
     "nav.notifications" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),

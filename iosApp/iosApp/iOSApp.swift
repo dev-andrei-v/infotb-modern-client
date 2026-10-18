@@ -5,7 +5,6 @@ import CoreLocation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private lazy var locationManager = BackgroundLocationManager()
 
@@ -22,9 +21,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         MainViewControllerKt.doInitKoin()
 
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = MainViewControllerKt.MainViewController()
-        window?.makeKeyAndVisible()
+        // The window itself is created by SceneDelegate.
+
+        registerNoticeRefreshTask()
 
         // Register for app lifecycle notifications
         NotificationCenter.default.addObserver(
@@ -64,8 +63,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: "Default", sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
+    }
+
     @objc private func appDidEnterBackground() {
         isInBackground = true
+        scheduleNoticeRefresh()
         guard isTracking else {
             print("[AppDelegate] Backgrounded with no tracking; location stays off")
             return
@@ -95,41 +105,43 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         locationManager.stop()
     }
 
+    // MARK: - Background notice refresh
+
+    /// iOS wakes the app now and then (its own schedule, roughly every few
+    /// hours) so new STB notices about followed lines can be announced even
+    /// when the app has not been opened.
+    private static let noticeTaskId = "ro.infotb.modern.notices"
+
+    private func registerNoticeRefreshTask() {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.noticeTaskId, using: nil) { [weak self] task in
+            guard let refresh = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.scheduleNoticeRefresh()
+            refresh.expirationHandler = {
+                refresh.setTaskCompleted(success: false)
+            }
+            MainViewControllerKt.checkNoticesInBackground { _ in
+                refresh.setTaskCompleted(success: true)
+            }
+        }
+    }
+
+    private func scheduleNoticeRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: Self.noticeTaskId)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            print("[AppDelegate] Could not schedule notice refresh: \(error.localizedDescription)")
+        }
+    }
+
     func applicationWillTerminate(_ application: UIApplication) {
         // End the session so a relaunch hours later doesn't resurrect the
         // island and the background keep-alive.
         NotificationCenter.default.post(name: userStopTrackingNotification, object: nil)
         LiveActivityManager.shared.endAllActivities()
-    }
-
-    func application(
-        _ app: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        handleDeepLink(url)
-    }
-
-    private func handleDeepLink(_ url: URL) -> Bool {
-        guard url.scheme == "infotb",
-              url.host == "stop",
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        else {
-            return false
-        }
-
-        let items = components.queryItems ?? []
-        let stopId = items.first(where: { $0.name == "stopId" })?.value.flatMap(Int64.init) ?? -1
-        let lineId = items.first(where: { $0.name == "lineId" })?.value.flatMap(Int64.init) ?? -1
-        let direction = items.first(where: { $0.name == "direction" })?.value.flatMap(Int32.init) ?? -1
-
-        guard stopId >= 0 else { return false }
-
-        MainViewControllerKt.handleIncomingNavigation(
-            stopId: stopId,
-            lineId: lineId,
-            direction: direction
-        )
-        return true
     }
 }

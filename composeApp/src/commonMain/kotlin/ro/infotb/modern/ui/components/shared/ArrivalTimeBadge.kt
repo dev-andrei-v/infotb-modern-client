@@ -2,6 +2,7 @@ package ro.infotb.modern.ui.components.shared
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,9 @@ import ro.infotb.modern.ui.theme.RealtimeColor
 import ro.infotb.modern.ui.theme.ScheduledColor
 import ro.infotb.modern.util.formatArrivalBadge
 
+/** Minimum width of the big arrival badge so "<1 min" and "45 min" rows keep their columns aligned. */
+val HERO_ARRIVAL_MIN_WIDTH = 92.dp
+
 @Composable
 fun ArrivalTimeBadge(
     seconds: Long,
@@ -52,7 +56,8 @@ fun ArrivalTimeBadge(
             .background(color.copy(alpha = 0.15f))
             .clickable { showTooltip = true }
             .padding(horizontal = hPad.dp, vertical = vPad.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
         if (isTimetable) {
             Icon(

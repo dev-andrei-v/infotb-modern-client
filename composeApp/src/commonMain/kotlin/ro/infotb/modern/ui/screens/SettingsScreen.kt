@@ -80,6 +80,7 @@ fun SettingsScreen(
     onNotificationChanged: (() -> Unit)? = null
 ) {
     val theme by preferencesStore.theme.collectAsState()
+    val noticeAlerts by preferencesStore.noticeAlerts.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
     val isDynamicIsland = supportsDynamicIsland()
     val isLiveNotification = supportsLiveNotification()
@@ -222,6 +223,29 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Notices about followed lines
+        SettingsSection(
+            title = t("settings.noticeAlerts", locale),
+            description = t("settings.noticeAlertsDescription", locale)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = t("settings.noticeAlerts", locale),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = noticeAlerts,
+                    onCheckedChange = { preferencesStore.setNoticeAlerts(it) }
+                )
             }
         }
 

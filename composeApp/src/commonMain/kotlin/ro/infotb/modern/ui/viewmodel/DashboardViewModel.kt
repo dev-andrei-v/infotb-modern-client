@@ -29,6 +29,7 @@ import ro.infotb.modern.data.store.WidgetConfig
 import ro.infotb.modern.location.GeoPoint
 import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.location.distanceMeters
+import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.util.Constants
 
@@ -54,7 +55,8 @@ class DashboardViewModel(
     private val repository: TransitRepository,
     private val dashboardStore: DashboardStore,
     private val preferencesStore: PreferencesStore,
-    private val platformLocation: PlatformLocation
+    private val platformLocation: PlatformLocation,
+    private val noticeWatcher: NoticeWatcher? = null
 ) : ViewModel() {
 
     val sortMode: StateFlow<DashboardSort> = preferencesStore.dashboardSort
@@ -216,8 +218,10 @@ class DashboardViewModel(
         if (!force && now - announcementsFetchedMs < ANNOUNCEMENTS_TTL_MS) return
         viewModelScope.launch {
             try {
-                _announcements.value = repository.getAnnouncements()
+                val notices = repository.getAnnouncements()
+                _announcements.value = notices
                 announcementsFetchedMs = currentTimeMillis()
+                noticeWatcher?.process(notices)
             } catch (_: Exception) {
                 // Notices are a bonus on the dashboard; a failed fetch is not worth an error state
             }

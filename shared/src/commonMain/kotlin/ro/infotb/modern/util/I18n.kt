@@ -274,6 +274,12 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "announcements.showMore" to mapOf(Locale.RO to "Citeste mai mult", Locale.EN to "Read more"),
     "announcements.showLess" to mapOf(Locale.RO to "Arata mai putin", Locale.EN to "Show less"),
     "announcements.relatedAlert" to mapOf(Locale.RO to "Anunt STB", Locale.EN to "STB announcement"),
+    "notice.alertTitle" to mapOf(Locale.RO to "Anunt STB \u00b7 linia", Locale.EN to "STB notice \u00b7 line"),
+    "settings.noticeAlerts" to mapOf(Locale.RO to "Anunturi pentru liniile mele", Locale.EN to "Notices for my lines"),
+    "settings.noticeAlertsDescription" to mapOf(
+        Locale.RO to "Primesti o notificare cand STB publica un anunt despre o linie de pe panou, din favorite sau urmarita.",
+        Locale.EN to "Get a notification when STB publishes a notice about a line on your dashboard, in favorites or being tracked."
+    ),
 
     // Notifications page
     "nav.notifications" to mapOf(Locale.RO to "Notificari", Locale.EN to "Notifications"),

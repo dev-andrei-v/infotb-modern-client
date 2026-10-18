@@ -40,4 +40,13 @@ class PreferencesStore(private val settings: Settings) {
         settings.putString(Constants.SETTINGS_KEY_LOCALE, locale)
         _locale.value = locale
     }
+
+    /** Whether new STB notices about followed lines raise a system notification. */
+    private val _noticeAlerts = MutableStateFlow(settings.getBoolean(Constants.SETTINGS_KEY_NOTICE_ALERTS, true))
+    val noticeAlerts: StateFlow<Boolean> = _noticeAlerts.asStateFlow()
+
+    fun setNoticeAlerts(enabled: Boolean) {
+        settings.putBoolean(Constants.SETTINGS_KEY_NOTICE_ALERTS, enabled)
+        _noticeAlerts.value = enabled
+    }
 }

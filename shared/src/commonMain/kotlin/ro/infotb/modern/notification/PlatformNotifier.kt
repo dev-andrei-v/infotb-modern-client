@@ -2,6 +2,9 @@ package ro.infotb.modern.notification
 
 interface PlatformNotifier {
     fun showNotification(event: NotificationEvent)
+
+    /** A one-off alert that STB published a notice about a line the user follows. */
+    fun showNoticeNotification(noticeId: Long, title: String, body: String) {}
     fun startLiveTracking(event: NotificationEvent) {}
     fun updateLiveTracking(event: NotificationEvent) {}
     fun stopLiveTracking() {}

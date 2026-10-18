@@ -36,6 +36,7 @@ import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.notification.NotificationEngine
+import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.data.store.WidgetSize
 import ro.infotb.modern.notification.NotificationEvent
 import ro.infotb.modern.ui.components.layout.AppShell
@@ -72,12 +73,13 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val notificationStore: NotificationStore = koinInject()
     val notificationEngine: NotificationEngine = koinInject()
     val backupManager: BackupManager = koinInject()
+    val noticeWatcher: NoticeWatcher = koinInject()
 
     // Lives for the whole app so switching tabs keeps dashboard data instead
     // of refetching every stop from scratch.
     val platformLocation: PlatformLocation = koinInject()
     val dashboardViewModel = remember {
-        DashboardViewModel(repository, dashboardStore, preferencesStore, platformLocation)
+        DashboardViewModel(repository, dashboardStore, preferencesStore, platformLocation, noticeWatcher)
     }
 
     // Start the notification engine
@@ -326,7 +328,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                 }
 
                 composable(Screen.Announcements.route) {
-                    val viewModel = remember { AnnouncementsViewModel(repository) }
+                    val viewModel = remember { AnnouncementsViewModel(repository, noticeWatcher) }
                     AnnouncementsScreen(
                         viewModel = viewModel,
                         locale = locale

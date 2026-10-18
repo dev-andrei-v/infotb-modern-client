@@ -23,6 +23,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // The window itself is created by SceneDelegate.
 
+        registerNoticeRefreshTask()
+
         // Register for app lifecycle notifications
         NotificationCenter.default.addObserver(
             self,
@@ -73,6 +75,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     @objc private func appDidEnterBackground() {
         isInBackground = true
+        scheduleNoticeRefresh()
         guard isTracking else {
             print("[AppDelegate] Backgrounded with no tracking; location stays off")
             return
@@ -100,6 +103,39 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     @objc private func trackingStopped() {
         isTracking = false
         locationManager.stop()
+    }
+
+    // MARK: - Background notice refresh
+
+    /// iOS wakes the app now and then (its own schedule, roughly every few
+    /// hours) so new STB notices about followed lines can be announced even
+    /// when the app has not been opened.
+    private static let noticeTaskId = "ro.infotb.modern.notices"
+
+    private func registerNoticeRefreshTask() {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.noticeTaskId, using: nil) { [weak self] task in
+            guard let refresh = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.scheduleNoticeRefresh()
+            refresh.expirationHandler = {
+                refresh.setTaskCompleted(success: false)
+            }
+            MainViewControllerKt.checkNoticesInBackground { _ in
+                refresh.setTaskCompleted(success: true)
+            }
+        }
+    }
+
+    private func scheduleNoticeRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: Self.noticeTaskId)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            print("[AppDelegate] Could not schedule notice refresh: \(error.localizedDescription)")
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

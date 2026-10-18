@@ -62,7 +62,8 @@ class NotificationEngine(
     private val notificationStore: NotificationStore,
     private val repository: TransitRepository,
     private val scope: CoroutineScope,
-    private val platformNotifier: PlatformNotifier
+    private val platformNotifier: PlatformNotifier,
+    private val noticeWatcher: NoticeWatcher? = null
 ) {
     private var pollJob: Job? = null
     private val firedSet = mutableMapOf<String, Long>()
@@ -113,6 +114,8 @@ class NotificationEngine(
             // Regular polling loop
             while (true) {
                 poll()
+                // Piggyback the notice check on the arrival polling, at most every 15 min
+                noticeWatcher?.checkIfDue()
                 delay(POLL_INTERVAL_MS)
             }
         }

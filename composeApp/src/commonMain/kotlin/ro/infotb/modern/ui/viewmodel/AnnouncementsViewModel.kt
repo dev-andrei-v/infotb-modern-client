@@ -8,9 +8,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ro.infotb.modern.data.model.Announcement
 import ro.infotb.modern.data.repository.TransitRepository
+import ro.infotb.modern.notification.NoticeWatcher
 
 class AnnouncementsViewModel(
-    private val repository: TransitRepository
+    private val repository: TransitRepository,
+    private val noticeWatcher: NoticeWatcher? = null
 ) : ViewModel() {
 
     private val _announcements = MutableStateFlow<List<Announcement>>(emptyList())
@@ -33,6 +35,7 @@ class AnnouncementsViewModel(
             try {
                 val result = repository.getAnnouncements()
                 _announcements.value = result
+                noticeWatcher?.process(result)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Unknown error"
             } finally {

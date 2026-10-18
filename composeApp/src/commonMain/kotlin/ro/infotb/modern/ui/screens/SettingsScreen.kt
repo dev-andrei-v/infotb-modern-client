@@ -21,24 +21,46 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.compose.rememberFileSaverLauncher
+import io.github.vinceglb.filekit.core.PickerType
+import kotlinx.coroutines.launch
+import ro.infotb.modern.data.backup.BackupError
+import ro.infotb.modern.data.backup.BackupManager
+import ro.infotb.modern.data.backup.BackupSummary
+import ro.infotb.modern.data.backup.RestoreMode
+import ro.infotb.modern.data.backup.formatBackupDate
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.NotificationSubscription
@@ -56,6 +78,7 @@ import ro.infotb.modern.util.t
 fun SettingsScreen(
     preferencesStore: PreferencesStore,
     notificationStore: NotificationStore,
+    backupManager: BackupManager,
     locale: Locale,
     onNotificationChanged: (() -> Unit)? = null
 ) {
@@ -203,6 +226,20 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Backup & restore section
+        SettingsSection(
+            title = t("settings.backup", locale),
+            description = t("settings.backupDescription", locale)
+        ) {
+            BackupSection(
+                backupManager = backupManager,
+                locale = locale,
+                onRestored = { onNotificationChanged?.invoke() }
+            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -439,6 +476,232 @@ private fun SettingsNotificationCard(
                     )
                 }
             }
+        }
+    }
+}
+
+/** A backup file waiting for the user to confirm how it should be applied. */
+private data class PendingRestore(val text: String, val summary: BackupSummary)
+
+@Composable
+private fun BackupSection(
+    backupManager: BackupManager,
+    locale: Locale,
+    onRestored: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+
+    var status by remember { mutableStateOf<String?>(null) }
+    var statusIsError by remember { mutableStateOf(false) }
+    var isBusy by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf<PendingRestore?>(null) }
+
+    fun showStatus(message: String, isError: Boolean = false) {
+        status = message
+        statusIsError = isError
+    }
+
+    fun describe(error: Throwable): String = when (error) {
+        is BackupError.UnsupportedVersion -> t("backup.unsupportedVersion", locale)
+        is BackupError.Malformed -> t("backup.invalid", locale)
+        else -> "${t("backup.failed", locale)}: ${error.message ?: ""}"
+    }
+
+    /** Validate incoming text and, if it is a backup, ask how to apply it. */
+    fun offerRestore(text: String?) {
+        if (text.isNullOrBlank()) {
+            showStatus(t("backup.clipboardEmpty", locale), isError = true)
+            return
+        }
+        try {
+            pending = PendingRestore(text, backupManager.inspect(text))
+        } catch (e: Exception) {
+            showStatus(describe(e), isError = true)
+        }
+    }
+
+    val saver = rememberFileSaverLauncher { file ->
+        isBusy = false
+        showStatus(if (file != null) t("backup.exported", locale) else t("backup.cancelled", locale))
+    }
+
+    val picker = rememberFilePickerLauncher(
+        type = PickerType.File(extensions = listOf("json")),
+        title = t("backup.import", locale)
+    ) { file ->
+        if (file == null) {
+            showStatus(t("backup.cancelled", locale))
+            return@rememberFilePickerLauncher
+        }
+        scope.launch {
+            isBusy = true
+            try {
+                offerRestore(file.readBytes().decodeToString())
+            } catch (e: Exception) {
+                showStatus(describe(e), isError = true)
+            } finally {
+                isBusy = false
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FilledTonalButton(
+                enabled = !isBusy,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    scope.launch {
+                        isBusy = true
+                        try {
+                            val json = backupManager.export()
+                            saver.launch(
+                                baseName = backupManager.suggestedBaseName(),
+                                extension = "json",
+                                bytes = json.encodeToByteArray()
+                            )
+                        } catch (e: Exception) {
+                            isBusy = false
+                            showStatus(describe(e), isError = true)
+                        }
+                    }
+                }
+            ) {
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(t("backup.export", locale), fontSize = 13.sp)
+            }
+            FilledTonalButton(
+                enabled = !isBusy,
+                modifier = Modifier.weight(1f),
+                onClick = { picker.launch() }
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(t("backup.import", locale), fontSize = 13.sp)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                enabled = !isBusy,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    scope.launch {
+                        try {
+                            clipboard.setText(AnnotatedString(backupManager.export()))
+                            showStatus(t("backup.copied", locale))
+                        } catch (e: Exception) {
+                            showStatus(describe(e), isError = true)
+                        }
+                    }
+                }
+            ) {
+                Text(t("backup.copy", locale), fontSize = 13.sp)
+            }
+            OutlinedButton(
+                enabled = !isBusy,
+                modifier = Modifier.weight(1f),
+                onClick = { offerRestore(clipboard.getText()?.text) }
+            ) {
+                Text(t("backup.paste", locale), fontSize = 13.sp)
+            }
+        }
+        status?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (statusIsError) MaterialTheme.colorScheme.error else LocalMuted.current
+            )
+        }
+    }
+
+    pending?.let { restore ->
+        var mode by remember { mutableStateOf(RestoreMode.REPLACE) }
+        AlertDialog(
+            onDismissRequest = { pending = null },
+            title = { Text(t("backup.restoreTitle", locale)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val s = restore.summary
+                    Text(
+                        text = "${t("backup.exportedOn", locale)} ${formatBackupDate(s.exportedAt)} · ${s.platform}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalMuted.current
+                    )
+                    Text(
+                        text = "${s.widgets} ${t("backup.summaryWidgets", locale)} · " +
+                            "${s.groups} ${t("backup.summaryGroups", locale)} · " +
+                            "${s.favorites} ${t("backup.summaryFavorites", locale)} · " +
+                            "${s.subscriptions} ${t("backup.summarySubscriptions", locale)}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    RestoreModeOption(
+                        selected = mode == RestoreMode.REPLACE,
+                        title = t("backup.modeReplace", locale),
+                        description = t("backup.modeReplaceDescription", locale),
+                        onClick = { mode = RestoreMode.REPLACE }
+                    )
+                    RestoreModeOption(
+                        selected = mode == RestoreMode.MERGE,
+                        title = t("backup.modeMerge", locale),
+                        description = t("backup.modeMergeDescription", locale),
+                        onClick = { mode = RestoreMode.MERGE }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isBusy,
+                    onClick = {
+                        val chosen = mode
+                        pending = null
+                        scope.launch {
+                            isBusy = true
+                            try {
+                                backupManager.restore(restore.text, chosen)
+                                showStatus(t("backup.restored", locale))
+                                onRestored()
+                            } catch (e: Exception) {
+                                showStatus(describe(e), isError = true)
+                            } finally {
+                                isBusy = false
+                            }
+                        }
+                    }
+                ) {
+                    Text(t("backup.restore", locale))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pending = null }) {
+                    Text(t("backup.cancel", locale))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun RestoreModeOption(
+    selected: Boolean,
+    title: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Column {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = LocalMuted.current)
         }
     }
 }

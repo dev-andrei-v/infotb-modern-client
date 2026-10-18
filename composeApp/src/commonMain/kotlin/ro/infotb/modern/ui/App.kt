@@ -26,6 +26,7 @@ import androidx.navigation.navArgument
 import org.koin.compose.koinInject
 import ro.infotb.modern.getPlatformName
 import ro.infotb.modern.supportsLiveNotification
+import ro.infotb.modern.data.backup.BackupManager
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
@@ -69,6 +70,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val favoritesStore: FavoritesStore = koinInject()
     val notificationStore: NotificationStore = koinInject()
     val notificationEngine: NotificationEngine = koinInject()
+    val backupManager: BackupManager = koinInject()
 
     // Lives for the whole app so switching tabs keeps dashboard data instead
     // of refetching every stop from scratch.
@@ -335,6 +337,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     SettingsScreen(
                         preferencesStore = preferencesStore,
                         notificationStore = notificationStore,
+                        backupManager = backupManager,
                         locale = locale,
                         onNotificationChanged = { notificationEngine.refreshNow() }
                     )

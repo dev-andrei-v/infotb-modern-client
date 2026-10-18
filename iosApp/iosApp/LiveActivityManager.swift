@@ -202,7 +202,8 @@ import Foundation
                 return
             }
 
-            guard activity.attributes.activityId == activityId else {
+            guard activity.attributes.activityId == activityId,
+                  activity.attributes.lineType == lineType else {
                 startTracking(
                     activityId: activityId,
                     lineName: lineName,

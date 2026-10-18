@@ -94,7 +94,7 @@ fun StopDetailScreen(
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
-    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean) -> Unit,
+    onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean, lineType: String) -> Unit,
     onStopNotification: (subscriptionId: String) -> Unit = {},
     onRefresh: (() -> Unit)? = null
 ) {
@@ -286,7 +286,8 @@ fun StopDetailScreen(
                                     line.color,
                                     line.direction,
                                     (line.arrivingTime / 60).toInt().coerceAtLeast(0),
-                                    line.isTimetable
+                                    line.isTimetable,
+                                    line.type.name
                                 )
                             },
                             onStopNotification = { line ->

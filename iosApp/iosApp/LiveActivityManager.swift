@@ -50,7 +50,8 @@ import Foundation
             lineId: (info["lineId"] as? NSNumber)?.int64Value ?? 0,
             direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
             minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
-            isTimetable: (info["isTimetable"] as? Bool) ?? false
+            isTimetable: (info["isTimetable"] as? Bool) ?? false,
+            hasArrived: (info["hasArrived"] as? Bool) ?? false
         )
     }
 
@@ -65,7 +66,8 @@ import Foundation
             lineId: (info["lineId"] as? NSNumber)?.int64Value ?? 0,
             direction: (info["direction"] as? NSNumber)?.intValue ?? 0,
             minutes: (info["minutes"] as? NSNumber)?.intValue ?? 0,
-            isTimetable: (info["isTimetable"] as? Bool) ?? false
+            isTimetable: (info["isTimetable"] as? Bool) ?? false,
+            hasArrived: (info["hasArrived"] as? Bool) ?? false
         )
     }
 
@@ -93,7 +95,8 @@ import Foundation
         lineId: Int64,
         direction: Int,
         minutes: Int,
-        isTimetable: Bool
+        isTimetable: Bool,
+        hasArrived: Bool = false
     ) {
         guard #available(iOS 16.2, *) else { return }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
@@ -121,7 +124,8 @@ import Foundation
             )
             let state = TransitActivityAttributes.ContentState(
                 minutes: minutes,
-                isTimetable: isTimetable
+                isTimetable: isTimetable,
+                hasArrived: hasArrived
             )
 
             do {
@@ -154,7 +158,8 @@ import Foundation
         lineId: Int64,
         direction: Int,
         minutes: Int,
-        isTimetable: Bool
+        isTimetable: Bool,
+        hasArrived: Bool = false
     ) {
         guard #available(iOS 16.2, *) else { return }
 
@@ -169,7 +174,8 @@ import Foundation
                     lineId: lineId,
                     direction: direction,
                     minutes: minutes,
-                    isTimetable: isTimetable
+                    isTimetable: isTimetable,
+                    hasArrived: hasArrived
                 )
                 return
             }
@@ -184,14 +190,16 @@ import Foundation
                     lineId: lineId,
                     direction: direction,
                     minutes: minutes,
-                    isTimetable: isTimetable
+                    isTimetable: isTimetable,
+                    hasArrived: hasArrived
                 )
                 return
             }
 
             let state = TransitActivityAttributes.ContentState(
                 minutes: minutes,
-                isTimetable: isTimetable
+                isTimetable: isTimetable,
+                hasArrived: hasArrived
             )
             let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
             await activity.update(content)

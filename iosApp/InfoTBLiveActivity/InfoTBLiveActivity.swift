@@ -12,6 +12,8 @@ struct InfoTBLiveActivity: Widget {
             let lineColor = Color(hex: context.attributes.lineColor)
             let lineName = displayLineName(context.attributes.lineName)
             let stopName = displayStopName(context.attributes.stopName)
+            let state = context.state
+            let isStale = context.isStale
             return DynamicIsland {
                 // EXPANDED Dynamic Island
                 DynamicIslandExpandedRegion(.leading) {
@@ -24,8 +26,8 @@ struct InfoTBLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     countdownView(
-                        minutes: context.state.minutes,
-                        isTimetable: context.state.isTimetable,
+                        state: state,
+                        isStale: isStale,
                         large: true,
                         numberColor: .white,
                         unitColor: .white.opacity(0.72)
@@ -42,16 +44,12 @@ struct InfoTBLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: 6) {
-                        Circle()
-                            .fill(context.state.isTimetable ? .orange : .green)
-                            .frame(width: 6, height: 6)
-                        Text(context.state.isTimetable ? "Scheduled" : "Real-time tracking")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.72))
+                        statusLine(state: state, isStale: isStale, textColor: .white.opacity(0.72))
                         Spacer()
-                        if !context.state.isTimetable {
+                        if !state.isTimetable && !state.hasArrived && !isStale {
                             liveIndicator()
                         }
+                        stopButton()
                     }
                     .padding(.horizontal, 8)
                 }
@@ -62,14 +60,14 @@ struct InfoTBLiveActivity: Widget {
                 )
             } compactTrailing: {
                 compactCountdown(
-                    minutes: context.state.minutes,
-                    isTimetable: context.state.isTimetable,
+                    state: state,
+                    isStale: isStale,
                     color: .green
                 )
             } minimal: {
                 minimalCountdown(
-                    minutes: context.state.minutes,
-                    color: context.state.isTimetable ? .gray : .green
+                    state: state,
+                    color: isStale ? .gray : (state.isTimetable ? .gray : .green)
                 )
             }
             .keylineTint(lineColor.opacity(0.55))
@@ -84,6 +82,8 @@ struct InfoTBLiveActivity: Widget {
         let color = Color(hex: context.attributes.lineColor)
         let lineName = displayLineName(context.attributes.lineName)
         let stopName = displayStopName(context.attributes.stopName)
+        let state = context.state
+        let isStale = context.isStale
 
         HStack(spacing: 14) {
             lineBadge(name: lineName, color: color, size: 48)
@@ -92,23 +92,18 @@ struct InfoTBLiveActivity: Widget {
                 Text(stopName)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(context.state.isTimetable ? .orange : .green)
-                        .frame(width: 5, height: 5)
-                    Text(context.state.isTimetable ? "Scheduled" : "Real-time")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                statusLine(state: state, isStale: isStale, textColor: .secondary)
             }
 
             Spacer()
 
             countdownView(
-                minutes: context.state.minutes,
-                isTimetable: context.state.isTimetable,
+                state: state,
+                isStale: isStale,
                 large: true
             )
+
+            stopButton()
         }
         .padding(16)
         .background(
@@ -119,6 +114,48 @@ struct InfoTBLiveActivity: Widget {
     }
 
     // MARK: - Shared Components
+
+    /// "Real-time tracking" / "Scheduled" / "Arrived" / "Updating…" footer.
+    @ViewBuilder
+    private func statusLine(
+        state: TransitActivityAttributes.ContentState,
+        isStale: Bool,
+        textColor: Color
+    ) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(statusDotColor(state: state, isStale: isStale))
+                .frame(width: 6, height: 6)
+            Text(statusText(state: state, isStale: isStale))
+                .font(.caption2)
+                .foregroundStyle(textColor)
+        }
+    }
+
+    private func statusDotColor(state: TransitActivityAttributes.ContentState, isStale: Bool) -> Color {
+        if isStale { return .gray }
+        if state.hasArrived { return .blue }
+        return state.isTimetable ? .orange : .green
+    }
+
+    private func statusText(state: TransitActivityAttributes.ContentState, isStale: Bool) -> String {
+        if isStale { return L("Se actualizează…", "Updating…") }
+        if state.hasArrived { return L("A ajuns în stație", "Arrived at the stop") }
+        return state.isTimetable ? L("Orar", "Scheduled") : L("Urmărire în timp real", "Real-time tracking")
+    }
+
+    @ViewBuilder
+    private func stopButton() -> some View {
+        if #available(iOS 17.0, *) {
+            Button(intent: StopTrackingIntent()) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L("Oprește urmărirea", "Stop tracking"))
+        }
+    }
 
     @ViewBuilder
     private func lineBadge(name: String, color: Color, size: CGFloat) -> some View {
@@ -137,36 +174,56 @@ struct InfoTBLiveActivity: Widget {
 
     @ViewBuilder
     private func countdownView(
-        minutes: Int,
-        isTimetable: Bool,
+        state: TransitActivityAttributes.ContentState,
+        isStale: Bool,
         large: Bool,
         numberColor: Color? = nil,
         unitColor: Color? = nil
     ) -> some View {
+        let arrivedNow = state.hasArrived || state.minutes <= 0
         VStack(spacing: 0) {
-            countdownNumber(
-                minutes: minutes,
-                large: large,
-                foreground: numberColor ?? (minutes <= 2 ? .red : .primary)
-            )
-            Text("min")
-                .font(.system(size: large ? 11 : 9, weight: .medium))
-                .foregroundStyle(unitColor ?? .secondary)
-                .textCase(.uppercase)
+            if arrivedNow {
+                Text(L("Acum", "Now"))
+                    .font(.system(size: large ? 24 : 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(isStale ? .gray : (numberColor ?? .blue))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+            } else {
+                countdownNumber(
+                    minutes: state.minutes,
+                    large: large,
+                    foreground: isStale ? .gray : (numberColor ?? (state.minutes <= 2 ? .red : .primary))
+                )
+                Text("min")
+                    .font(.system(size: large ? 11 : 9, weight: .medium))
+                    .foregroundStyle(isStale ? .gray : (unitColor ?? .secondary))
+                    .textCase(.uppercase)
+            }
         }
     }
 
     @ViewBuilder
-    private func compactCountdown(minutes: Int, isTimetable: Bool, color: Color) -> some View {
-        let bgColor = isTimetable ? Color.gray : color
+    private func compactCountdown(
+        state: TransitActivityAttributes.ContentState,
+        isStale: Bool,
+        color: Color
+    ) -> some View {
+        let arrivedNow = state.hasArrived || state.minutes <= 0
+        let bgColor: Color = isStale ? .gray : (arrivedNow ? .blue : (state.isTimetable ? .gray : color))
         HStack(spacing: 4) {
             Circle()
-                .fill(isTimetable ? .orange : color)
+                .fill(statusDotColor(state: state, isStale: isStale))
                 .frame(width: 6, height: 6)
-            countdownNumber(minutes: minutes, large: false, foreground: .white)
-            Text("min")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+            if arrivedNow {
+                Text(L("Acum", "Now"))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            } else {
+                countdownNumber(minutes: state.minutes, large: false, foreground: .white)
+                Text("min")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -208,10 +265,11 @@ struct InfoTBLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func minimalCountdown(minutes: Int, color: Color) -> some View {
-        Text(minutes > 99 ? "99" : "\(minutes)")
-            .font(.system(size: 14, weight: .bold, design: .rounded))
-            .foregroundStyle(color.opacity(0.9))
+    private func minimalCountdown(state: TransitActivityAttributes.ContentState, color: Color) -> some View {
+        let arrivedNow = state.hasArrived || state.minutes <= 0
+        Text(arrivedNow ? L("Acum", "Now") : (state.minutes > 99 ? "99" : "\(state.minutes)"))
+            .font(.system(size: arrivedNow ? 11 : 14, weight: .bold, design: .rounded))
+            .foregroundStyle((arrivedNow ? Color.blue : color).opacity(0.9))
             .minimumScaleFactor(0.5)
             .lineLimit(1)
     }
@@ -242,7 +300,14 @@ struct InfoTBLiveActivity: Widget {
 
     private func displayStopName(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Tracked station" : trimmed
+        return trimmed.isEmpty ? L("Stație urmărită", "Tracked station") : trimmed
+    }
+
+    /// Picks Romanian or English from the device language. The widget
+    /// extension can't read the app's own locale setting without an App Group.
+    private func L(_ ro: String, _ en: String) -> String {
+        let lang = Locale.preferredLanguages.first ?? "en"
+        return lang.hasPrefix("ro") ? ro : en
     }
 }
 

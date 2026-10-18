@@ -17,6 +17,16 @@ import ro.infotb.modern.data.store.NotificationSubscription
 
 private const val POLL_INTERVAL_MS = 30_000L
 
+/** How long the island keeps showing "arrived" before tracking ends on its own. */
+private const val ARRIVAL_GRACE_MS = 2 * 60_000L
+
+/** Hard cap on one tracking session so a forgotten subscription can't run all day. */
+private const val MAX_TRACKING_SESSION_MS = 90 * 60_000L
+
+/** If the countdown was this low and then jumps up, the vehicle passed the stop between polls. */
+private const val PASSED_STOP_THRESHOLD_MIN = 2
+private const val PASSED_STOP_JUMP_MIN = 5
+
 data class NotificationEvent(
     val lineName: String,
     val lineColor: String,
@@ -25,7 +35,9 @@ data class NotificationEvent(
     val lineId: Long,
     val direction: Int,
     val minutes: Int,
-    val isTimetable: Boolean
+    val isTimetable: Boolean,
+    /** True once the tracked vehicle has reached (or passed) the stop. */
+    val hasArrived: Boolean = false
 ) {
     val activityId: String
         get() = "$stopId-$lineId-$direction"
@@ -40,7 +52,16 @@ class NotificationEngine(
     private var pollJob: Job? = null
     private val firedSet = mutableMapOf<String, Long>()
     private var liveTrackingActive = false
+    private var trackingStartedMs = 0L
+    /** subscription id -> wall-clock time its vehicle was first seen arriving */
+    private val arrivedAt = mutableMapOf<String, Long>()
+    /** subscription id -> minutes reported by the previous poll */
+    private val lastMinutes = mutableMapOf<String, Int>()
     private val pollMutex = Mutex()
+
+    init {
+        platformNotifier.setOnUserStopTracking { stopTrackingByUser() }
+    }
 
     // In-app notification events for toast display
     private val _events = MutableStateFlow<NotificationEvent?>(null)
@@ -63,12 +84,7 @@ class NotificationEngine(
                         delay(500)
                         val current = notificationStore.subscriptions.value.filter { it.enabled }
                         if (current.isEmpty()) {
-                            pollMutex.withLock {
-                                if (liveTrackingActive) {
-                                    platformNotifier.stopLiveTracking()
-                                    liveTrackingActive = false
-                                }
-                            }
+                            pollMutex.withLock { endLiveTracking() }
                         }
                     } else if (enabled.isNotEmpty()) {
                         poll()
@@ -101,23 +117,57 @@ class NotificationEngine(
         // separately races with start and can end the *new* activity.
         platformNotifier.startLiveTracking(event)
         liveTrackingActive = true
+        trackingStartedMs = currentTimeMillis()
+        resetSessionState()
+    }
+
+    /**
+     * Ends the current tracking session: disables every subscription and takes
+     * the live pill down. Used by the island/notification "Stop" action and
+     * when a session ends on its own (arrival or time cap).
+     */
+    fun stopTrackingByUser() {
+        scope.launch {
+            pollMutex.withLock { endLiveTracking() }
+            notificationStore.disableAll()
+        }
+    }
+
+    private fun endLiveTracking() {
+        if (liveTrackingActive) {
+            platformNotifier.stopLiveTracking()
+            liveTrackingActive = false
+        }
+        trackingStartedMs = 0L
+        resetSessionState()
+    }
+
+    private fun resetSessionState() {
+        firedSet.clear()
+        arrivedAt.clear()
+        lastMinutes.clear()
     }
 
     private suspend fun poll() = pollMutex.withLock {
         val subs = notificationStore.subscriptions.value.filter { it.enabled }
 
         if (subs.isEmpty()) {
-            if (liveTrackingActive) {
-                platformNotifier.stopLiveTracking()
-                liveTrackingActive = false
-            }
+            endLiveTracking()
             return
         }
 
         val now = currentTimeMillis()
 
+        // A session that has run for too long ends on its own.
+        if (liveTrackingActive && trackingStartedMs > 0 && now - trackingStartedMs > MAX_TRACKING_SESSION_MS) {
+            endLiveTracking()
+            notificationStore.disableAll()
+            return
+        }
+
         // Track the closest active subscription for the live pill
         var pillEvent: NotificationEvent? = null
+        var graceExpired = false
 
         for (sub in subs) {
             try {
@@ -128,7 +178,23 @@ class NotificationEngine(
 
                 if (line.arrivingTime < 0) continue
 
-                val minutes = (line.arrivingTime / 60).toInt()
+                val reportedMinutes = (line.arrivingTime / 60).toInt()
+                val previous = lastMinutes[sub.id]
+                lastMinutes[sub.id] = reportedMinutes
+
+                // Arrival is either a zero countdown, or a countdown that was
+                // nearly zero and suddenly jumped up (the API moved on to the
+                // next vehicle because this one already passed the stop).
+                val justArrived = reportedMinutes <= 0 ||
+                    (previous != null && previous <= PASSED_STOP_THRESHOLD_MIN &&
+                        reportedMinutes >= previous + PASSED_STOP_JUMP_MIN)
+                if (justArrived && sub.id !in arrivedAt) {
+                    arrivedAt[sub.id] = now
+                }
+                val arrivedSince = arrivedAt[sub.id]
+                val hasArrived = arrivedSince != null
+                val minutes = if (hasArrived) 0 else reportedMinutes
+
                 val event = NotificationEvent(
                     lineName = sub.lineName,
                     lineColor = sub.lineColor,
@@ -137,7 +203,8 @@ class NotificationEngine(
                     lineId = sub.lineId,
                     direction = sub.direction.value,
                     minutes = minutes,
-                    isTimetable = line.isTimetable
+                    isTimetable = line.isTimetable,
+                    hasArrived = hasArrived
                 )
 
                 // Always update the pill with the closest arrival
@@ -145,12 +212,14 @@ class NotificationEngine(
                     pillEvent = event
                 }
 
-                // Bus arrived — fire notification once but keep subscription active
-                if (minutes <= 0) {
+                if (hasArrived) {
                     val key = "${sub.id}-arrived"
                     if (key !in firedSet) {
                         firedSet[key] = now
                         fireNotification(sub, 0, line.isTimetable)
+                    }
+                    if (now - arrivedSince!! >= ARRIVAL_GRACE_MS) {
+                        graceExpired = true
                     }
                     continue
                 }
@@ -180,17 +249,24 @@ class NotificationEngine(
             }
         }
 
+        // The vehicle arrived a while ago: the session is over.
+        if (graceExpired) {
+            endLiveTracking()
+            notificationStore.disableAll()
+            return
+        }
+
         // Update the live pill / dynamic island
         if (pillEvent != null) {
             if (!liveTrackingActive) {
                 platformNotifier.startLiveTracking(pillEvent)
                 liveTrackingActive = true
+                trackingStartedMs = now
             } else {
                 platformNotifier.updateLiveTracking(pillEvent)
             }
         } else if (liveTrackingActive) {
-            platformNotifier.stopLiveTracking()
-            liveTrackingActive = false
+            endLiveTracking()
         }
     }
 

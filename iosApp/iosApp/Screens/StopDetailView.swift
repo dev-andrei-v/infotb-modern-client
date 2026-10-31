@@ -85,7 +85,13 @@ private struct StopDetailContent: View {
             } else if model.isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ContentUnavailableView(tr("stopDetail.notFound"), systemImage: "mappin.slash")
+                ContentUnavailableView {
+                    Label(tr("stopDetail.notFound"), systemImage: "mappin.slash")
+                } actions: {
+                    // The first fetch can fail on a cold start (e.g. opened from the Live Activity)
+                    Button(tr("common.retry")) { Task { await model.refresh() } }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         .navigationTitle(model.info?.name ?? tr("stopDetail.arrivals"))

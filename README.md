@@ -58,4 +58,11 @@ Want to build it yourself? Start with [docs/building.md](docs/building.md).
 
 ---
 
-InfoTB is an independent project and is not affiliated with STB or Metrorex. Arrival data comes from STB's public API.
+## About this project
+
+> [!NOTE]
+> **InfoTB is an independent project and is not affiliated with STB or Metrorex.** Arrival data comes from STB's public API.
+
+InfoTB exists because public transport information is a public service, paid for by taxpayers, and riders deserve a client that is fast, clear and pleasant to use. The official app falls short of that, so this is a take on how it could be done.
+
+**No hacking is involved.** InfoTB uses the same public API that STB's own website (info.stb.ro) uses, in the same way: it identifies itself, requests the same data, and doesn't bypass any access controls. We believe the details of this API should be openly documented for everyone, which is why they are written up in [docs/stb-api.md](docs/stb-api.md).

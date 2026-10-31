@@ -1,6 +1,7 @@
 package ro.infotb.modern.data.api
 
 import ro.infotb.modern.data.model.*
+import ro.infotb.modern.util.lineColor
 
 object ProtoDecoder {
 
@@ -47,7 +48,7 @@ object ProtoDecoder {
                 else -> reader.skipField(wireType)
             }
         }
-        return Line(id, name, type, color.ifEmpty { "#666" }, hasNotifications, organization)
+        return Line(id, name, type, lineColor(name, type, color.ifEmpty { "#666" }), hasNotifications, organization)
     }
 
     private fun decodeOrganization(reader: ProtobufReader): Organization {
@@ -103,7 +104,7 @@ object ProtoDecoder {
                 else -> reader.skipField(wireType)
             }
         }
-        return LineDetail(id, name, type, color.ifEmpty { "#666" }, segmentPath, directionNameTur, directionNameRetur, stops)
+        return LineDetail(id, name, type, lineColor(name, type, color.ifEmpty { "#666" }), segmentPath, directionNameTur, directionNameRetur, stops)
     }
 
     private fun decodeStop(reader: ProtobufReader): Stop {
@@ -176,7 +177,7 @@ object ProtoDecoder {
                 else -> reader.skipField(wireType)
             }
         }
-        return LineArrival(id, name, type, color.ifEmpty { "#666" }, direction, directionName, arrivingTime, isTimetable, arrivingTimes, timetable, hasDisability)
+        return LineArrival(id, name, type, lineColor(name, type, color.ifEmpty { "#666" }), direction, directionName, arrivingTime, isTimetable, arrivingTimes, timetable, hasDisability)
     }
 
     private fun decodeArrivalTime(reader: ProtobufReader): ArrivalTime {
@@ -295,7 +296,7 @@ object ProtoDecoder {
                 else -> reader.skipField(wireType)
             }
         }
-        return LineArrivalDetail(id, name, type, color.ifEmpty { "#666" }, direction, directionName, arrivingTime, isTimetable, arrivingTimes, timetable, hasDisability, segmentPath, vehicles)
+        return LineArrivalDetail(id, name, type, lineColor(name, type, color.ifEmpty { "#666" }), direction, directionName, arrivingTime, isTimetable, arrivingTimes, timetable, hasDisability, segmentPath, vehicles)
     }
 
     private fun decodeResponseVehicle(reader: ProtobufReader): VehiclePosition {

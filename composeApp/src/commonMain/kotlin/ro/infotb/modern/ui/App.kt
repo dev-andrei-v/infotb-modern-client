@@ -31,14 +31,13 @@ import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
 import ro.infotb.modern.data.store.FavoritesStore
-import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.notification.NotificationEngine
 import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.data.store.WidgetSize
-import ro.infotb.modern.notification.NotificationEvent
+import ro.infotb.modern.notification.ArrivalTracker
 import ro.infotb.modern.ui.components.layout.AppShell
 import ro.infotb.modern.ui.navigation.Screen
 import ro.infotb.modern.ui.screens.AnnouncementsScreen
@@ -74,6 +73,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val notificationEngine: NotificationEngine = koinInject()
     val backupManager: BackupManager = koinInject()
     val noticeWatcher: NoticeWatcher = koinInject()
+    val arrivalTracker: ArrivalTracker = koinInject()
 
     // Lives for the whole app so switching tabs keeps dashboard data instead
     // of refetching every stop from scratch.
@@ -108,49 +108,15 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         isTimetable: Boolean,
         lineType: String
     ) {
-        if (hasLiveNotification) {
-            notificationEngine.startLiveTrackingNow(
-                NotificationEvent(
-                    lineName = lineName,
-                    lineColor = lineColor,
-                    stopName = stopName,
-                    stopId = stopId,
-                    lineId = lineId,
-                    direction = direction.value,
-                    minutes = minutes,
-                    isTimetable = isTimetable,
-                    lineType = lineType
-                )
-            )
+        val live = arrivalTracker.track(
+            stopId, stopName, lineId, lineName, lineColor, direction, minutes, isTimetable, lineType
+        )
+        if (live) {
             coroutineScope.launch {
                 snackbarHostState.showSnackbar(
                     message = "${t("stopDetail.trackingStarted", locale)} $lineName → $stopName"
                 )
             }
-            notificationStore.replaceWithSingleSubscription(
-                stopId = stopId,
-                stopName = stopName,
-                lineId = lineId,
-                lineName = lineName,
-                lineColor = lineColor,
-                direction = direction,
-                mode = NotificationMode.ONCE,
-                thresholdMinutes = 3,
-                onComplete = {
-                    notificationEngine.refreshNow()
-                }
-            )
-        } else {
-            notificationStore.addSubscription(
-                stopId = stopId,
-                stopName = stopName,
-                lineId = lineId,
-                lineName = lineName,
-                lineColor = lineColor,
-                direction = direction,
-                mode = NotificationMode.ONCE,
-                thresholdMinutes = 3
-            )
         }
     }
 

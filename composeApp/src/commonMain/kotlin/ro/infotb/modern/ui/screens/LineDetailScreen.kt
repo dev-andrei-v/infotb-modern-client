@@ -61,6 +61,7 @@ import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
+import ro.infotb.modern.util.isLightColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -339,7 +340,7 @@ private fun StopRow(
             ) {
                 Text(
                     text = "${index + 1}",
-                    color = Color.White,
+                    color = if (isLightColor(lineColor)) Color.Black else Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )

@@ -100,6 +100,7 @@ class BackupManager(
 ) {
 
     /** Serialises the current state to a JSON document. */
+    @Throws(Exception::class)
     suspend fun export(): String {
         val payload = BackupPayload(
             exportedAt = currentTimeMillis(),
@@ -120,12 +121,14 @@ class BackupManager(
     fun suggestedBaseName(): String = "infotb-backup-${formatBackupDate(currentTimeMillis())}"
 
     /** Parses and validates [text] without touching the database. */
+    @Throws(Exception::class)
     fun inspect(text: String): BackupSummary = parse(text).summary()
 
     /**
      * Applies [text] to the database. Returns the summary of what was applied.
      * Throws [BackupError] when the document is not a valid backup.
      */
+    @Throws(Exception::class)
     suspend fun restore(text: String, mode: RestoreMode): BackupSummary {
         val payload = parse(text)
         when (mode) {

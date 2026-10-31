@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.ui.theme.parseColor
+import ro.infotb.modern.util.isLightColor
 
 enum class BadgeSize { SMALL, MEDIUM, LARGE }
 
@@ -50,7 +51,7 @@ fun LineBadge(
     ) {
         Text(
             text = name,
-            color = Color.White,
+            color = if (isLightColor(color)) Color.Black else Color.White,
             fontSize = fontSize.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,

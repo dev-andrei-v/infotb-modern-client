@@ -8,6 +8,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import ro.infotb.modern.data.model.*
 import ro.infotb.modern.util.Constants
+import ro.infotb.modern.util.lineColor
 
 class StbApi(private val client: HttpClient, private val authManager: AuthManager) {
 
@@ -101,7 +102,9 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         val body = fetchJson("/notifications?limit=$limit&offset=$offset")
         val jsonObj = json.parseToJsonElement(body).jsonObject
         val notificationsArray = jsonObj["notifications"]?.jsonArray ?: return emptyList()
-        return json.decodeFromString<List<Announcement>>(notificationsArray.toString())
+        return json.decodeFromString<List<Announcement>>(notificationsArray.toString()).map { notice ->
+            notice.copy(lines = notice.lines.map { it.copy(color = lineColor(it.name, it.type, it.color)) })
+        }
     }
 
     suspend fun getHomeStops(stopId: Long): List<Stop> {

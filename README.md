@@ -2,7 +2,7 @@
 
 # InfoTB
 
-A **Kotlin Multiplatform (KMP) + Compose Multiplatform** public transit app for Bucharest (STB). Targets **Android**, **Desktop (Windows/macOS/Linux)**, and **iOS** from a single codebase.
+A **Kotlin Multiplatform (KMP)** public transit app for Bucharest (STB). Business logic and view models are shared; **Android** and **Desktop (Windows/macOS/Linux)** use a **Compose Multiplatform** UI, while **iOS** has a native **SwiftUI** UI (Liquid Glass on iOS 26+).
 
 ---
 
@@ -24,7 +24,8 @@ infotb-modern-client/
 │       │   └── di/                  # Koin dependency injection modules
 │       ├── androidMain/             # Android-specific (DatabaseFactory, Platform)
 │       ├── desktopMain/             # Desktop/JVM-specific (DatabaseFactory, Platform)
-│       └── iosMain/                 # iOS-specific (DatabaseFactory, Platform)
+│       ├── commonMain/.../ui/viewmodel/ # ViewModels with StateFlow, shared by Compose and SwiftUI
+│       └── iosMain/                 # iOS-specific (DatabaseFactory, Platform) + Swift bridge (IosServices)
 │
 ├── composeApp/                      # Compose Multiplatform UI
 │   └── src/
@@ -35,11 +36,14 @@ infotb-modern-client/
 │       │   │   ├── layout/          # AppShell (adaptive bottom nav / side rail)
 │       │   │   └── shared/          # LineBadge, ArrivalTimeBadge, LeafletMap, etc.
 │       │   ├── screens/             # Full-page composables (7 screens)
-│       │   ├── viewmodel/           # ViewModels with StateFlow (5 VMs)
 │       │   └── App.kt              # Root composable, NavHost setup
 │       ├── androidMain/             # MainActivity, TbApplication, Manifest
-│       ├── desktopMain/             # Desktop main() entry point
-│       └── iosMain/                 # MainViewController for SwiftUI bridge
+│       └── desktopMain/             # Desktop main() entry point
+│
+├── iosApp/                          # Native SwiftUI app (links :shared as Shared.framework)
+│   ├── iosApp/App, Bridge/          # AppModel, Kotlin flow → @Observable bridge
+│   ├── iosApp/Components, Screens/  # SwiftUI views (TabView, NavigationStack, MapKit)
+│   └── InfoTBLiveActivity/          # Dynamic Island / Live Activity extension
 │
 ├── .github/workflows/               # GitHub Actions CI/CD (release APK build)
 ├── gradle/libs.versions.toml       # Version catalog
@@ -239,7 +243,8 @@ Minimal platform code via `expect`/`actual`:
 | Database | Room + Context | Room + File path | Room + NSFileManager |
 | HTTP Engine | OkHttp | Java (java.net.http) | Darwin (URLSession) |
 | Settings | SharedPreferences | java.util.prefs | NSUserDefaults |
-| Entry Point | `MainActivity` | `main()` + `Window` | `MainViewController` |
+| Entry Point | `MainActivity` | `main()` + `Window` | `AppDelegate` + SwiftUI `RootView` |
+| UI | Compose | Compose | SwiftUI |
 
 ---
 
@@ -261,7 +266,7 @@ Minimal platform code via `expect`/`actual`:
 ### iOS
 
 **Prerequisites:**
-- macOS with Xcode installed
+- macOS with Xcode installed (the app targets iOS 17+)
 - JDK 17 (e.g. `brew install openjdk@17`)
 - At least 16GB RAM recommended (Kotlin/Native compiler needs ~4GB)
 
@@ -276,7 +281,7 @@ Minimal platform code via `expect`/`actual`:
 
 2. Build the Kotlin framework (first build takes a while):
    ```bash
-   ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+   ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
    ```
 
 3. Open the Xcode project:
@@ -290,7 +295,6 @@ Minimal platform code via `expect`/`actual`:
 
 - **OOM / `Java heap space`**: Ensure `gradle.properties` has `org.gradle.jvm.args=-Xmx4096M` and `kotlin.native.jvmArgs=-Xmx4096M`. Kill stale daemons with `./gradlew --stop`.
 - **Gradle lock file error**: Another Gradle process is running. Run `./gradlew --stop && pkill -f gradle`, then retry.
-- **`CADisableMinimumFrameDurationOnPhone` crash**: The `Info.plist` must contain `<key>CADisableMinimumFrameDurationOnPhone</key><true/>`. This is already configured.
 - **KSP / `ClassNotFoundException`**: Clean the Kotlin/Native cache with `rm -rf ~/.konan` and rebuild.
 
 ### iOS Sideloading (iLoader / Sideloadly)
@@ -330,8 +334,10 @@ GitHub Actions workflow (`.github/workflows/release-apk.yml`):
     ├── :shared (Business Logic)
     ├── Compose Multiplatform (Runtime, Foundation, Material3)
     ├── Navigation Compose
-    ├── Koin Compose
-    └── Lifecycle ViewModel
+    └── Koin Compose
+
+iosApp (SwiftUI)
+    └── Shared.framework (:shared)
 
 :shared (Logic)
     ├── Ktor Client (HTTP)
@@ -340,5 +346,6 @@ GitHub Actions workflow (`.github/workflows/release-apk.yml`):
     ├── Room KMP + SQLite (Structured persistence)
     ├── multiplatform-settings (Key-value persistence)
     ├── Koin Core (DI)
+    ├── Lifecycle ViewModel (shared view models)
     └── UUID (App ID generation)
 ```

@@ -61,7 +61,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build iOS framework
-        run: ./gradlew :composeApp:linkDebugFrameworkIosArm64 --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=1
+        run: ./gradlew :shared:linkDebugFrameworkIosArm64 --no-daemon "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" -Dorg.gradle.workers.max=1
 
       - name: Build iOS App
         run: |

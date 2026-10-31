@@ -38,10 +38,10 @@ jobs:
           mkdir -p ~/.android
           keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
 
+      # The heap belongs to the Gradle build process (org.gradle.jvmargs), where
+      # D8 merges dex files; GRADLE_OPTS only sizes the small launcher.
       - name: Build Release APK
-        env:
-          GRADLE_OPTS: -Xmx6g -XX:MaxMetaspaceSize=512m
-        run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1 "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=512m"
+        run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1 "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -64,10 +64,23 @@ jobs:
       - name: Rename APK
         run: mv *.apk "InfoTB-modern_${GITHUB_REF#refs/tags/}.apk"
 
+      - name: Check out release notes
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/release-notes
+          path: repo
+
+      # Hand-written notes for this tag go first; GitHub's generated list follows.
+      - name: Pick release notes
+        run: |
+          notes="repo/.github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$notes" ]; then cp "$notes" release-notes.md; else : > release-notes.md; fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          body_path: release-notes.md
           generate_release_notes: true
           files: InfoTB-modern_${{ github.ref_name }}.apk

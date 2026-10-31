@@ -23,6 +23,7 @@ import ro.infotb.modern.data.store.DashboardStore
 import ro.infotb.modern.data.store.FavoritesStore
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.data.store.PreferencesStore
+import ro.infotb.modern.notification.ArrivalTracker
 import ro.infotb.modern.notification.NotificationEngine
 import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.notification.PlatformNotifier
@@ -144,6 +145,13 @@ val sharedModule: Module = module {
             scope = get(named("appScope")),
             platformNotifier = get(),
             noticeWatcher = get()
+        )
+    }
+
+    single {
+        ArrivalTracker(
+            notificationStore = get(),
+            notificationEngine = get()
         )
     }
 }

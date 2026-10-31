@@ -17,9 +17,17 @@ kotlin {
 
     jvm("desktop")
 
-    iosX64()
-    iosArm64()
-    iosSimulatorArm64()
+    // The iOS app's UI is SwiftUI; it links this module directly as "Shared".
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "Shared"
+            isStatic = true
+        }
+    }
 
     sourceSets {
         val commonMain by getting {
@@ -32,6 +40,7 @@ kotlin {
                 implementation(libs.multiplatform.settings)
                 implementation(libs.multiplatform.settings.coroutines)
                 implementation(libs.koin.core)
+                api(libs.lifecycle.viewmodel)
                 implementation(libs.uuid)
                 implementation(libs.room.runtime)
                 implementation(libs.sqlite.bundled)

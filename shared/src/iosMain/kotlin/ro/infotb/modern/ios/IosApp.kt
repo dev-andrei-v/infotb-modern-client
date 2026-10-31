@@ -1,32 +1,26 @@
-package ro.infotb.modern
+package ro.infotb.modern.ios
 
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.window.ComposeUIViewController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.context.startKoin
 import org.koin.mp.KoinPlatform
-import ro.infotb.modern.notification.NoticeWatcher
 import ro.infotb.modern.di.sharedModule
-import ro.infotb.modern.ui.App
-import ro.infotb.modern.ui.PendingStopNav
+import ro.infotb.modern.notification.NoticeWatcher
+import ro.infotb.modern.notification.NotificationEngine
 
-private val pendingNav = mutableStateOf<PendingStopNav?>(null)
-
-fun MainViewController() = ComposeUIViewController {
-    App(notificationNav = pendingNav)
-}
-
-fun handleIncomingNavigation(stopId: Long, lineId: Long, direction: Int) {
-    pendingNav.value = PendingStopNav(stopId, lineId, direction)
-}
-
+/**
+ * Entry points the Swift app calls at launch. Swift sees them as
+ * `IosAppKt.initKoin()` and friends.
+ */
 fun initKoin() {
     startKoin {
         modules(sharedModule)
     }
+    // Arrival polling runs for the whole life of the process, as it did
+    // under the Compose UI, so the Dynamic Island keeps updating.
+    KoinPlatform.getKoin().get<NotificationEngine>().start()
 }
 
 /**

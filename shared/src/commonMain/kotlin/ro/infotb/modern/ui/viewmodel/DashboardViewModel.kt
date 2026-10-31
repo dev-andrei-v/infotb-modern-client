@@ -298,6 +298,26 @@ class DashboardViewModel(
         dashboardStore.reorderWidgets(from, to)
     }
 
+    /** Moves a group to position [index] in the dashboard order (drag and drop). */
+    fun moveGroupTo(name: String, index: Int) {
+        val current = groups.value
+        val from = current.indexOf(name)
+        if (from == -1 || index !in current.indices || from == index) return
+        dashboardStore.reorderGroups(from, index)
+    }
+
+    /**
+     * Moves a card to position [index] among the cards of its own group
+     * (drag and drop). Like [moveWidget], translated to the global order.
+     */
+    fun moveWidgetTo(id: String, index: Int) {
+        val all = widgets.value
+        val widget = all.find { it.id == id } ?: return
+        val siblings = all.filter { it.group == widget.group }
+        if (index !in siblings.indices || siblings.indexOf(widget) == index) return
+        dashboardStore.reorderWidgets(all.indexOf(widget), all.indexOf(siblings[index]))
+    }
+
     fun loadLineTimetable(stopId: Long, lineId: Long, direction: Direction) {
         val key = "${stopId}_${lineId}_${direction.value}"
         if (_lineTimetables.value.containsKey(key)) return

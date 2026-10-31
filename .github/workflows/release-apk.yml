@@ -38,10 +38,10 @@ jobs:
           mkdir -p ~/.android
           keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
 
+      # The heap belongs to the Gradle build process (org.gradle.jvmargs), where
+      # D8 merges dex files; GRADLE_OPTS only sizes the small launcher.
       - name: Build Release APK
-        env:
-          GRADLE_OPTS: -Xmx512m -XX:MaxMetaspaceSize=256m
-        run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1
+        run: ./gradlew :composeApp:assembleRelease --no-daemon -Dorg.gradle.workers.max=1 "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

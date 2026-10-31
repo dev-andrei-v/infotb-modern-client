@@ -2,350 +2,60 @@
 
 # InfoTB
 
-A **Kotlin Multiplatform (KMP)** public transit app for Bucharest (STB). Business logic and view models are shared; **Android** and **Desktop (Windows/macOS/Linux)** use a **Compose Multiplatform** UI, while **iOS** has a native **SwiftUI** UI (Liquid Glass on iOS 26+).
+**Live arrivals for Bucharest's buses, trams, trolleybuses and metro, built to be glanced at.**
+
+InfoTB is a modern client for STB, Bucharest's public transport operator. Pin the stops you use every day to a dashboard, see when the next vehicle arrives (live GPS or timetable), and follow your ride in the Dynamic Island while your phone is in your pocket.
+
+It's a native app on both platforms: **SwiftUI with Liquid Glass on iPhone**, **Material 3 with Jetpack Compose on Android**, sharing one Kotlin core.
 
 ---
 
-## Project Structure
+## iPhone
 
-```
-infotb-modern-client/
-├── shared/                          # Pure KMP business logic (no UI)
-│   └── src/
-│       ├── commonMain/kotlin/ro/infotb/modern/
-│       │   ├── data/
-│       │   │   ├── model/           # Domain data classes (Line, Stop, Announcement, etc.)
-│       │   │   ├── api/             # Ktor HTTP client, auth, protobuf decoding
-│       │   │   ├── db/              # Room database, entities, DAOs
-│       │   │   ├── repository/      # Data coordination layer
-│       │   │   └── store/           # Persistent state (Room + multiplatform-settings)
-│       │   ├── notification/        # Push notification engine & platform notifier
-│       │   ├── util/                # Constants, i18n, formatters, polyline
-│       │   └── di/                  # Koin dependency injection modules
-│       ├── androidMain/             # Android-specific (DatabaseFactory, Platform)
-│       ├── desktopMain/             # Desktop/JVM-specific (DatabaseFactory, Platform)
-│       ├── commonMain/.../ui/viewmodel/ # ViewModels with StateFlow, shared by Compose and SwiftUI
-│       └── iosMain/                 # iOS-specific (DatabaseFactory, Platform) + Swift bridge (IosServices)
-│
-├── composeApp/                      # Compose Multiplatform UI
-│   └── src/
-│       ├── commonMain/kotlin/ro/infotb/modern/ui/
-│       │   ├── theme/               # Material 3 theme, colors
-│       │   ├── navigation/          # Screen routes, NavItem definitions
-│       │   ├── components/
-│       │   │   ├── layout/          # AppShell (adaptive bottom nav / side rail)
-│       │   │   └── shared/          # LineBadge, ArrivalTimeBadge, LeafletMap, etc.
-│       │   ├── screens/             # Full-page composables (7 screens)
-│       │   └── App.kt              # Root composable, NavHost setup
-│       ├── androidMain/             # MainActivity, TbApplication, Manifest
-│       └── desktopMain/             # Desktop main() entry point
-│
-├── iosApp/                          # Native SwiftUI app (links :shared as Shared.framework)
-│   ├── iosApp/App, Bridge/          # AppModel, Kotlin flow → @Observable bridge
-│   ├── iosApp/Components, Screens/  # SwiftUI views (TabView, NavigationStack, MapKit)
-│   └── InfoTBLiveActivity/          # Dynamic Island / Live Activity extension
-│
-├── .github/workflows/               # GitHub Actions CI/CD (release APK build)
-├── gradle/libs.versions.toml       # Version catalog
-└── shared/schemas/                 # Room database schema exports
-```
+| Dashboard | Lines | Line |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/ios-dashboard.png" width="250" alt="Dashboard on iPhone"> | <img src="docs/screenshots/ios-lines.png" width="250" alt="Lines on iPhone"> | <img src="docs/screenshots/ios-line.png" width="250" alt="Line detail on iPhone"> |
+
+| Live map | Stop | Settings |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/ios-map.png" width="250" alt="Live map on iPhone"> | <img src="docs/screenshots/ios-stop.png" width="250" alt="Stop arrivals on iPhone"> | <img src="docs/screenshots/ios-settings.png" width="250" alt="Settings on iPhone"> |
+
+## Android
+
+| Dashboard | Lines | Line | Stop |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/android-dashboard.png" width="200" alt="Dashboard on Android"> | <img src="docs/screenshots/android-lines.png" width="200" alt="Lines on Android"> | <img src="docs/screenshots/android-line.png" width="200" alt="Line detail on Android"> | <img src="docs/screenshots/android-stop.png" width="200" alt="Stop arrivals on Android"> |
 
 ---
 
-## Technology Stack
+## Features
 
-| Concern | Library | Version |
-|---------|---------|---------|
-| Language | Kotlin | 2.1.10 |
-| UI Framework | Compose Multiplatform | 1.7.3 |
-| Design System | Material 3 | - |
-| HTTP Client | Ktor | 3.0.3 |
-| Serialization | kotlinx.serialization | 1.7.3 |
-| Coroutines | kotlinx.coroutines | 1.9.0 |
-| Protobuf | Custom `ProtobufReader` | - |
-| State | StateFlow + ViewModel | 2.8.4 |
-| Database | Room KMP + SQLite | 2.7.0 |
-| Key-Value Storage | multiplatform-settings | 1.3.0 |
-| DI | Koin | 4.0.2 |
-| Navigation | Navigation Compose | 2.8.0-alpha12 |
+- **Dashboard of your stops.** Live countdowns that keep ticking between refreshes, the next few departures for every line, and a warning when data goes stale.
+- **Groups with active hours.** Put stops in groups like "Home" and "Work"; a group can show up expanded only during the hours you need it (say, 07:00–09:30).
+- **Nearest first.** One tap orders the dashboard by distance from where you are.
+- **Track an arrival.** Tap the bell next to a line and follow it in the **Dynamic Island** and on the Lock Screen (iPhone), or in an ongoing notification (Android), until it reaches your stop.
+- **Every line, searchable.** Filter by bus, tram, trolleybus, metro or night lines, and star your favourites.
+- **Live map.** See a line's route, its direction and every vehicle on it right now; tap a stop to see when the next one arrives there.
+- **Timetables.** The full day's schedule for any line at any stop, scrolled to the current hour.
+- **STB notices.** Service notices show up on the cards of the lines they affect, and you can be notified when a line you follow gets one.
+- **Metro in its real colours.** M1 yellow, M2 blue, M3 red, M4 green, M5 orange.
+- **Romanian and English**, light and dark mode, and backup/restore of your dashboard to a file.
 
----
+## Get the app
 
-## Screens & Navigation
+- **Android:** download the APK from the [latest release](https://github.com/dev-andrei-v/infotb-modern-client/releases/latest) (Android 8.0+).
+- **iPhone:** the release includes an unsigned IPA you can sideload with [iLoader](https://github.com/nab138/iloader) or Sideloadly (iOS 17+). See [Building & releasing](docs/building.md#ios-sideloading) for what works with which tool.
 
-### Bottom Navigation (3 items)
+Want to build it yourself? Start with [docs/building.md](docs/building.md).
 
-| Tab | Screen | Route |
-|-----|--------|-------|
-| Dashboard | `DashboardScreen` | `/dashboard` |
-| Lines | `LinesScreen` | `/lines` |
-| Announcements | `AnnouncementsScreen` | `/announcements` |
+## Documentation
 
-### Detail Screens (navigated to from other screens)
-
-| Screen | Route | Accessed From |
-|--------|-------|---------------|
-| `LineDetailScreen` | `/lines/{lineId}` | Lines tab |
-| `StopDetailScreen` | `/stops/{stopId}?lineId=X&direction=Y` | Line detail / Dashboard widget |
-| `SettingsScreen` | `/settings` | Gear icon on Dashboard header |
-
-Settings includes theme, language, notification subscriptions management, and about section.
-
-### Adaptive Layout
-
-- **< 840dp** (phones): Bottom `NavigationBar`
-- **>= 840dp** (tablets, desktop): Side `NavigationRail`
+| Doc | What's in it |
+|---|---|
+| [Architecture](docs/architecture.md) | How the shared Kotlin core, the Compose app and the SwiftUI app fit together |
+| [STB API](docs/stb-api.md) | The endpoints, authentication and protobuf format the app talks to |
+| [Building & releasing](docs/building.md) | Building for Android, desktop and iOS; CI, releases and sideloading |
 
 ---
 
-## API Architecture
-
-### Base URL
-```
-https://info.stb.ro/api/web/v2-6
-```
-
-### Authentication
-1. Generate a UUID (`appId`) on first launch, persist it
-2. POST `/proxy/user/auth` with `App-key` header
-3. Server returns `userInfo` token
-4. Token sent as `User-Info` header on all subsequent requests
-5. On HTTP 401, clear token and re-authenticate
-
-### Endpoints
-
-| Method | Path | Format | Returns |
-|--------|------|--------|---------|
-| GET | `/lines?lang=ro` | Protobuf | `List<Line>` |
-| GET | `/lines/{id}?lang=ro` | Protobuf | `LineDetail` |
-| GET | `/lines/{id}/direction/{dir}?lang=ro` | Protobuf | `LineDetail` |
-| GET | `/lines/stop?stop_id=X` | Protobuf | `StopInfo` |
-| GET | `/lines/stops/{id}` | Protobuf | `StopDetails` |
-| GET | `/lines/v2/{id}/vehicles/{dir}?lang=ro` | Protobuf | `List<VehiclePosition>` |
-| GET | `/lines/v2/home/stops/{id}` | Protobuf | `List<Stop>` |
-| GET | `/notifications?limit=50&offset=0` | JSON | `List<Announcement>` |
-| POST | `/proxy/user/auth` | JSON | Auth token |
-
-### Protobuf Decoding
-
-The STB API returns binary Protocol Buffers (proto2). Instead of codegen (Wire), a custom lightweight `ProtobufReader` manually decodes the wire format:
-
-```
-Wire Type 0 → Varint (int32, int64, bool)
-Wire Type 1 → 64-bit fixed (double)
-Wire Type 2 → Length-delimited (string, bytes, embedded message)
-Wire Type 5 → 32-bit fixed (float)
-```
-
-### Refresh Intervals
-
-| Data | Interval | Reason |
-|------|----------|--------|
-| Lines list | 5 min stale | Rarely changes |
-| Stop arrivals | 30 sec | Real-time tracking |
-| Vehicle positions | 10 sec | Live map updates |
-| Announcements | 5 min stale | Infrequent updates |
-
----
-
-## Data Layer
-
-### Room Database Schema
-
-```
-stb.db
-├── widgets                    (id, stopId, stopName, size, groupName, visibleLines, hidden, sortOrder)
-├── favorites                  (lineId)
-├── notification_subscriptions (id, stopId, stopName, lineId, lineName, lineColor, direction, mode, thresholdMinutes, enabled)
-└── dashboard_groups           (name, sortOrder, hidden)
-```
-
-### Stores
-
-| Store | State | Backed By |
-|-------|-------|-----------|
-| `PreferencesStore` | theme, locale | multiplatform-settings |
-| `FavoritesStore` | favorite line IDs | Room `favorites` table |
-| `DashboardStore` | widgets, groups | Room `widgets` + `dashboard_groups` tables |
-| `NotificationStore` | subscriptions | Room `notification_subscriptions` table |
-
-### ViewModels
-
-| ViewModel | Screen | Data Sources |
-|-----------|--------|--------------|
-| `DashboardViewModel` | Dashboard | `TransitRepository`, `DashboardStore` |
-| `LinesViewModel` | Lines | `TransitRepository`, `FavoritesStore` |
-| `LineDetailViewModel` | Line Detail | `TransitRepository` |
-| `StopDetailViewModel` | Stop Detail | `TransitRepository` |
-| `AnnouncementsViewModel` | Announcements | `TransitRepository` |
-
-Notifications and Settings screens use stores directly (no ViewModel).
-
-### What is NOT cached in SQLite
-
-- **Lines list** — fetched fresh on launch (routes can change)
-- **Announcements** — always from API
-- **Arrival times** — real-time data, never stale-cached
-
----
-
-## Domain Models
-
-| Model | Description |
-|-------|-------------|
-| `Line` | Transit line (id, name, color, type, direction) |
-| `Stop` | Stop location (id, name, lat/lng) |
-| `Arrival` | Arrival time data (seconds, timetable flag) |
-| `Vehicle` | Live vehicle position |
-| `Announcement` | Service announcement with affected lines |
-| `Direction` | TUR / RETUR enum |
-| `TransportType` | BUS, TRAM, TROLLEYBUS |
-| `Organization` | Transit operator |
-
----
-
-## Internationalization
-
-All UI text goes through `t(key, locale)`. Two locales supported: Romanian (`ro`) and English (`en`).
-
-```kotlin
-Text(t("nav.dashboard", locale))  // "Panou" or "Dashboard"
-```
-
----
-
-## Theme
-
-Material 3 with system/light/dark mode support. User preference stored via `PreferencesStore`.
-
-### Transport Type Colors
-
-| Type | Color |
-|------|-------|
-| BUS | Blue `#1E88E5` |
-| TRAM | Red `#E53935` |
-| TROLLEYBUS | Green `#43A047` |
-
-### Semantic Colors
-
-- **Green** — Real-time GPS arrival data
-- **Amber/Blue** — Scheduled timetable data
-- **Red** — Delete actions, alerts
-
----
-
-## Platform-Specific Code
-
-Minimal platform code via `expect`/`actual`:
-
-| Concern | Android | Desktop | iOS |
-|---------|---------|---------|-----|
-| Database | Room + Context | Room + File path | Room + NSFileManager |
-| HTTP Engine | OkHttp | Java (java.net.http) | Darwin (URLSession) |
-| Settings | SharedPreferences | java.util.prefs | NSUserDefaults |
-| Entry Point | `MainActivity` | `main()` + `Window` | `AppDelegate` + SwiftUI `RootView` |
-| UI | Compose | Compose | SwiftUI |
-
----
-
-## Build & Run
-
-### Android
-```bash
-./gradlew :composeApp:assembleDebug
-# APK at composeApp/build/outputs/apk/debug/
-```
-
-### Desktop
-```bash
-./gradlew :composeApp:run
-# Or create distributable:
-./gradlew :composeApp:createDistributable
-```
-
-### iOS
-
-**Prerequisites:**
-- macOS with Xcode installed (the app targets iOS 17+)
-- JDK 17 (e.g. `brew install openjdk@17`)
-- At least 16GB RAM recommended (Kotlin/Native compiler needs ~4GB)
-
-**Steps:**
-
-1. Clone the repo and make Gradle executable:
-   ```bash
-   git clone <repo-url>
-   cd infotb-modern-client
-   chmod +x gradlew
-   ```
-
-2. Build the Kotlin framework (first build takes a while):
-   ```bash
-   ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
-   ```
-
-3. Open the Xcode project:
-   ```bash
-   open iosApp/iosApp.xcodeproj
-   ```
-
-4. In Xcode, select an iOS Simulator target and press **Cmd+R** to build and run.
-
-**Troubleshooting:**
-
-- **OOM / `Java heap space`**: Ensure `gradle.properties` has `org.gradle.jvm.args=-Xmx4096M` and `kotlin.native.jvmArgs=-Xmx4096M`. Kill stale daemons with `./gradlew --stop`.
-- **Gradle lock file error**: Another Gradle process is running. Run `./gradlew --stop && pkill -f gradle`, then retry.
-- **KSP / `ClassNotFoundException`**: Clean the Kotlin/Native cache with `rm -rf ~/.konan` and rebuild.
-
-### iOS Sideloading (iLoader / Sideloadly)
-
-The CI pipeline produces an **unsigned IPA** that can be sideloaded using [iLoader](https://github.com/nab138/iloader) or Sideloadly. These tools re-sign the IPA with your Apple ID.
-
-**Dynamic Island / Live Activities:** The app includes a Live Activity widget extension for real-time transit tracking on Dynamic Island. This requires a **paid Apple Developer account** for code signing. When sideloading with a free Apple ID, the extension cannot be signed — the app automatically detects this and falls back to regular local notifications.
-
-| Install method | Dynamic Island | Notifications |
-|---------------|----------------|---------------|
-| Xcode (free or paid account) | Yes | Yes |
-| [iLoader](https://github.com/nab138/iloader) (free or paid account) | Yes | Yes |
-| Sideloadly | No | Yes (fallback) |
-
-### Build Config
-
-- Android: Min SDK 26, Target SDK 35, Compile SDK 36, App ID `ro.infotb.modern`
-- Desktop: JVM 17, native distributions (Dmg, Msi, Deb)
-- iOS: X64, Arm64, Simulator Arm64
-
----
-
-## CI/CD
-
-GitHub Actions workflow (`.github/workflows/release-apk.yml`):
-- Triggers on tag push matching `v*`
-- Sets up JDK 17 (Temurin) and Gradle
-- Builds release APK
-- Creates a GitHub Release with auto-generated release notes and the APK attached
-
----
-
-## Dependencies Graph
-
-```
-:composeApp (UI)
-    ├── :shared (Business Logic)
-    ├── Compose Multiplatform (Runtime, Foundation, Material3)
-    ├── Navigation Compose
-    └── Koin Compose
-
-iosApp (SwiftUI)
-    └── Shared.framework (:shared)
-
-:shared (Logic)
-    ├── Ktor Client (HTTP)
-    ├── kotlinx.serialization (JSON)
-    ├── kotlinx.coroutines (Async)
-    ├── Room KMP + SQLite (Structured persistence)
-    ├── multiplatform-settings (Key-value persistence)
-    ├── Koin Core (DI)
-    ├── Lifecycle ViewModel (shared view models)
-    └── UUID (App ID generation)
-```
+InfoTB is an independent project and is not affiliated with STB or Metrorex. Arrival data comes from STB's public API.

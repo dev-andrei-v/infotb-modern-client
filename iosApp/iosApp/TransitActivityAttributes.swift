@@ -93,6 +93,16 @@ struct TransitActivityAttributes: ActivityAttributes {
     }
 }
 
+extension Color {
+    /// Black or white, whichever reads better on this colour; the yellow M1
+    /// badge needs black text where every other line takes white.
+    var contrastingText: Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.299 * r + 0.587 * g + 0.114 * b > 0.65 ? .black : .white
+    }
+}
+
 /// The vehicle marker used in the Live Activity: a bus, tram, trolleybus or
 /// metro glyph depending on the tracked line's type.
 struct VehicleGlyph: View {

@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		7555FF7F242A565900829871 /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF7E242A565900829871 /* iOSApp.swift */; };
 		DA000000000000A2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA000000000000A1 /* SceneDelegate.swift */; };
-		7555FF81242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF80242A565900829871 /* ContentView.swift */; };
 		A1B2C3D4E5F60001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60002 /* Assets.xcassets */; };
 		DA00000000000013 /* TransitActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000001 /* TransitActivityAttributes.swift */; };
 		DA00000000000014 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000004 /* LiveActivityManager.swift */; };
@@ -18,6 +17,24 @@
 		DA00000000000011 /* InfoTBLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000002 /* InfoTBLiveActivity.swift */; };
 		DA00000000000012 /* InfoTBLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA00000000000003 /* InfoTBLiveActivityBundle.swift */; };
 		DA00000000000053 /* InfoTBLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = DA00000000000005 /* InfoTBLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		DB00000000000007 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000006 /* AppModel.swift */; };
+		DB00000000000009 /* KotlinBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000008 /* KotlinBridge.swift */; };
+		DB0000000000000B /* ArrivalRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000000A /* ArrivalRow.swift */; };
+		DB0000000000000D /* Badges.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000000C /* Badges.swift */; };
+		DB0000000000000F /* FlowLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000000E /* FlowLayout.swift */; };
+		DB00000000000011 /* Maps.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000010 /* Maps.swift */; };
+		DB00000000000013 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000012 /* Style.swift */; };
+		DB00000000000015 /* TimetableViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000014 /* TimetableViews.swift */; };
+		DB00000000000017 /* AnnouncementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000016 /* AnnouncementsView.swift */; };
+		DB00000000000019 /* LineDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000018 /* LineDetailView.swift */; };
+		DB0000000000001B /* LinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000001A /* LinesView.swift */; };
+		DB0000000000001D /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000001C /* RootView.swift */; };
+		DB0000000000001F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000001E /* SettingsView.swift */; };
+		DB00000000000021 /* DashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000020 /* DashboardCard.swift */; };
+		DB00000000000023 /* DashboardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000022 /* DashboardModel.swift */; };
+		DB00000000000025 /* DashboardSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000024 /* DashboardSheets.swift */; };
+		DB00000000000027 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000026 /* DashboardView.swift */; };
+		DB0000000000F002 /* StopDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000F001 /* StopDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,7 +65,6 @@
 		7555FF79242A565900829871 /* InfoTB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InfoTB.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF7E242A565900829871 /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 		DA000000000000A1 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		7555FF80242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF82242A565900829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D4E5F60002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DA00000000000001 /* TransitActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitActivityAttributes.swift; sourceTree = "<group>"; };
@@ -58,6 +74,24 @@
 		DA00000000000008 /* BackgroundLocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundLocationManager.swift; sourceTree = "<group>"; };
 		DA00000000000005 /* InfoTBLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = InfoTBLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA00000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		DB00000000000006 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		DB00000000000008 /* KotlinBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KotlinBridge.swift; sourceTree = "<group>"; };
+		DB0000000000000A /* ArrivalRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrivalRow.swift; sourceTree = "<group>"; };
+		DB0000000000000C /* Badges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Badges.swift; sourceTree = "<group>"; };
+		DB0000000000000E /* FlowLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowLayout.swift; sourceTree = "<group>"; };
+		DB00000000000010 /* Maps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Maps.swift; sourceTree = "<group>"; };
+		DB00000000000012 /* Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Style.swift; sourceTree = "<group>"; };
+		DB00000000000014 /* TimetableViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableViews.swift; sourceTree = "<group>"; };
+		DB00000000000016 /* AnnouncementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnouncementsView.swift; sourceTree = "<group>"; };
+		DB00000000000018 /* LineDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDetailView.swift; sourceTree = "<group>"; };
+		DB0000000000001A /* LinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinesView.swift; sourceTree = "<group>"; };
+		DB0000000000001C /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		DB0000000000001E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		DB00000000000020 /* DashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCard.swift; sourceTree = "<group>"; };
+		DB00000000000022 /* DashboardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardModel.swift; sourceTree = "<group>"; };
+		DB00000000000024 /* DashboardSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSheets.swift; sourceTree = "<group>"; };
+		DB00000000000026 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		DB0000000000F001 /* StopDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,9 +133,12 @@
 		7555FF7D242A565900829871 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				DB00000000000001 /* App */,
+				DB00000000000002 /* Bridge */,
+				DB00000000000003 /* Components */,
+				DB00000000000004 /* Screens */,
 				7555FF7E242A565900829871 /* iOSApp.swift */,
 				DA000000000000A1 /* SceneDelegate.swift */,
-				7555FF80242A565900829871 /* ContentView.swift */,
 				DA00000000000001 /* TransitActivityAttributes.swift */,
 				DA00000000000004 /* LiveActivityManager.swift */,
 				DA00000000000008 /* BackgroundLocationManager.swift */,
@@ -119,6 +156,60 @@
 				DA00000000000007 /* Info.plist */,
 			);
 			path = InfoTBLiveActivity;
+			sourceTree = "<group>";
+		};
+		DB00000000000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				DB00000000000006 /* AppModel.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		DB00000000000002 /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				DB00000000000008 /* KotlinBridge.swift */,
+			);
+			path = Bridge;
+			sourceTree = "<group>";
+		};
+		DB00000000000003 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				DB0000000000000A /* ArrivalRow.swift */,
+				DB0000000000000C /* Badges.swift */,
+				DB0000000000000E /* FlowLayout.swift */,
+				DB00000000000010 /* Maps.swift */,
+				DB00000000000012 /* Style.swift */,
+				DB00000000000014 /* TimetableViews.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		DB00000000000004 /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				DB00000000000005 /* Dashboard */,
+				DB00000000000016 /* AnnouncementsView.swift */,
+				DB00000000000018 /* LineDetailView.swift */,
+				DB0000000000001A /* LinesView.swift */,
+				DB0000000000001C /* RootView.swift */,
+				DB0000000000001E /* SettingsView.swift */,
+				DB0000000000F001 /* StopDetailView.swift */,
+			);
+			path = Screens;
+			sourceTree = "<group>";
+		};
+		DB00000000000005 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				DB00000000000020 /* DashboardCard.swift */,
+				DB00000000000022 /* DashboardModel.swift */,
+				DB00000000000024 /* DashboardSheets.swift */,
+				DB00000000000026 /* DashboardView.swift */,
+			);
+			path = Dashboard;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -226,7 +317,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n# Xcode does not inherit the shell PATH/JAVA_HOME; Gradle 8.x needs JDK 17-21.\nif [ -z \"$JAVA_HOME\" ]; then\n  export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home -v 17 2>/dev/null)\nfi\nexport GRADLE_OPTS=\"-Xmx4g\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode -Dorg.gradle.jvmargs=\"-Xmx4g\" -Pkotlin.native.jvmArgs=-Xmx4g\n";
+			shellScript = "cd \"$SRCROOT/..\"\n# Xcode does not inherit the shell PATH/JAVA_HOME; Gradle 8.x needs JDK 17-21.\nif [ -z \"$JAVA_HOME\" ]; then\n  export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home -v 17 2>/dev/null)\nfi\nexport GRADLE_OPTS=\"-Xmx4g\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode -Dorg.gradle.jvmargs=\"-Xmx4g\" -Pkotlin.native.jvmArgs=-Xmx4g\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -235,12 +326,29 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7555FF81242A565900829871 /* ContentView.swift in Sources */,
 				7555FF7F242A565900829871 /* iOSApp.swift in Sources */,
 				DA000000000000A2 /* SceneDelegate.swift in Sources */,
 				DA00000000000013 /* TransitActivityAttributes.swift in Sources */,
 				DA00000000000014 /* LiveActivityManager.swift in Sources */,
 				DA00000000000015 /* BackgroundLocationManager.swift in Sources */,
+				DB00000000000007 /* AppModel.swift in Sources */,
+				DB00000000000009 /* KotlinBridge.swift in Sources */,
+				DB0000000000000B /* ArrivalRow.swift in Sources */,
+				DB0000000000000D /* Badges.swift in Sources */,
+				DB0000000000000F /* FlowLayout.swift in Sources */,
+				DB00000000000011 /* Maps.swift in Sources */,
+				DB00000000000013 /* Style.swift in Sources */,
+				DB00000000000015 /* TimetableViews.swift in Sources */,
+				DB00000000000017 /* AnnouncementsView.swift in Sources */,
+				DB00000000000019 /* LineDetailView.swift in Sources */,
+				DB0000000000001B /* LinesView.swift in Sources */,
+				DB0000000000001D /* RootView.swift in Sources */,
+				DB0000000000001F /* SettingsView.swift in Sources */,
+				DB0000000000F002 /* StopDetailView.swift in Sources */,
+				DB00000000000021 /* DashboardCard.swift in Sources */,
+				DB00000000000023 /* DashboardModel.swift in Sources */,
+				DB00000000000025 /* DashboardSheets.swift in Sources */,
+				DB00000000000027 /* DashboardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,7 +424,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -371,7 +479,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -387,9 +495,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
+				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
 				INFOPLIST_FILE = iosApp/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -397,7 +505,7 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
-					ComposeApp,
+					Shared,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = ro.infotb.modern;
 				PRODUCT_NAME = InfoTB;
@@ -412,9 +520,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
+				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
 				INFOPLIST_FILE = iosApp/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -422,7 +530,7 @@
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
-					ComposeApp,
+					Shared,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = ro.infotb.modern;
 				PRODUCT_NAME = InfoTB;

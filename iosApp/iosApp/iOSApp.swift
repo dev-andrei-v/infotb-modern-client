@@ -1,5 +1,5 @@
 import UIKit
-import ComposeApp
+import Shared
 import BackgroundTasks
 import CoreLocation
 
@@ -19,7 +19,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize Live Activity manager (registers NSNotification observers)
         _ = LiveActivityManager.shared
 
-        MainViewControllerKt.doInitKoin()
+        IosAppKt.doInitKoin()
 
         // The window itself is created by SceneDelegate.
 
@@ -122,7 +122,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             refresh.expirationHandler = {
                 refresh.setTaskCompleted(success: false)
             }
-            MainViewControllerKt.checkNoticesInBackground { _ in
+            IosAppKt.checkNoticesInBackground { _ in
                 refresh.setTaskCompleted(success: true)
             }
         }

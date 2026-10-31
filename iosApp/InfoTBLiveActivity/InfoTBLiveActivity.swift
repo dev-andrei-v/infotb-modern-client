@@ -170,7 +170,7 @@ struct InfoTBLiveActivity: Widget {
                         .position(x: width - 6, y: geo.size.height / 2)
                     // Vehicle
                     VehicleGlyph(type: lineType, size: 11)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(color.contrastingText)
                         .frame(width: busSize, height: busSize)
                         .background(Circle().fill(color))
                         .position(x: min(max(width * progress, busSize / 2), width - busSize / 2), y: geo.size.height / 2)
@@ -279,10 +279,10 @@ struct InfoTBLiveActivity: Widget {
                 .frame(width: size, height: size)
             VStack(spacing: size * 0.04) {
                 VehicleGlyph(type: lineType, size: size * 0.3)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(color.contrastingText.opacity(0.9))
                 Text(name)
                     .font(.system(size: size * 0.36, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(color.contrastingText)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .padding(.horizontal, 2)

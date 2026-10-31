@@ -343,7 +343,28 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "notification.activate" to mapOf(Locale.RO to "Activeaza notificarea", Locale.EN to "Activate notification"),
 
     // Misc
-    "misc.vehicle" to mapOf(Locale.RO to "Vehicul", Locale.EN to "Vehicle")
+    "misc.vehicle" to mapOf(Locale.RO to "Vehicul", Locale.EN to "Vehicle"),
+    "common.retry" to mapOf(Locale.RO to "Reincearca", Locale.EN to "Retry"),
+
+    // Native iOS UI
+    "arrival.liveInfo" to mapOf(
+        Locale.RO to "Ora sosirii vine din pozitia GPS live a vehiculului.",
+        Locale.EN to "This arrival time is based on live GPS tracking of the vehicle."
+    ),
+    "arrival.scheduledInfo" to mapOf(
+        Locale.RO to "Ora sosirii vine din orar, nu din urmarirea in timp real.",
+        Locale.EN to "This arrival time is based on the scheduled timetable, not real-time tracking."
+    ),
+    "lines.favorite" to mapOf(Locale.RO to "Favorit", Locale.EN to "Favorite"),
+    "lines.unfavorite" to mapOf(Locale.RO to "Scoate din favorite", Locale.EN to "Unfavorite"),
+    "lineDetail.direction" to mapOf(Locale.RO to "Sens", Locale.EN to "Direction"),
+    "lineDetail.stops" to mapOf(Locale.RO to "Statii", Locale.EN to "Stops"),
+    "lineDetail.vehicleLive" to mapOf(Locale.RO to "vehicul live", Locale.EN to "vehicle live"),
+    "lineDetail.vehiclesLive" to mapOf(Locale.RO to "vehicule live", Locale.EN to "vehicles live"),
+    "lineDetail.moreAboutStop" to mapOf(Locale.RO to "Detalii statie", Locale.EN to "More about this stop"),
+    "lineDetail.stopOf" to mapOf(Locale.RO to "Statia {n} din {total}", Locale.EN to "Stop {n} of {total}"),
+    "stopDetail.addToDashboardLong" to mapOf(Locale.RO to "Adauga pe panou", Locale.EN to "Add to dashboard"),
+    "settings.version" to mapOf(Locale.RO to "Versiune", Locale.EN to "Version")
 )
 
 fun t(key: String, locale: Locale): String {

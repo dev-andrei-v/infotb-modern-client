@@ -1,5 +1,5 @@
+import SwiftUI
 import UIKit
-import ComposeApp
 
 /// Owns the app window. iOS 26+ SDKs require the UIScene life cycle, so the
 /// window is created here instead of in AppDelegate.
@@ -14,7 +14,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = MainViewControllerKt.MainViewController()
+        window.rootViewController = UIHostingController(rootView: RootView())
         window.makeKeyAndVisible()
         self.window = window
 
@@ -47,10 +47,10 @@ enum DeepLinkHandler {
 
         guard stopId >= 0 else { return false }
 
-        MainViewControllerKt.handleIncomingNavigation(
+        AppModel.shared.openStop(
             stopId: stopId,
-            lineId: lineId,
-            direction: direction
+            lineId: lineId >= 0 ? lineId : nil,
+            direction: direction >= 0 ? direction : nil
         )
         return true
     }

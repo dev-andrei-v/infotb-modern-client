@@ -212,6 +212,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "lineDetail.vehicleApproaching" to mapOf(Locale.RO to "In apropiere", Locale.EN to "Approaching"),
     "lineDetail.vehiclesActive" to mapOf(Locale.RO to "vehicule active pe traseu", Locale.EN to "vehicles active on route"),
     "lineDetail.noVehicles" to mapOf(Locale.RO to "Niciun vehicul activ momentan", Locale.EN to "No active vehicles at the moment"),
+    "lineDetail.refreshVehicles" to mapOf(Locale.RO to "Reimprospateaza vehiculele", Locale.EN to "Refresh vehicles"),
+    "lineDetail.nearestStop" to mapOf(Locale.RO to "Cea mai apropiata statie", Locale.EN to "Nearest stop"),
 
     // Stop detail page
     "stopDetail.back" to mapOf(Locale.RO to "Inapoi", Locale.EN to "Back"),

@@ -54,6 +54,7 @@ struct RouteMap: View {
                 Annotation("", coordinate: arrow.coordinate, anchor: .center) {
                     DirectionArrow(color: color)
                         .rotationEffect(.degrees(arrow.bearing))
+                        .zIndex(0)
                         .allowsHitTesting(false)
                 }
             }
@@ -77,16 +78,18 @@ struct RouteMap: View {
                         }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityLabel(stop.name)
+                        .zIndex(1)
                 }
             }
             ForEach(vehicles, id: \.id) { vehicle in
-                Annotation("", coordinate: CLLocationCoordinate2D(latitude: vehicle.lat, longitude: vehicle.lng)) {
+                Annotation("", coordinate: CLLocationCoordinate2D(latitude: vehicle.lat, longitude: vehicle.lng), anchor: .center) {
                     VehicleGlyph(type: (vehicle.transportType ?? lineType).name, size: 14)
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
                         .background(Color.realtime, in: Circle())
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                         .shadow(radius: 2)
+                        .zIndex(2)
                 }
             }
         }

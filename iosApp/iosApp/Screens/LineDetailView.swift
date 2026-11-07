@@ -9,6 +9,7 @@ final class LineDetailModel {
 
     private(set) var detail: LineDetail?
     private(set) var vehicles: [VehiclePosition] = []
+    private(set) var isRefreshingVehicles = false
     private(set) var direction: Direction = .tur
     private(set) var isLoading = false
     private(set) var announcements: [Announcement] = []
@@ -21,6 +22,7 @@ final class LineDetailModel {
             if let detail { StopLocationCache.shared.store(detail.stops) }
         }
         scope.watch(viewModel.vehicles) { [weak self] in self?.vehicles = Unbox.list($0) }
+        scope.watch(viewModel.isRefreshingVehicles) { [weak self] in self?.isRefreshingVehicles = Unbox.bool($0) }
         scope.watch(viewModel.direction) { [weak self] in self?.direction = $0 as? Direction ?? .tur }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
         scope.watch(viewModel.announcements) { [weak self] in self?.announcements = Unbox.list($0) }
@@ -30,6 +32,7 @@ final class LineDetailModel {
     }
 
     func setDirection(_ direction: Direction) { viewModel.setDirection(direction: direction) }
+    func refreshVehicles() { viewModel.refreshVehicles() }
 }
 
 struct LineDetailView: View {
@@ -276,13 +279,19 @@ private struct LiveMapScreen: View {
                     selectedStopId: $selectedStopId
                 )
                 .overlay(alignment: .bottom) {
-                    if let index = detail.stops.firstIndex(where: { $0.id == selectedStopId }) {
-                        MapStopCard(detail: detail, stop: detail.stops[index], index: index, direction: model.direction) {
-                            selectedStopId = nil
+                    VStack(spacing: 8) {
+                        if let index = detail.stops.firstIndex(where: { $0.id == selectedStopId }) {
+                            MapStopCard(detail: detail, stop: detail.stops[index], index: index, direction: model.direction) {
+                                selectedStopId = nil
+                            }
+                            .id(detail.stops[index].id)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        } else if let nearestStop {
+                            nearestStopCard(nearestStop)
                         }
-                        .id(detail.stops[index].id)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        vehicleAndDirectionControls
                     }
+                    .padding(.bottom, 8)
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -292,44 +301,107 @@ private struct LiveMapScreen: View {
         .ignoresSafeArea(edges: .top)
         .overlay(alignment: .top) { header }
         .animation(.snappy, value: selectedStopId)
-        .task { locationPermission.requestPermission() }
+        .foregroundLocation(locationPermission)
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.headline)
-                    .frame(width: 44, height: 44)
-                    .glassBackground(in: Circle(), interactive: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(tr("stopDetail.back"))
-
-            if let detail = model.detail {
-                HStack(spacing: 8) {
-                    LineBadge(name: detail.name, color: detail.color)
-                    if let towards = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur,
-                       !towards.isEmpty {
-                        Image(systemName: "arrow.right")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
-                        Text(towards)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.headline)
+                        .frame(width: 44, height: 44)
+                        .glassBackground(in: Circle(), interactive: true)
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 44)
-                .glassBackground(in: Capsule())
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr("stopDetail.back"))
+
+                if let detail = model.detail {
+                    HStack(spacing: 8) {
+                        LineBadge(name: detail.name, color: detail.color)
+                        if let towards = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur,
+                           !towards.isEmpty {
+                            Image(systemName: "arrow.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.secondary)
+                            Text(towards)
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
+                    .glassBackground(in: Capsule())
+                }
+
+                Spacer(minLength: 0)
             }
 
-            Spacer(minLength: 0)
         }
         .padding(.horizontal)
         .padding(.trailing, 50)
+    }
+
+    private var vehicleAndDirectionControls: some View {
+        HStack(spacing: 8) {
+            Picker(tr("lineDetail.direction"), selection: Binding(
+                get: { model.direction },
+                set: { model.setDirection($0) }
+            )) {
+                Text(tr("direction.tur")).tag(Direction.tur)
+                Text(tr("direction.retur")).tag(Direction.retur)
+            }
+            .pickerStyle(.segmented)
+
+            Button { model.refreshVehicles() } label: {
+                Group {
+                    if model.isRefreshingVehicles { ProgressView().controlSize(.small) }
+                    else { Image(systemName: "arrow.clockwise").font(.headline) }
+                }
+                .frame(width: 42, height: 38)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(model.isRefreshingVehicles)
+            .accessibilityLabel(tr("lineDetail.refreshVehicles"))
+        }
+        .padding(5)
+        .glassBackground(in: Capsule(), interactive: true)
+        .padding(.horizontal, 16)
+    }
+
+    private var nearestStop: Stop? {
+        guard let location = locationPermission.location, let detail = model.detail else { return nil }
+        return detail.stops.min {
+            let left = location.distance(from: CLLocation(latitude: $0.lat, longitude: $0.lng))
+            let right = location.distance(from: CLLocation(latitude: $1.lat, longitude: $1.lng))
+            return left < right
+        }
+    }
+
+    private func nearestStopCard(_ stop: Stop) -> some View {
+        Button {
+            withAnimation(.snappy) { selectedStopId = stop.id }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "location.fill").foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tr("lineDetail.nearestStop")).font(.caption).foregroundStyle(.secondary)
+                    Text(stop.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if let location = locationPermission.location {
+                    Text(DashboardFormat.distance(location.distance(from: CLLocation(latitude: stop.lat, longitude: stop.lng))))
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 14).frame(height: 54)
+            .glassBackground(in: Capsule(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
     }
 }
 
@@ -383,7 +455,7 @@ private struct MapStopCard: View {
         .glassBackground(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .padding(.horizontal)
         .padding(.bottom, 8)
-        .task(id: stop.id) {
+        .task(id: "\(stop.id)-\(direction.name)") {
             // Refresh like the stop page does, for as long as the card is shown
             while !Task.isCancelled {
                 let result = try? await IosServices.shared.lineArrival(stopId: stop.id, lineId: detail.id, direction: direction)

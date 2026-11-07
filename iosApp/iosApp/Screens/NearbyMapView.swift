@@ -92,32 +92,11 @@ private struct StopMapMarker: View {
                         .frame(width: 32, height: 32)
                         .background(metroBlue, in: RoundedRectangle(cornerRadius: 4))
                 } else {
-                    VStack(spacing: 0) {
-                        Text("STB")
-                            .font(.system(size: 6, weight: .black, design: .rounded))
-                            .tracking(0.5)
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 10)
-                            .background(stbRed)
-                        VehicleGlyph(type: transportType ?? TransportType.bus.name, size: 14)
-                            .foregroundStyle(stbRed)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(.white)
-                    }
-                    .frame(width: 31, height: 34)
-                    .background(.white, in: UnevenRoundedRectangle(
-                        cornerRadii: .init(topLeading: 8, bottomLeading: 3, bottomTrailing: 3, topTrailing: 8),
-                        style: .continuous
-                    ))
-                    .clipShape(UnevenRoundedRectangle(
-                        cornerRadii: .init(topLeading: 8, bottomLeading: 3, bottomTrailing: 3, topTrailing: 8),
-                        style: .continuous
-                    ))
-                    .overlay(UnevenRoundedRectangle(
-                        cornerRadii: .init(topLeading: 8, bottomLeading: 3, bottomTrailing: 3, topTrailing: 8),
-                        style: .continuous
-                    ).stroke(stbRed, lineWidth: 2))
+                    VehicleGlyph(type: transportType ?? TransportType.bus.name, size: 15)
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(stbRed, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(.white, lineWidth: 1.5))
                 }
             }
             Rectangle().fill(isMetro ? metroBlue : stbRed).frame(width: 3, height: 6)

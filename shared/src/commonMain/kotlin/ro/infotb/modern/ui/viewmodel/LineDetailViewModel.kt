@@ -25,6 +25,9 @@ class LineDetailViewModel(
     private val _vehicles = MutableStateFlow<List<VehiclePosition>>(emptyList())
     val vehicles: StateFlow<List<VehiclePosition>> = _vehicles.asStateFlow()
 
+    private val _isRefreshingVehicles = MutableStateFlow(false)
+    val isRefreshingVehicles: StateFlow<Boolean> = _isRefreshingVehicles.asStateFlow()
+
     private val _direction = MutableStateFlow(Direction.TUR)
     val direction: StateFlow<Direction> = _direction.asStateFlow()
 
@@ -71,12 +74,24 @@ class LineDetailViewModel(
         }
     }
 
+    fun refreshVehicles() {
+        val lineId = currentLineId ?: return
+        viewModelScope.launch {
+            _isRefreshingVehicles.value = true
+            try {
+                loadVehicles(lineId)
+            } finally {
+                _isRefreshingVehicles.value = false
+            }
+        }
+    }
+
     private suspend fun loadVehicles(lineId: Long) {
         try {
             val v = repository.getVehicles(lineId, _direction.value)
             _vehicles.value = v
         } catch (_: Exception) {
-            _vehicles.value = emptyList()
+            // Keep the last known positions when a refresh fails.
         }
     }
 

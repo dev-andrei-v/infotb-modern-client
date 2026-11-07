@@ -175,10 +175,11 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                     addView(R.id.widget_line_rows, row)
                 }
                 setInt(R.id.widget_accent, "setBackgroundColor", accent)
+                val stopIdLong = stop?.optString("id")?.toLongOrNull()
                 setOnClickPendingIntent(R.id.widget_refresh, activityRefresh(context, widgetId))
                 setOnClickPendingIntent(R.id.widget_settings, configure(context, widgetId))
                 setOnClickPendingIntent(R.id.widget_open, broadcast(context, widgetId, ACTION_OPEN_GROUP, 2))
-                setOnClickPendingIntent(R.id.widget_root, activity(context, selectedGroupName, widgetId))
+                setOnClickPendingIntent(R.id.widget_root, activity(context, selectedGroupName, widgetId, stopIdLong))
             }
             manager.updateAppWidget(widgetId, views)
         }
@@ -230,10 +231,14 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             )
         }
 
-        private fun activity(context: Context, groupName: String, widgetId: Int): PendingIntent {
+        private fun activity(context: Context, groupName: String, widgetId: Int, stopId: Long? = null): PendingIntent {
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EXTRA_OPEN_GROUP, groupName)
+                if (stopId != null && stopId >= 0) {
+                    putExtra("navigate_stop_id", stopId)
+                } else {
+                    putExtra(EXTRA_OPEN_GROUP, groupName)
+                }
             }
             return PendingIntent.getActivity(
                 context, widgetId * 10 + 3, intent,

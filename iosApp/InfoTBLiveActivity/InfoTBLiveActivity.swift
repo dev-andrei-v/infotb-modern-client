@@ -742,11 +742,14 @@ private struct TransitGroupWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        if family == .systemSmall {
-            compactBody
-        } else {
-            regularBody
+        Group {
+            if family == .systemSmall {
+                compactBody
+            } else {
+                regularBody
+            }
         }
+        .widgetURL(widgetDestinationURL)
     }
 
     private var compactBody: some View {
@@ -911,6 +914,24 @@ private struct TransitGroupWidgetView: View {
         .padding(.vertical, compact ? 3 : 5)
         .background(timeColor.opacity(0.13), in: RoundedRectangle(cornerRadius: 8))
         .fixedSize()
+    }
+
+    private var widgetDestinationURL: URL? {
+        if let stopId = entry.stop?.id, stopId >= 0 {
+            return stopURL(stopId)
+        }
+        if !entry.groupName.isEmpty {
+            return groupURL(entry.groupName)
+        }
+        return nil
+    }
+
+    private func stopURL(_ stopId: Int64) -> URL {
+        var components = URLComponents()
+        components.scheme = "infotb"
+        components.host = "stop"
+        components.queryItems = [URLQueryItem(name: "stopId", value: String(stopId))]
+        return components.url ?? URL(string: "infotb://stop?stopId=\(stopId)")!
     }
 
     private func refreshURL() -> URL {

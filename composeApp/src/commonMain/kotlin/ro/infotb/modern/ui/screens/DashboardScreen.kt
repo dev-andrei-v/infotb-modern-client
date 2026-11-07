@@ -120,6 +120,8 @@ import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.NotificationDialog
 import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
+import ro.infotb.modern.util.formatDestination
+import ro.infotb.modern.util.isAirportLine
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.viewmodel.DashboardViewModel
 import ro.infotb.modern.ui.widget.publishDashboardWidgetSnapshot
@@ -1165,108 +1167,120 @@ private fun WidgetLineRow(
 
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.Top
         ) {
             Box(modifier = Modifier.clickable(onClick = onLineClick)) {
                 LineBadge(
                     name = line.name,
                     color = line.color,
-                    size = BadgeSize.MEDIUM
+                    size = BadgeSize.MEDIUM,
+                    isAirport = isAirportLine(line.name, line.directionName)
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            // Direction and the following arrivals take whatever width is left;
-            // they never push the time off the card
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = line.directionName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalMuted.current,
-                    maxLines = if (detailed) 2 else 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (followUps.isNotEmpty()) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 3.dp)
-                    ) {
-                        followUps.forEach { arrival ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatDestination(line.directionName, line.direction),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    if (inService) {
+                        Box(
+                            modifier = if (isImminent) Modifier
+                                .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                            else Modifier
+                        ) {
                             ArrivalTimeBadge(
-                                seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
-                                isTimetable = arrival.isTimetable,
-                                size = BadgeSize.SMALL
+                                seconds = liveSeconds,
+                                isTimetable = line.isTimetable,
+                                size = if (detailed) BadgeSize.LARGE else BadgeSize.MEDIUM,
+                                modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = t("widget.outOfService", locale),
+                                fontSize = 11.sp,
+                                color = LocalMuted.current
                             )
                         }
                     }
                 }
-            }
-            if (inService) {
-                Spacer(Modifier.width(4.dp))
-                IconButton(
-                    onClick = {
-                        if (!showTimetable) {
-                            onLoadTimetable()
+
+                val showSecondary = followUps.isNotEmpty() || detailed
+                if (showSecondary) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (followUps.isNotEmpty()) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                followUps.forEach { arrival ->
+                                    ArrivalTimeBadge(
+                                        seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
+                                        isTimetable = arrival.isTimetable,
+                                        size = BadgeSize.SMALL
+                                    )
+                                }
+                            }
                         }
-                        showTimetable = !showTimetable
-                    },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    if (timetableLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            strokeWidth = 1.5.dp
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = if (showTimetable) MaterialTheme.colorScheme.primary else LocalMuted.current,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Spacer(Modifier.weight(1f))
+                        IconButton(
+                            onClick = {
+                                if (!showTimetable) {
+                                    onLoadTimetable()
+                                }
+                                showTimetable = !showTimetable
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            if (timetableLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 1.5.dp
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = if (showTimetable) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        if (inService) {
+                            IconButton(
+                                onClick = onBellClick,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = LocalMuted.current,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                     }
-                }
-                IconButton(
-                    onClick = onBellClick,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = LocalMuted.current,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-                // The hero number, highlighted when the vehicle is about to arrive.
-                // It has a fixed minimum width so every row's time column lines up.
-                Box(
-                    modifier = if (isImminent) Modifier
-                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                        .clip(RoundedCornerShape(8.dp))
-                    else Modifier
-                ) {
-                    ArrivalTimeBadge(
-                        seconds = liveSeconds,
-                        isTimetable = line.isTimetable,
-                        size = BadgeSize.LARGE,
-                        modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
-                    )
-                }
-            } else {
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = t("widget.outOfService", locale),
-                        fontSize = 11.sp,
-                        color = LocalMuted.current
-                    )
                 }
             }
         }
@@ -1454,7 +1468,7 @@ private fun WidgetOptionsSheet(
                                 LineBadge(name = line.name, color = line.color, size = BadgeSize.SMALL)
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = line.directionName,
+                                    text = formatDestination(line.directionName, line.direction),
                                     fontSize = 11.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,

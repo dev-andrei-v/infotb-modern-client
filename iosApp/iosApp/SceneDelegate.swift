@@ -122,14 +122,17 @@ enum DeepLinkHandler {
         guard url.host == "stop" else { return false }
 
         let items = components.queryItems ?? []
-        let stopId = items.first(where: { $0.name == "stopId" })?.value.flatMap(Int64.init) ?? -1
+        var stopId = items.first(where: { $0.name == "stopId" })?.value.flatMap(Int64.init)
+        if stopId == nil, let pathId = url.pathComponents.dropFirst().first.flatMap(Int64.init) {
+            stopId = pathId
+        }
         let lineId = items.first(where: { $0.name == "lineId" })?.value.flatMap(Int64.init) ?? -1
         let direction = items.first(where: { $0.name == "direction" })?.value.flatMap(Int32.init) ?? -1
 
-        guard stopId >= 0 else { return false }
+        guard let resolvedStopId = stopId, resolvedStopId >= 0 else { return false }
 
         AppModel.shared.openStop(
-            stopId: stopId,
+            stopId: resolvedStopId,
             lineId: lineId >= 0 ? lineId : nil,
             direction: direction >= 0 ? direction : nil
         )

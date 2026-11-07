@@ -187,6 +187,7 @@ private struct StopDetailContent: View {
             line: line,
             followUpCount: 3,
             destinationOnly: true,
+            detailed: true,
             isTracking: subscription != nil,
             timetableExpanded: model.expandedTimetables.contains(key),
             timetableLoading: model.timetableLoading.contains(key),

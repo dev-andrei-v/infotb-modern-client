@@ -44,6 +44,9 @@ struct RootView: View {
         .tint(InfoTBDesign.accent)
         .overlay(alignment: .top) { ToastView(message: app.toast) }
         .onAppear { app.applyTheme() }
+        .onOpenURL { url in
+            _ = DeepLinkHandler.handle(url)
+        }
     }
 }
 

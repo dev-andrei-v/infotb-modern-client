@@ -73,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ro.infotb.modern.util.formatDestination
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -749,7 +750,7 @@ actual fun NearbyMapScreen(
                                                 )
                                                 Spacer(Modifier.width(8.dp))
                                                 Text(
-                                                    text = line.directionName,
+                                                    text = formatDestination(line.directionName, line.direction),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = LocalMuted.current,
                                                     maxLines = 1,

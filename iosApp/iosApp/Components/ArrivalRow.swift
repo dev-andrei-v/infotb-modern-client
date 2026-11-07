@@ -1,7 +1,7 @@
 import Shared
 import SwiftUI
 
-/// One line at a stop: badge, direction, the next few arrivals, timetable and
+/// One line at a stop: badge, destination, the next few arrivals, timetable and
 /// bell buttons, and the big countdown on the right.
 struct ArrivalRow<Expanded: View>: View {
     let line: LineArrivalDetail
@@ -10,6 +10,7 @@ struct ArrivalRow<Expanded: View>: View {
     var followUpCount = 3
     var directionLines = 2
     var destinationOnly = false
+    var detailed = false
     var isTracking = false
     var timetableExpanded = false
     var timetableLoading = false
@@ -20,72 +21,63 @@ struct ArrivalRow<Expanded: View>: View {
 
     private var inService: Bool { line.arrivingTime >= 0 }
     private var liveSeconds: Int64 { max(0, line.arrivingTime - elapsed) }
+    private var destinationText: String {
+        LineColorsKt.formatDestination(directionName: line.directionName, direction: line.direction)
+    }
+    private var isAirport: Bool {
+        LineColorsKt.isAirportLine(name: line.name, routeOrDestination: line.directionName)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 10) {
                 Button(action: onLineTap) {
-                    LineBadge(name: line.name, color: line.color)
-                        .frame(width: 60, height: 44)
+                    LineBadge(name: line.name, color: line.color, isAirport: isAirport)
+                        .frame(minWidth: 44)
                 }
                 .buttonStyle(.plain)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(destinationOnly ? "→ \(line.directionName.components(separatedBy: " - ").last ?? line.directionName)" : line.directionName)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(destinationOnly ? 2 : directionLines)
-                        .minimumScaleFactor(0.88)
-                    if inService {
-                        let followUps = Array(line.arrivingTimes.dropFirst().prefix(followUpCount))
-                        if !followUps.isEmpty {
-                            // Show as many whole badges as fit rather than truncating them
-                            ViewThatFits(in: .horizontal) {
-                                followUpRow(followUps)
-                                followUpRow(Array(followUps.prefix(2)))
-                                followUpRow(Array(followUps.prefix(1)))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(destinationText)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if inService {
+                            ArrivalBadge(
+                                seconds: liveSeconds,
+                                isTimetable: line.isTimetable,
+                                size: detailed ? .large : .medium,
+                                imminent: liveSeconds < 120
+                            )
+                        } else {
+                            OutOfServicePill()
+                        }
+                    }
+
+                    // Secondary row: follow-ups and action buttons
+                    let followUps = inService ? Array(line.arrivingTimes.dropFirst().prefix(followUpCount)) : []
+                    let showFollowUps = !followUps.isEmpty
+                    let showSecondary = showFollowUps || detailed || destinationOnly
+                    if showSecondary {
+                        HStack(spacing: 6) {
+                            if showFollowUps {
+                                ViewThatFits(in: .horizontal) {
+                                    followUpRow(followUps)
+                                    followUpRow(Array(followUps.prefix(2)))
+                                    followUpRow(Array(followUps.prefix(1)))
+                                }
+                            }
+                            Spacer(minLength: 4)
+                            timetableButton
+                            if inService {
+                                bellButton
                             }
                         }
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Button(action: onTimetable) {
-                    Group {
-                        if timetableLoading {
-                            ProgressView().controlSize(.mini)
-                        } else {
-                            Image(systemName: timetableExpanded ? "calendar.circle.fill" : "calendar")
-                                .foregroundStyle(timetableExpanded ? InfoTBDesign.accent : .secondary)
-                        }
-                    }
-                    .frame(width: 40, height: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tr("stopDetail.timetable"))
-
-                if inService {
-                    Button(action: onBell) {
-                        Image(systemName: isTracking ? "bell.slash.fill" : "bell")
-                            .symbolEffect(.bounce, value: isTracking)
-                            .foregroundStyle(isTracking ? Color.red : .secondary)
-                            .frame(width: 40, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(isTracking ? tr("stopDetail.stopTracking") : tr("stopDetail.notification"))
-
-                    ArrivalBadge(
-                        seconds: liveSeconds,
-                        isTimetable: line.isTimetable,
-                        size: .large,
-                        imminent: liveSeconds < 120
-                    )
-                    .frame(width: 100, height: 44, alignment: .trailing)
-                } else {
-                    Color.clear.frame(width: 40, height: 44).accessibilityHidden(true)
-                    OutOfServicePill().frame(width: 100, height: 44, alignment: .trailing)
                 }
             }
 
@@ -95,6 +87,35 @@ struct ArrivalRow<Expanded: View>: View {
             }
         }
         .animation(.snappy, value: timetableExpanded)
+    }
+
+    private var timetableButton: some View {
+        Button(action: onTimetable) {
+            Group {
+                if timetableLoading {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: timetableExpanded ? "calendar.circle.fill" : "calendar")
+                        .foregroundStyle(timetableExpanded ? InfoTBDesign.accent : .secondary)
+                }
+            }
+            .frame(width: 30, height: 30)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tr("stopDetail.timetable"))
+    }
+
+    private var bellButton: some View {
+        Button(action: onBell) {
+            Image(systemName: isTracking ? "bell.slash.fill" : "bell")
+                .symbolEffect(.bounce, value: isTracking)
+                .foregroundStyle(isTracking ? Color.red : .secondary)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isTracking ? tr("stopDetail.stopTracking") : tr("stopDetail.notification"))
     }
 
     private func followUpRow(_ arrivals: [ArrivalTime]) -> some View {

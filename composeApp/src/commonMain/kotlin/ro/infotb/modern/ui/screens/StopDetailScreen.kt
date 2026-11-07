@@ -80,6 +80,8 @@ import ro.infotb.modern.currentHourOfDay
 import ro.infotb.modern.currentMinuteOfHour
 import ro.infotb.modern.data.store.NotificationSubscription
 import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.formatDestination
+import ro.infotb.modern.util.isAirportLine
 import ro.infotb.modern.util.t
 import kotlinx.coroutines.launch
 
@@ -424,89 +426,107 @@ private fun StopLineRow(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
             Box(modifier = Modifier.clickable(onClick = onNavigateToLine)) {
-                LineBadge(name = line.name, color = line.color, size = BadgeSize.MEDIUM)
-            }
-            Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "→ ${line.directionName.substringAfterLast(" - ").trim()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                LineBadge(
+                    name = line.name,
+                    color = line.color,
+                    size = BadgeSize.MEDIUM,
+                    isAirport = isAirportLine(line.name, line.directionName)
                 )
-                if (followUps.isNotEmpty()) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 3.dp)
-                    ) {
-                        followUps.forEach { arrival ->
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatDestination(line.directionName, line.direction),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    if (inService) {
+                        Box(
+                            modifier = if (isImminent) Modifier
+                                .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                            else Modifier
+                        ) {
                             ArrivalTimeBadge(
-                                seconds = arrival.arrivingTime,
-                                isTimetable = arrival.isTimetable,
-                                size = BadgeSize.SMALL
+                                seconds = line.arrivingTime,
+                                isTimetable = line.isTimetable,
+                                size = BadgeSize.LARGE,
+                                modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = t("widget.outOfService", locale),
+                                fontSize = 11.sp,
+                                color = LocalMuted.current
                             )
                         }
                     }
                 }
-            }
-            Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onToggleTimetable, modifier = Modifier.size(28.dp)) {
-                if (isTimetableLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp)
-                } else {
-                    Icon(
-                        Icons.Default.DateRange,
-                        contentDescription = t("stopDetail.timetable", locale),
-                        tint = if (isTimetableExpanded) MaterialTheme.colorScheme.primary else LocalMuted.current,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-            if (inService) {
-                IconButton(
-                    onClick = if (isTracking) onStopNotification else onSetNotification,
-                    modifier = Modifier.size(28.dp)
+
+                // Secondary row: follow-ups and action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = if (isTracking) t("stopDetail.stopTracking", locale)
-                        else t("stopDetail.notification", locale),
-                        tint = if (isTracking) MaterialTheme.colorScheme.error else LocalMuted.current,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = if (isImminent) Modifier
-                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                        .clip(RoundedCornerShape(8.dp))
-                    else Modifier
-                ) {
-                    ArrivalTimeBadge(
-                        seconds = line.arrivingTime,
-                        isTimetable = line.isTimetable,
-                        size = BadgeSize.LARGE,
-                        modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
-                    )
-                }
-            } else {
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = t("widget.outOfService", locale),
-                        fontSize = 11.sp,
-                        color = LocalMuted.current
-                    )
+                    if (followUps.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            followUps.forEach { arrival ->
+                                ArrivalTimeBadge(
+                                    seconds = arrival.arrivingTime,
+                                    isTimetable = arrival.isTimetable,
+                                    size = BadgeSize.SMALL
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = onToggleTimetable, modifier = Modifier.size(28.dp)) {
+                        if (isTimetableLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp)
+                        } else {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = t("stopDetail.timetable", locale),
+                                tint = if (isTimetableExpanded) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    if (inService) {
+                        IconButton(
+                            onClick = if (isTracking) onStopNotification else onSetNotification,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = if (isTracking) t("stopDetail.stopTracking", locale)
+                                else t("stopDetail.notification", locale),
+                                tint = if (isTracking) MaterialTheme.colorScheme.error else LocalMuted.current,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

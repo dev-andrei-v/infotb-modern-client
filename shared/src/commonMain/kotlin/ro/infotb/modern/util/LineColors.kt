@@ -1,5 +1,6 @@
 package ro.infotb.modern.util
 
+import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.TransportType
 
 /**
@@ -47,4 +48,29 @@ fun isAirportLine(name: String?, routeOrDestination: String? = null): Boolean {
     val r = routeOrDestination.orEmpty()
     if (r.contains("aeroport", ignoreCase = true) || r.contains("airport", ignoreCase = true)) return true
     return false
+}
+
+/**
+ * Returns the cleanly formatted destination for a line arrival:
+ * - Extracts the active destination when the string is a route like "Origin - Destination"
+ *   based on whether [direction] is TUR (outbound destination) or RETUR (inbound origin).
+ * - Strips redundant prefix symbols like "→" or "->".
+ * - Preserves already single-destination strings cleanly.
+ */
+fun formatDestination(directionName: String, direction: Direction? = null): String {
+    var raw = directionName.trim().removePrefix("→").removePrefix("->").trim()
+    val separators = listOf(" - ", " – ", " — ", " -> ")
+    for (sep in separators) {
+        if (raw.contains(sep)) {
+            val parts = raw.split(sep).map { it.trim() }.filter { it.isNotEmpty() }
+            if (parts.size >= 2) {
+                return when (direction) {
+                    Direction.TUR -> parts.last()
+                    Direction.RETUR -> parts.first()
+                    else -> parts.last()
+                }
+            }
+        }
+    }
+    return raw
 }

@@ -178,6 +178,7 @@ struct DashboardCard: View {
             elapsed: elapsed,
             followUpCount: detailed ? 3 : 2,
             directionLines: detailed ? 2 : 1,
+            detailed: detailed,
             isTracking: subscription != nil,
             timetableExpanded: model.expandedTimetables.contains(key),
             timetableLoading: model.timetableLoading.contains(key),

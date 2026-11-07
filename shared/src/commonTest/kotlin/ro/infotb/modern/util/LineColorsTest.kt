@@ -1,5 +1,6 @@
 package ro.infotb.modern.util
 
+import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.TransportType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,5 +50,16 @@ class LineColorsTest {
         assertFalse(isAirportLine("41", "Piata Presei"))
         assertFalse(isAirportLine("335", "Complex Comercial Baneasa"))
         assertFalse(isAirportLine("101", null))
+    }
+
+    @Test
+    fun destinationFormattingCleansAndResolvesDirection() {
+        assertEquals("Aeroport Baneasa", formatDestination("Aeroport Baneasa"))
+        assertEquals("Bd. Banu Manta", formatDestination("→ Bd. Banu Manta"))
+        assertEquals("Gara de Nord", formatDestination("-> Gara de Nord"))
+        assertEquals("Complex Comercial Baneasa", formatDestination("Barajul Dunarii - Complex Comercial Baneasa", Direction.TUR))
+        assertEquals("Barajul Dunarii", formatDestination("Barajul Dunarii - Complex Comercial Baneasa", Direction.RETUR))
+        assertEquals("Aeroport Henri Coanda", formatDestination("Piata Unirii – Aeroport Henri Coanda", Direction.TUR))
+        assertEquals("Piata Unirii", formatDestination("Piata Unirii — Aeroport Henri Coanda", Direction.RETUR))
     }
 }

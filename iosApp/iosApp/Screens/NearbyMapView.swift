@@ -798,13 +798,27 @@ struct NearbyMapView: View {
                             Button { select(group.nearest) } label: { groupLabel(group) }
                                 .buttonStyle(.plain)
                         } else {
-                            DisclosureGroup(isExpanded: Binding(
-                                get: { selectedGroupId == group.id },
-                                set: { selectedGroupId = $0 ? group.id : nil }
-                            )) {
-                                ForEach(group.stops) { stop in platformRow(stop) }
-                            } label: {
-                                groupLabel(group)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Button {
+                                    select(group.nearest)
+                                    withAnimation(.snappy) {
+                                        selectedGroupId = (selectedGroupId == group.id ? nil : group.id)
+                                    }
+                                } label: {
+                                    groupLabel(group)
+                                }
+                                .buttonStyle(.plain)
+
+                                if selectedGroupId == group.id {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        Divider().padding(.vertical, 4)
+                                        ForEach(group.stops) { stop in
+                                            platformRow(stop)
+                                                .padding(.leading, 12)
+                                        }
+                                    }
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
                             }
                         }
                     }
@@ -893,6 +907,12 @@ struct NearbyMapView: View {
             if let center = mapCenter {
                 Text(DashboardFormat.distance(group.nearest.distance(from: center)))
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            if group.stops.count > 1 {
+                Image(systemName: selectedGroupId == group.id ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 4)
             }
         }
         .padding(.vertical, 3)
@@ -1001,7 +1021,8 @@ struct NearbyMapView: View {
                         }
                         .buttonStyle(.plain)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(line.directionName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(LineColorsKt.formatDestination(directionName: line.directionName, direction: line.direction))
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             if !line.vehicles.isEmpty {
                                 Text("\(line.vehicles.count) \(tr(line.vehicles.count == 1 ? "lineDetail.vehicleLive" : "lineDetail.vehiclesLive"))")
                                     .font(.caption2.weight(.medium)).foregroundStyle(.green)

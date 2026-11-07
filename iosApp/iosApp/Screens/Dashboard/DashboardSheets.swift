@@ -34,7 +34,8 @@ struct WidgetOptionsSheet: View {
                         } label: {
                             HStack(spacing: 10) {
                                 LineBadge(name: line.name, color: line.color, size: .small)
-                                Text(line.directionName).foregroundStyle(.primary).lineLimit(1)
+                                Text(LineColorsKt.formatDestination(directionName: line.directionName, direction: line.direction))
+                                    .foregroundStyle(.primary).lineLimit(1)
                                 Spacer()
                                 Image(systemName: visible ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(visible ? InfoTBDesign.accent : .secondary)

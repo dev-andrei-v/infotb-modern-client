@@ -159,7 +159,7 @@ fun App(
                 when (quickAction.action) {
                     "lines" -> navController.navigate(Screen.Lines.route) { launchSingleTop = true }
                     "map" -> navController.navigate(Screen.NearbyMap.route) { launchSingleTop = true }
-                    "refresh_dashboard" -> {
+                    "refresh_dashboard", "open_dashboard_group" -> {
                         navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
                         dashboardViewModel.refreshNow()
                     }

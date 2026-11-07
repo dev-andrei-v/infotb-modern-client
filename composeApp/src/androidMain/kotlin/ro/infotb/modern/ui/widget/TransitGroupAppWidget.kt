@@ -61,7 +61,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         const val EXTRA_REFRESH_WIDGET = "refresh_dashboard_from_widget"
 
         fun groupKey(id: Int) = "group_$id"
-        private fun stopKey(id: Int) = "stop_$id"
+        fun stopKey(id: Int) = "stop_$id"
 
         private fun resolveGroupName(context: Context, widgetId: Int): String {
             val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -121,7 +121,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                 else -> group?.optLong("selectedStopId")?.takeIf { it != 0L }?.let { target ->
                     (0 until (groupStops?.length() ?: 0)).asSequence().mapNotNull { groupStops?.optJSONObject(it) }
                         .firstOrNull { it.optString("id").toLongOrNull() == target }
-                }
+                } ?: (0 until (groupStops?.length() ?: 0)).asSequence().mapNotNull { groupStops?.optJSONObject(it) }.firstOrNull()
             }
             val views = RemoteViews(context.packageName, R.layout.widget_transit_group).apply {
                 val selectedGroupName = if (storedGroup == DASHBOARD_SELECTION_ID) {
@@ -281,12 +281,48 @@ class TransitGroupWidgetConfigureActivity : android.app.Activity() {
             .setTitle(R.string.widget_choose_group)
             .setItems(options) { _, which ->
                 val selected = names[which]
-                getSharedPreferences(TransitGroupAppWidget.PREFERENCES, MODE_PRIVATE)
-                    .edit().putString(TransitGroupAppWidget.groupKey(widgetId), selected).putInt("index_$widgetId", 0).apply()
-                val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                setResult(RESULT_OK, result)
-                TransitGroupAppWidget.update(this, AppWidgetManager.getInstance(this), widgetId)
-                finish()
+                val groupObj = (0 until (groups?.length() ?: 0)).mapNotNull { groups?.optJSONObject(it) }.firstOrNull { it.optString("name") == selected }
+                val groupStops = groupObj?.optJSONArray("stops")
+                val stops = (0 until (groupStops?.length() ?: 0)).mapNotNull { groupStops?.optJSONObject(it) }
+
+                if (selected != TransitGroupAppWidget.ROTATING_GROUP_ID && selected != TransitGroupAppWidget.DASHBOARD_SELECTION_ID && stops.size > 1) {
+                    val stopOptions = listOf(getString(R.string.widget_default_stop)) + stops.map { it.optString("name") }
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle(R.string.widget_choose_stop)
+                        .setItems(stopOptions.toTypedArray()) { _, stopIdx ->
+                            val editor = getSharedPreferences(TransitGroupAppWidget.PREFERENCES, MODE_PRIVATE).edit()
+                            editor.putString(TransitGroupAppWidget.groupKey(widgetId), selected)
+                            if (stopIdx == 0) {
+                                editor.remove(TransitGroupAppWidget.stopKey(widgetId))
+                            } else {
+                                editor.putString(TransitGroupAppWidget.stopKey(widgetId), stops[stopIdx - 1].optString("id"))
+                            }
+                            editor.apply()
+                            val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                            setResult(RESULT_OK, result)
+                            TransitGroupAppWidget.update(this, AppWidgetManager.getInstance(this), widgetId)
+                            finish()
+                        }
+                        .setOnCancelListener {
+                            getSharedPreferences(TransitGroupAppWidget.PREFERENCES, MODE_PRIVATE)
+                                .edit().putString(TransitGroupAppWidget.groupKey(widgetId), selected).apply()
+                            val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                            setResult(RESULT_OK, result)
+                            TransitGroupAppWidget.update(this, AppWidgetManager.getInstance(this), widgetId)
+                            finish()
+                        }
+                        .show()
+                } else {
+                    getSharedPreferences(TransitGroupAppWidget.PREFERENCES, MODE_PRIVATE)
+                        .edit()
+                        .putString(TransitGroupAppWidget.groupKey(widgetId), selected)
+                        .remove(TransitGroupAppWidget.stopKey(widgetId))
+                        .apply()
+                    val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    setResult(RESULT_OK, result)
+                    TransitGroupAppWidget.update(this, AppWidgetManager.getInstance(this), widgetId)
+                    finish()
+                }
             }
             .setOnCancelListener { setResult(RESULT_CANCELED); finish() }
             .show()

@@ -146,6 +146,7 @@ fun DashboardScreen(
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
     val groupSchedules by viewModel.groupSchedules.collectAsState()
     val homeWidgetStopIds by viewModel.homeWidgetStopIds.collectAsState()
+    val homeWidgetStopId by viewModel.homeWidgetStopId.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
@@ -162,11 +163,11 @@ fun DashboardScreen(
 
     // Keep Android home-screen widgets aligned with the dashboard's locally
     // cached groups and latest arrival snapshots.
-    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopIds, groupSchedules) {
+    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopIds, homeWidgetStopId, groupSchedules) {
         val widgetGroups = (groups + "").distinct().map { groupName ->
             HomeWidgetGroupSnapshot(
                 name = groupName,
-                selectedStopId = homeWidgetStopIds[groupName],
+                selectedStopId = homeWidgetStopIds[groupName] ?: if (groupName.isEmpty()) homeWidgetStopId else null,
                 activeFrom = groupSchedules[groupName]?.fromMinutes,
                 activeTo = groupSchedules[groupName]?.toMinutes,
                 stops = widgets.asSequence()
@@ -187,7 +188,7 @@ fun DashboardScreen(
         }
         publishDashboardWidgetSnapshot(
             kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups)),
-            homeWidgetStopIds.values.firstOrNull()
+            homeWidgetStopId ?: homeWidgetStopIds.values.firstOrNull()
         )
     }
 
@@ -454,7 +455,7 @@ fun DashboardScreen(
                                 groups = groups,
                                 lineTimetables = lineTimetables,
                                 timetableLoading = timetableLoading,
-                                homeWidgetStopId = homeWidgetStopIds[widget.group],
+                                homeWidgetStopId = homeWidgetStopIds[widget.group] ?: homeWidgetStopId,
                                 locale = locale,
                                 onDelete = { viewModel.removeWidget(widget.id) },
                                 onToggleHidden = { viewModel.toggleWidgetHidden(widget.id) },
@@ -465,7 +466,10 @@ fun DashboardScreen(
                                 onAddGroup = { name -> viewModel.addGroup(name) },
                                 onResize = { size -> viewModel.resizeWidget(widget.id, size) },
                                 onToggleHomeWidgetStop = {
-                                    viewModel.setHomeWidgetStop(widget.group, if (homeWidgetStopIds[widget.group] == widget.stopId) null else widget.stopId)
+                                    val nextGroupStop = if (homeWidgetStopIds[widget.group] == widget.stopId) null else widget.stopId
+                                    viewModel.setHomeWidgetStop(widget.group, nextGroupStop)
+                                    val nextGlobalStop = if (homeWidgetStopId == widget.stopId) null else widget.stopId
+                                    viewModel.setHomeWidgetStop(nextGlobalStop)
                                 },
                                 onMove = { delta -> viewModel.moveWidget(widget.id, delta) },
                                 onClick = { onNavigateToStop(widget.stopId) },

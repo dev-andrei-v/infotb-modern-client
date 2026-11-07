@@ -7,7 +7,10 @@
     <string name="widget_all_stops">Other stops</string>
     <string name="widget_refresh">Refresh arrivals</string>
     <string name="widget_open_dashboard">Open dashboard for arrivals</string>
-    <string name="widget_rotating_group">Rotating group</string>
+    <string name="widget_rotating_group">Active group (by schedule)</string>
+    <string name="widget_settings">Widget settings</string>
+    <string name="widget_choose_stop">Choose a stop for this group</string>
+    <string name="widget_default_stop">Automatic (from Dashboard)</string>
     <string name="widget_dashboard_selection">Dashboard selection</string>
     <string name="widget_due">Due</string>
     <string name="widget_no_arrival">No arrival</string>

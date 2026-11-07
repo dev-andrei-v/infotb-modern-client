@@ -6,7 +6,10 @@
     <string name="widget_all_stops">Alte stații</string>
     <string name="widget_refresh">Reîmprospătează sosirile</string>
     <string name="widget_open_dashboard">Deschide Panoul pentru sosiri</string>
-    <string name="widget_rotating_group">Grup rotativ</string>
+    <string name="widget_rotating_group">Grup activ (după orar)</string>
+    <string name="widget_settings">Setări widget</string>
+    <string name="widget_choose_stop">Alege o stație pentru acest grup</string>
+    <string name="widget_default_stop">Automat (din Panou)</string>
     <string name="widget_dashboard_selection">Stația aleasă în Panou</string>
     <string name="widget_due">Acum</string>
     <string name="widget_no_arrival">Fără sosiri</string>

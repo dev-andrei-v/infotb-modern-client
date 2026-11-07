@@ -99,9 +99,11 @@ class MainActivity : ComponentActivity() {
         val sourceIntent = intent ?: return
         val action = when {
             sourceIntent.getBooleanExtra(ro.infotb.modern.ui.widget.TransitGroupAppWidget.EXTRA_REFRESH_WIDGET, false) -> "refresh_dashboard"
+            sourceIntent.hasExtra(ro.infotb.modern.ui.widget.TransitGroupAppWidget.EXTRA_OPEN_GROUP) -> "open_dashboard_group"
             else -> sourceIntent.getStringExtra(TransitAppShortcuts.ACTION_KEY)
         } ?: return
         val destinationJson = sourceIntent.getStringExtra(TransitAppShortcuts.DESTINATION_KEY)
+            ?: sourceIntent.getStringExtra(ro.infotb.modern.ui.widget.TransitGroupAppWidget.EXTRA_OPEN_GROUP)
         if (action == "plan_destination") {
             TransitAppShortcuts.recordDestinationUse(
                 this,

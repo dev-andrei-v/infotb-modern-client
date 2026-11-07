@@ -37,7 +37,7 @@
             android:name="ro.infotb.modern.ui.widget.TransitGroupWidgetConfigureActivity"
             android:exported="true"
             android:label="@string/widget_choose_group"
-            android:theme="@android:style/Theme.Material.Light.Dialog.Alert">
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.Alert">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>

@@ -80,7 +80,8 @@ private struct StopMapMarker: View {
     let transportType: String?
     let selected: Bool
 
-    private var signColor: Color { Color(hex: isMetro ? "#D21F32" : "#C92335") ?? .red }
+    private var metroBlue: Color { Color(hex: "#0066A4") ?? .blue }
+    private var stbRed: Color { Color(hex: "#C92335") ?? .red }
     var body: some View {
         VStack(spacing: 0) {
             Group {
@@ -88,9 +89,8 @@ private struct StopMapMarker: View {
                     Text("M")
                         .font(.system(size: 21, weight: .heavy, design: .rounded))
                         .foregroundStyle(.white)
-                        .frame(width: 30, height: 30)
-                        .background(signColor, in: Circle())
-                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                        .frame(width: 32, height: 32)
+                        .background(metroBlue, in: RoundedRectangle(cornerRadius: 4))
                 } else {
                     VStack(spacing: 0) {
                         Text("STB")
@@ -98,19 +98,29 @@ private struct StopMapMarker: View {
                             .tracking(0.5)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 9)
-                            .background(signColor)
+                            .frame(height: 10)
+                            .background(stbRed)
                         VehicleGlyph(type: transportType ?? TransportType.bus.name, size: 14)
-                            .foregroundStyle(signColor)
+                            .foregroundStyle(stbRed)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(.white)
                     }
-                    .frame(width: 27, height: 32)
-                    .clipShape(STBStopPlaqueShape())
-                    .overlay(STBStopPlaqueShape().stroke(signColor, lineWidth: 2))
+                    .frame(width: 31, height: 34)
+                    .background(.white, in: UnevenRoundedRectangle(
+                        cornerRadii: .init(topLeading: 8, bottomLeading: 3, bottomTrailing: 3, topTrailing: 8),
+                        style: .continuous
+                    ))
+                    .clipShape(UnevenRoundedRectangle(
+                        cornerRadii: .init(topLeading: 8, bottomLeading: 3, bottomTrailing: 3, topTrailing: 8),
+                        style: .continuous
+                    ))
+                    .overlay(UnevenRoundedRectangle(
+                        cornerRadii: .init(topLeading: 8, bottomLeading: 3, bottomTrailing: 3, topTrailing: 8),
+                        style: .continuous
+                    ).stroke(stbRed, lineWidth: 2))
                 }
             }
-            Rectangle().fill(signColor).frame(width: 3, height: 6)
+            Rectangle().fill(isMetro ? metroBlue : stbRed).frame(width: 3, height: 6)
             if selected {
                 Text(name)
                     .font(.caption2.weight(.semibold))
@@ -123,38 +133,6 @@ private struct StopMapMarker: View {
         .shadow(color: .black.opacity(0.24), radius: 2, y: 1)
         .scaleEffect(selected ? 1.08 : 1)
         .animation(.easeOut(duration: 0.16), value: selected)
-    }
-}
-
-/// The surface stop marker borrows the tall, red-edged STB stop plaque shape.
-private struct STBStopPlaqueShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let topRadius = min(rect.width * 0.34, rect.height * 0.16)
-        path.move(to: CGPoint(x: topRadius, y: 0))
-        path.addLine(to: CGPoint(x: rect.width - topRadius, y: 0))
-        path.addQuadCurve(to: CGPoint(x: rect.width, y: topRadius), control: CGPoint(x: rect.width, y: 0))
-        path.addLine(to: CGPoint(x: rect.width, y: rect.height * 0.78))
-        path.addLine(to: CGPoint(x: rect.width * 0.72, y: rect.height * 0.78))
-        path.addLine(to: CGPoint(x: rect.width * 0.5, y: rect.height))
-        path.addLine(to: CGPoint(x: rect.width * 0.28, y: rect.height * 0.78))
-        path.addLine(to: CGPoint(x: 0, y: rect.height * 0.78))
-        path.addLine(to: CGPoint(x: 0, y: topRadius))
-        path.addQuadCurve(to: CGPoint(x: topRadius, y: 0), control: .zero)
-        path.closeSubpath()
-        return path
-    }
-}
-
-private enum MapSheetLevel: CaseIterable {
-    case collapsed, medium, expanded
-
-    func height(in available: Double) -> Double {
-        switch self {
-        case .collapsed: min(132, available * 0.24)
-        case .medium: min(max(270, available * 0.36), available * 0.62)
-        case .expanded: available * 0.84
-        }
     }
 }
 
@@ -304,6 +282,7 @@ private final class NearbyMapModel {
 }
 
 struct NearbyMapView: View {
+    @FocusState private var nearbySearchFocused: Bool
     @State private var location = ForegroundLocation()
     @State private var model = NearbyMapModel()
     @State private var cache = StopLocationCache.shared
@@ -319,8 +298,9 @@ struct NearbyMapView: View {
     @State private var lanes = RouteLaneLayout(paths: [])
     @State private var metersPerPoint = 6.0
     @State private var mapWidth = 400.0
-    @State private var sheetLevel: MapSheetLevel = .collapsed
-    @State private var sheetDrag = 0.0
+    @State private var sheetDetent: PresentationDetent = .height(165)
+    @State private var sheetPresented = true
+    @State private var nearbySearch = ""
     @State private var routeColors: [Int64: String] = [:]
     @State private var clockNow = Date()
 
@@ -373,6 +353,37 @@ struct NearbyMapView: View {
 
     private var visibleGroups: [NearbyStopGroup] { NearbyStopGroup.groups(visibleStops) }
 
+    private var isCompactSheet: Bool { sheetDetent == .height(165) }
+
+    private var sheetGroups: [NearbyStopGroup] {
+        let source: [CachedStop]
+        if nearbySearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            source = visibleStops
+        } else if let center = mapCenter {
+            source = cache.nearest(to: center, radius: mapViewport?.stopSearchRadius ?? 1_000)
+                .filter { stop in
+                    stop.lines.isEmpty || stop.lines.contains {
+                        selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0))
+                    }
+                }
+        } else {
+            source = []
+        }
+        let groups = NearbyStopGroup.groups(source)
+        let query = nearbySearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return groups }
+        return groups.filter { group in
+            group.name.localizedCaseInsensitiveContains(query) ||
+                group.lines.contains { $0.name.localizedCaseInsensitiveContains(query) }
+        }.prefix(40).map { $0 }
+    }
+
+    private var sheetLines: [CachedStopLine] {
+        let query = nearbySearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return nearbyLines }
+        return nearbyLines.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    }
+
     private var routeIds: [Int64] {
         let routeLimit = (mapViewport?.stopSearchRadius ?? 1_000) < 1_700 ? 6 : 3
         var ids = Array(nearbyLines.prefix(routeLimit).map(\.id))
@@ -409,16 +420,22 @@ struct NearbyMapView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                map
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .onAppear { mapWidth = max(1, geometry.size.width) }
-                    .onChange(of: geometry.size.width) { _, width in mapWidth = max(1, width) }
-                bottomSheet(in: geometry.size.height)
-            }
+            map
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onAppear { mapWidth = max(1, geometry.size.width) }
+                .onChange(of: geometry.size.width) { _, width in mapWidth = max(1, width) }
         }
         .navigationTitle(tr("nav.map"))
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $sheetPresented) {
+            nearbySheet
+                .presentationDetents([.height(165), .medium, .large], selection: $sheetDetent)
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .presentationContentInteraction(.scrolls)
+                .presentationCornerRadius(28)
+                .interactiveDismissDisabled()
+        }
         .foregroundLocation(location)
         .task(id: location.location) {
             guard let fix = location.location else { return }
@@ -512,7 +529,7 @@ struct NearbyMapView: View {
                             selectedGroupId = selectedGroupId == group.id ? nil : group.id
                             if selectedGroupId != nil {
                                 selectedStop = group.nearest
-                                sheetLevel = .medium
+                                sheetDetent = .medium
                             } else {
                                 selectedStop = nil
                             }
@@ -550,67 +567,49 @@ struct NearbyMapView: View {
         }
     }
 
-    private func bottomSheet(in available: Double) -> some View {
-        let base = sheetLevel.height(in: available)
-        let height = min(MapSheetLevel.expanded.height(in: available), max(MapSheetLevel.collapsed.height(in: available), base - sheetDrag))
-        return VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Capsule()
-                    .fill(.secondary.opacity(0.45))
-                    .frame(width: 36, height: 5)
-                    .frame(maxWidth: .infinity).frame(height: 32)
-                    .contentShape(Rectangle())
-                    .gesture(DragGesture(minimumDistance: 4)
-                    .onChanged { sheetDrag = $0.translation.height }
-                    .onEnded { value in
-                        let projected = base - value.predictedEndTranslation.height
-                        let nearest = MapSheetLevel.allCases.min {
-                            abs($0.height(in: available) - projected) < abs($1.height(in: available) - projected)
-                        } ?? .medium
-                        withAnimation(.snappy) { sheetLevel = nearest; sheetDrag = 0 }
-                    })
-                    .accessibilityElement()
-                    .accessibilityLabel(tr("map.adjustSheet"))
-                    .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : sheetLevel == .expanded ? "map.sheetExpanded" : "map.sheetMedium"))
-                    .accessibilityAdjustableAction { direction in
-                        withAnimation(.snappy) {
-                            switch direction {
-                            case .increment: sheetLevel = sheetLevel == .collapsed ? .medium : .expanded
-                            case .decrement: sheetLevel = sheetLevel == .expanded ? .medium : .collapsed
-                            @unknown default: break
-                            }
-                        }
-                    }
-                Button {
-                    withAnimation(.snappy) {
-                        sheetLevel = sheetLevel == .collapsed ? .medium : .collapsed
-                        sheetDrag = 0
-                    }
-                } label: {
-                    Image(systemName: sheetLevel == .collapsed ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
-                        .background(Color(.tertiarySystemFill), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tr(sheetLevel == .collapsed ? "map.expandSheet" : "map.collapseSheet"))
-            }
-            .padding(.horizontal, 16)
-
-            if sheetLevel != .collapsed { filters }
+    private var nearbySheet: some View {
+        VStack(spacing: 0) {
+            if !isCompactSheet { filters }
+            searchField
             if mapCenter != nil {
                 lineStrip.fixedSize(horizontal: false, vertical: true)
             } else {
                 LocationStatusView(location: location).padding(.horizontal)
             }
-            if sheetLevel != .collapsed { results }
+            if !isCompactSheet { results.frame(maxHeight: .infinity) }
             else { Spacer(minLength: 0) }
         }
-        .frame(maxWidth: .infinity).frame(height: height, alignment: .top)
-        .background(.regularMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
-        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
-        .shadow(color: .black.opacity(0.15), radius: 12, y: -3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(.regularMaterial)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField(tr("map.searchNearby"), text: $nearbySearch)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .focused($nearbySearchFocused)
+                .onChange(of: nearbySearchFocused) { _, focused in
+                    if focused && isCompactSheet {
+                        withAnimation(.snappy) { sheetDetent = .medium }
+                    }
+                }
+            if !nearbySearch.isEmpty {
+                Button { nearbySearch = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr("common.clear"))
+            }
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .frame(height: 40)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 
     private var filters: some View {
@@ -667,7 +666,7 @@ struct NearbyMapView: View {
                 }
                 if let selectedStop { stopPreviewSection(selectedStop) }
                 Section(tr("lineDetail.nearbyStops")) {
-                    ForEach(visibleGroups) { group in
+                    ForEach(sheetGroups) { group in
                         if group.stops.count == 1 {
                             Button { select(group.nearest) } label: { groupLabel(group) }
                                 .buttonStyle(.plain)
@@ -682,9 +681,11 @@ struct NearbyMapView: View {
                             }
                         }
                     }
-                    if visibleStops.isEmpty {
+                    if sheetGroups.isEmpty {
                         if model.loading || model.linesLoading {
                             ProgressView()
+                        } else if !nearbySearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text(tr("map.noSearchResults")).foregroundStyle(.secondary)
                         } else {
                             Text(tr("map.noStops")).foregroundStyle(.secondary)
                         }
@@ -696,18 +697,31 @@ struct NearbyMapView: View {
     }
 
     private var lineStrip: some View {
-        let visibleLineLimit = sheetLevel == .collapsed ? 4 : 10
-        let shownLines = Array(nearbyLines.prefix(visibleLineLimit))
+        let visibleLineLimit = isCompactSheet ? 3 : 10
+        let shownLines = Array(sheetLines.prefix(visibleLineLimit))
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
+                Button {
+                    withAnimation(.snappy) {
+                        sheetDetent = isCompactSheet ? .medium : .height(165)
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
+                        Image(systemName: isCompactSheet ? "chevron.up" : "chevron.down")
+                            .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr(isCompactSheet ? "map.expandSheet" : "map.collapseSheet"))
                 Group {
                     if model.linesLoading || model.routesLoading { ProgressView().controlSize(.mini) }
                     else { Color.clear }
                 }
                 .frame(width: 12, height: 12)
                 Spacer()
-                if let line = nearbyLines.first(where: { $0.id == selectedLineId }) {
+                if let line = sheetLines.first(where: { $0.id == selectedLineId }) {
                     Button {
                         AppModel.shared.push(.line(line.id))
                     } label: {
@@ -718,46 +732,26 @@ struct NearbyMapView: View {
             }
             .padding(.horizontal)
 
-            FlowLayout(spacing: 8, lineSpacing: 8) {
-                Button {
-                    selectedLineId = nil
-                } label: {
-                    Label(tr("map.nearestRoutes"), systemImage: "point.3.connected.trianglepath.dotted")
-                        .font(.subheadline.weight(.medium))
-                        .padding(.horizontal, 12).frame(height: 38)
-                        .background(selectedLineId == nil ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(selectedLineId == nil ? Color.accentColor : .secondary)
-                .accessibilityAddTraits(selectedLineId == nil ? .isSelected : [])
-
-                ForEach(shownLines) { line in
-                    let selected = selectedLineId == line.id
-                    Button {
-                        selectedLineId = selected ? nil : line.id
-                    } label: {
-                        HStack(spacing: 6) {
-                            LineBadge(name: line.name, color: routeColor(line.id))
-                            if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+            Group {
+                if isCompactSheet {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            nearestRoutesChip
+                            ForEach(shownLines) { lineChip($0) }
+                            if sheetLines.count > visibleLineLimit { moreLinesChip(sheetLines.count - visibleLineLimit) }
                         }
-                        .padding(.horizontal, 9).frame(height: 38)
-                        .background(selected ? Color.accentColor.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
-                        .overlay(Capsule().stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
+                        .padding(.horizontal, 16)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(tr("lineDetail.linePrefix")) \(line.name)")
-                    .accessibilityAddTraits(selected ? .isSelected : [])
-                }
-                if nearbyLines.count > visibleLineLimit {
-                    Text("+\(nearbyLines.count - visibleLineLimit)")
-                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                        .padding(.horizontal, 10).frame(height: 34)
-                        .background(Color(.tertiarySystemFill), in: Capsule())
-                        .accessibilityLabel("\(nearbyLines.count - visibleLineLimit) \(tr("map.moreLines"))")
+                } else {
+                    FlowLayout(spacing: 8, lineSpacing: 8) {
+                        nearestRoutesChip
+                        ForEach(shownLines) { lineChip($0) }
+                        if sheetLines.count > visibleLineLimit { moreLinesChip(sheetLines.count - visibleLineLimit) }
+                    }
+                    .padding(.horizontal, 16)
                 }
             }
-            .padding(.horizontal, 16)
-            if !isNightTransitTime {
+            if !isCompactSheet && !isNightTransitTime {
                 Text(tr("map.nightBusesHidden"))
                     .font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 16)
             }
@@ -829,8 +823,48 @@ struct NearbyMapView: View {
             selectedStop = stop
             selectedGroupId = NearbyStopGroup.groups(nearestStops)
                 .first(where: { $0.stops.contains(where: { $0.id == stop.id }) })?.id
-            sheetLevel = .expanded
+            sheetDetent = .large
         }
+    }
+
+    private var nearestRoutesChip: some View {
+        Button {
+            selectedLineId = nil
+        } label: {
+            Label(tr("map.nearestRoutes"), systemImage: "point.3.connected.trianglepath.dotted")
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 12).frame(height: 38)
+                .background(selectedLineId == nil ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(selectedLineId == nil ? Color.accentColor : .secondary)
+        .accessibilityAddTraits(selectedLineId == nil ? .isSelected : [])
+    }
+
+    private func lineChip(_ line: CachedStopLine) -> some View {
+        let selected = selectedLineId == line.id
+        return Button {
+            selectedLineId = selected ? nil : line.id
+        } label: {
+            HStack(spacing: 6) {
+                LineBadge(name: line.name, color: routeColor(line.id))
+                if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+            }
+            .padding(.horizontal, 9).frame(height: 38)
+            .background(selected ? Color.accentColor.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
+            .overlay(Capsule().stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(tr("lineDetail.linePrefix")) \(line.name)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func moreLinesChip(_ count: Int) -> some View {
+        Text("+\(count)")
+            .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            .padding(.horizontal, 10).frame(height: 34)
+            .background(Color(.tertiarySystemFill), in: Capsule())
+            .accessibilityLabel("\(count) \(tr("map.moreLines"))")
     }
 
     @ViewBuilder

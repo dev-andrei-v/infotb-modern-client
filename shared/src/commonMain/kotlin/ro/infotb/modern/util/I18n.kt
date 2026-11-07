@@ -61,6 +61,9 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "map.routesUnavailable" to mapOf(Locale.RO to "Unele linii sau trasee nu au putut fi incarcate.", Locale.EN to "Some lines or routes could not be loaded."),
     "map.moreLines" to mapOf(Locale.RO to "linii apropiate suplimentare", Locale.EN to "more nearby lines"),
     "map.nightBusesHidden" to mapOf(Locale.RO to "Liniile de noapte apar dupa ora 22:00.", Locale.EN to "Night buses appear after 10:00 PM."),
+    "map.searchNearby" to mapOf(Locale.RO to "Cauta statii sau linii in zona hartii", Locale.EN to "Search stops or lines in this map area"),
+    "map.noSearchResults" to mapOf(Locale.RO to "Nu s-au gasit statii sau linii potrivite.", Locale.EN to "No matching stops or lines found."),
+    "common.clear" to mapOf(Locale.RO to "Sterge", Locale.EN to "Clear"),
 
     // Navigation
     "nav.dashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),

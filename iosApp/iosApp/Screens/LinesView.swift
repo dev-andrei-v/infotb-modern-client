@@ -277,11 +277,17 @@ struct LinesView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if model.lineDisplayStyle == "bus_display" {
                     HStack(spacing: 14) {
-                        Text(displayLineName)
-                            .font(.system(size: 30, weight: .black, design: .monospaced))
-                            .tracking(0.8)
-                            .lineLimit(1)
-                            .frame(minWidth: 64, alignment: .leading)
+                        HStack(spacing: 6) {
+                            if line.isAirport {
+                                Image(systemName: "airplane")
+                                    .font(.system(size: 22, weight: .bold))
+                            }
+                            Text(displayLineName)
+                                .font(.system(size: 30, weight: .black, design: .monospaced))
+                                .tracking(0.8)
+                                .lineLimit(1)
+                        }
+                        .frame(minWidth: 64, alignment: .leading)
                         Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n").isEmpty
                              ? "—"
                              : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n"))
@@ -300,7 +306,7 @@ struct LinesView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08)))
                 } else {
                     HStack(spacing: 12) {
-                        LineBadge(name: displayLineName, color: line.color)
+                        LineBadge(name: displayLineName, color: line.color, isAirport: line.isAirport)
                         if model.lineDisplayStyle == "normal",
                            let start = line.startStopName,
                            let end = line.endStopName {

@@ -82,7 +82,7 @@ private struct LineDetailContent: View {
             Section {
                 HStack(spacing: 10) {
                     if model.lineDisplayStyle == "normal" {
-                        LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color, size: .large)
+                        LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color, size: .large, isAirport: detail.isAirport)
                     }
                     TransportBadge(type: detail.type)
                     Spacer()
@@ -98,7 +98,7 @@ private struct LineDetailContent: View {
 
                 if model.lineDisplayStyle == "bus_display" {
                     let directionName = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur
-                    lcdDisplay(lineName: InfoTBDisplayName(detail.name, type: detail.type), route: directionName ?? "")
+                    lcdDisplay(lineName: InfoTBDisplayName(detail.name, type: detail.type), route: directionName ?? "", isAirport: detail.isAirport)
                 }
 
                 Picker(tr("lineDetail.direction"), selection: Binding(get: { model.direction }, set: { model.setDirection($0) })) {
@@ -197,17 +197,24 @@ private struct LineDetailContent: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private func lcdDisplay(lineName: String, route: String) -> some View {
+    private func lcdDisplay(lineName: String, route: String, isAirport: Bool = false) -> some View {
         let stops = route.components(separatedBy: " - ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         let labelColor = colorScheme == .dark
             ? Color(red: 1, green: 0.78, blue: 0.34)
             : Color(red: 0.60, green: 0.36, blue: 0.02)
+        let showAirport = isAirport || LineColorsKt.isAirportLine(name: lineName, routeOrDestination: route)
         return HStack(spacing: 14) {
-            Text(lineName)
-                .font(.system(size: 30, weight: .black, design: .monospaced))
-                .tracking(0.8)
-                .lineLimit(1)
-                .frame(minWidth: 64, alignment: .leading)
+            HStack(spacing: 6) {
+                if showAirport {
+                    Image(systemName: "airplane")
+                        .font(.system(size: 22, weight: .bold))
+                }
+                Text(lineName)
+                    .font(.system(size: 30, weight: .black, design: .monospaced))
+                    .tracking(0.8)
+                    .lineLimit(1)
+            }
+            .frame(minWidth: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
                     Text(stop.uppercased())

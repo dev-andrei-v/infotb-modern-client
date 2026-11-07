@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.currentTimeMillis
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
@@ -77,6 +79,7 @@ import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.ui.viewmodel.LinesViewModel
 import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.isAirportLine
 import ro.infotb.modern.util.t
 
 @Composable
@@ -628,15 +631,17 @@ private fun LineRow(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val endpoints = listOfNotNull(line.startStopName, line.endStopName)
+            val isAirport = line.isAirport || isAirportLine(line.name, endpoints.joinToString(" "))
             if (!busDisplay) {
                 LineBadge(
                     name = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
                     color = line.color,
-                    size = BadgeSize.MEDIUM
+                    size = BadgeSize.MEDIUM,
+                    isAirport = isAirport
                 )
                 Spacer(Modifier.width(12.dp))
             }
-            val endpoints = listOfNotNull(line.startStopName, line.endStopName)
             if (busDisplay) {
                 val lcdText = if (isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
                 Row(
@@ -644,17 +649,30 @@ private fun LineRow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Text(
-                        text = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 30.sp,
-                        lineHeight = 32.sp,
-                        letterSpacing = 0.8.sp,
-                        color = lcdText,
-                        maxLines = 1,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.widthIn(min = 64.dp)
-                    )
+                    ) {
+                        if (isAirport) {
+                            Icon(
+                                imageVector = AirplaneIcon,
+                                contentDescription = "Airport",
+                                tint = lcdText,
+                                modifier = Modifier.size(24.dp).rotate(45f)
+                            )
+                        }
+                        Text(
+                            text = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 30.sp,
+                            lineHeight = 32.sp,
+                            letterSpacing = 0.8.sp,
+                            color = lcdText,
+                            maxLines = 1
+                        )
+                    }
                     Text(
                         text = endpoints.joinToString("\n") { it.uppercase() }.ifBlank { "—" },
                         modifier = Modifier.weight(1f),

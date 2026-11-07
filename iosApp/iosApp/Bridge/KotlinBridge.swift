@@ -61,6 +61,18 @@ enum Unbox {
     static func stringKeyed<V>(_ value: Any?) -> [String: V] {
         (value as? [String: V]) ?? [:]
     }
+
+    /// A Kotlin `Map<String, Long>`.
+    static func stringLongKeyed(_ value: Any?) -> [String: Int64] {
+        guard let dict = value as? NSDictionary else { return [:] }
+        var result: [String: Int64] = [:]
+        for (key, item) in dict {
+            if let key = key as? String, let item = item as? NSNumber {
+                result[key] = item.int64Value
+            }
+        }
+        return result
+    }
 }
 
 extension Optional where Wrapped == Int64 {

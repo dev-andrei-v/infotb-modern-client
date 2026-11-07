@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +53,7 @@ import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.VehiclePosition
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.DirectionToggle
 import ro.infotb.modern.ui.components.shared.EmbeddedRouteMapView
 import ro.infotb.modern.ui.components.shared.drawScrollbar
@@ -62,6 +64,7 @@ import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.isAirportLine
 import ro.infotb.modern.util.t
 import ro.infotb.modern.util.isLightColor
 
@@ -125,7 +128,8 @@ fun LineDetailScreen(
                         LineBadge(
                             name = if (lineDetail!!.type == TransportType.SUBWAY) lineDetail!!.name.substringBefore('-').trim() else lineDetail!!.name,
                             color = lineDetail!!.color,
-                            size = BadgeSize.MEDIUM
+                            size = BadgeSize.MEDIUM,
+                            isAirport = lineDetail!!.isAirport
                         )
                         Spacer(Modifier.width(8.dp))
                     }
@@ -188,23 +192,37 @@ fun LineDetailScreen(
                     val directionName = if (direction == Direction.TUR) detail.directionNameTur else detail.directionNameRetur
                     val routeStops = directionName.orEmpty().split(" - ").map { it.trim() }.filter { it.isNotEmpty() }.take(2)
                     val lcdColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
+                    val isAirport = detail.isAirport || isAirportLine(detail.name, directionName)
                     Row(
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text(
-                            text = if (detail.type == TransportType.SUBWAY) detail.name.substringBefore('-').trim() else detail.name,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 30.sp,
-                            lineHeight = 32.sp,
-                            letterSpacing = 0.8.sp,
-                            color = lcdColor,
-                            maxLines = 1,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.widthIn(min = 64.dp)
-                        )
+                        ) {
+                            if (isAirport) {
+                                Icon(
+                                    imageVector = AirplaneIcon,
+                                    contentDescription = "Airport",
+                                    tint = lcdColor,
+                                    modifier = Modifier.size(24.dp).rotate(45f)
+                                )
+                            }
+                            Text(
+                                text = if (detail.type == TransportType.SUBWAY) detail.name.substringBefore('-').trim() else detail.name,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 30.sp,
+                                lineHeight = 32.sp,
+                                letterSpacing = 0.8.sp,
+                                color = lcdColor,
+                                maxLines = 1
+                            )
+                        }
                         Column(modifier = Modifier.weight(1f)) {
                             routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
                                 Text(

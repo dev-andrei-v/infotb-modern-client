@@ -93,6 +93,14 @@ struct DashboardCard: View {
                         if showGroup && !widget.group.isEmpty {
                             Text(widget.group).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
+                        if model.isPinnedInWidget(widget) {
+                            Label(tr("widget.pinnedInWidget"), systemImage: "pin.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(InfoTBDesign.accent)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(InfoTBDesign.accent.opacity(0.12), in: Capsule())
+                        }
                         if isStale {
                             Label(tr("dashboard.stale"), systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption2.weight(.semibold))
@@ -140,11 +148,11 @@ struct DashboardCard: View {
         }
         Section {
             Button {
-                model.toggleHomeScreenStop(widget.stopId)
+                model.togglePinStopInWidget(widget)
             } label: {
                 Label(
-                    model.homeWidgetStopID == widget.stopId ? tr("widget.removeHomeScreenStop") : tr("widget.useHomeScreenStop"),
-                    systemImage: model.homeWidgetStopID == widget.stopId ? "checkmark.square.fill" : "square.on.square"
+                    model.isPinnedInWidget(widget) ? tr("widget.unpinStop") : tr("widget.pinStop"),
+                    systemImage: model.isPinnedInWidget(widget) ? "pin.slash.fill" : "pin.fill"
                 )
             }
             Button {

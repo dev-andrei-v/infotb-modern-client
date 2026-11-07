@@ -174,8 +174,14 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.close" to mapOf(Locale.RO to "Inchide", Locale.EN to "Close"),
     "dashboard.groupHours" to mapOf(Locale.RO to "Interval orar", Locale.EN to "Active hours"),
     "dashboard.groupHoursDescription" to mapOf(
-        Locale.RO to "Grupul apare desfasurat pe panou doar in acest interval. In restul zilei ramane restrans.",
-        Locale.EN to "The group is expanded on the dashboard only between these times. The rest of the day it stays collapsed."
+        Locale.RO to "În acest interval, grupul apare desfășurat pe Panou și devine automat grupul activ în widgetul de pe ecranul principal. În restul zilei se restrânge, iar widgetul afișează celelalte grupuri.",
+        Locale.EN to "During these hours, the group expands on the Dashboard and automatically becomes the active group in the Home Screen widget. Outside these hours, it collapses and the widget falls back to other groups."
+    ),
+    "dashboard.activeNow" to mapOf(Locale.RO to "Activ acum", Locale.EN to "Active now"),
+    "dashboard.inactiveNow" to mapOf(Locale.RO to "Inactiv", Locale.EN to "Inactive"),
+    "dashboard.manageGroupsWidgetHelp" to mapOf(
+        Locale.RO to "Grupurile cu interval orar activ au prioritate automată în widgetul de pe ecranul principal și apar desfășurate pe Panou.",
+        Locale.EN to "Groups with an active schedule take automatic priority in the Home Screen widget and expand on the Dashboard."
     ),
     "dashboard.groupHoursFrom" to mapOf(Locale.RO to "De la", Locale.EN to "From"),
     "dashboard.groupHoursTo" to mapOf(Locale.RO to "Pana la", Locale.EN to "Until"),
@@ -357,6 +363,9 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.homeScreen" to mapOf(Locale.RO to "Widget pe ecranul principal", Locale.EN to "Home Screen widget"),
     "widget.useHomeScreenStop" to mapOf(Locale.RO to "Afiseaza statia in widget", Locale.EN to "Show this stop in widget"),
     "widget.removeHomeScreenStop" to mapOf(Locale.RO to "Elimina statia din widget", Locale.EN to "Remove stop from widget"),
+    "widget.pinStop" to mapOf(Locale.RO to "Fixează în widget", Locale.EN to "Pin to widget"),
+    "widget.unpinStop" to mapOf(Locale.RO to "Anulează fixarea din widget", Locale.EN to "Unpin from widget"),
+    "widget.pinnedInWidget" to mapOf(Locale.RO to "Fixată în widget", Locale.EN to "Pinned in widget"),
     "widget.widgetAdded" to mapOf(Locale.RO to "Widget adaugat pe panou", Locale.EN to "Widget added to dashboard"),
 
     // Arrival time

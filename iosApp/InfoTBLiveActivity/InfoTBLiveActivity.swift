@@ -477,6 +477,9 @@ private struct HomeWidgetGroup: Codable, Hashable, Identifiable {
     var id: String { name }
     let name: String
     let stops: [HomeWidgetStop]
+    var activeFrom: Int? = nil
+    var activeTo: Int? = nil
+    var selectedStopId: Int64? = nil
 }
 
 private enum HomeWidgetStore {
@@ -513,6 +516,39 @@ private enum HomeWidgetStore {
         defaults.set((selectedIndex(for: groupID, count: count) + 1) % count,
                      forKey: "dashboard.homeWidgetIndex.\(groupID)")
     }
+
+    static func activeGroup(from groups: [HomeWidgetGroup], at date: Date) -> HomeWidgetGroup? {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let minuteOfDay = hour * 60 + minute
+
+        func isActive(from: Int, to: Int) -> Bool {
+            if from <= to {
+                return minuteOfDay >= from && minuteOfDay <= to
+            } else {
+                return minuteOfDay >= from || minuteOfDay <= to
+            }
+        }
+
+        // 1. First look for an active scheduled group with stops
+        if let scheduled = groups.first(where: { group in
+            guard let from = group.activeFrom, let to = group.activeTo, !group.stops.isEmpty else { return false }
+            return isActive(from: from, to: to)
+        }) {
+            return scheduled
+        }
+
+        // 2. Fall back to unscheduled groups with stops
+        if let unscheduled = groups.first(where: { group in
+            (group.activeFrom == nil || group.activeTo == nil) && !group.stops.isEmpty
+        }) {
+            return unscheduled
+        }
+
+        // 3. Fall back to any group with stops
+        return groups.first(where: { !$0.stops.isEmpty })
+    }
 }
 
 struct DashboardGroupEntity: AppEntity, Identifiable {
@@ -526,10 +562,14 @@ struct DashboardGroupEntity: AppEntity, Identifiable {
 
     var displayRepresentation: DisplayRepresentation {
         let displayName: String
+        let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
         switch id {
-        case Self.rotatingGroupID: displayName = "Rotating group"
-        case Self.dashboardSelectionID: displayName = "Dashboard selection"
-        default: displayName = name.isEmpty ? "Ungrouped" : name
+        case Self.rotatingGroupID:
+            displayName = locale == "en" ? "Active group (by schedule)" : "Grup activ (după orar)"
+        case Self.dashboardSelectionID:
+            displayName = locale == "en" ? "Dashboard selection" : "Selecție din Panou"
+        default:
+            displayName = name.isEmpty ? (locale == "en" ? "Ungrouped" : "Fără grup") : name
         }
         return DisplayRepresentation(title: LocalizedStringResource(stringLiteral: displayName))
     }
@@ -542,37 +582,44 @@ struct DashboardGroupEntity: AppEntity, Identifiable {
 
 struct DashboardGroupQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [DashboardGroupEntity] {
+        let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
         var entities = HomeWidgetStore.groups()
             .filter { identifiers.contains($0.name) }
             .map { DashboardGroupEntity(id: $0.name, name: $0.name) }
         if identifiers.contains(DashboardGroupEntity.rotatingGroupID) {
-            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Rotating group"))
+            let activeGroupName = locale == "en" ? "Active group (by schedule)" : "Grup activ (după orar)"
+            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: activeGroupName))
         }
         if identifiers.contains(DashboardGroupEntity.dashboardSelectionID), HomeWidgetStore.dashboardSelection() != nil {
-            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: "Dashboard selection"))
+            let selName = locale == "en" ? "Dashboard selection" : "Selecție din Panou"
+            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: selName))
         }
         return entities
     }
 
     func suggestedEntities() async throws -> [DashboardGroupEntity] {
-        let modes = [DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Rotating group")]
-        let pinned = HomeWidgetStore.dashboardSelection().map { _ in
-            [DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: "Dashboard selection")]
-        } ?? []
-        return modes + pinned + HomeWidgetStore.groups()
+        let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
+        let activeGroupName = locale == "en" ? "Active group (by schedule)" : "Grup activ (după orar)"
+        var results = [DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: activeGroupName)]
+        if HomeWidgetStore.dashboardSelection() != nil {
+            let selName = locale == "en" ? "Dashboard selection" : "Selecție din Panou"
+            results.append(DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: selName))
+        }
+        results.append(contentsOf: HomeWidgetStore.groups()
             .filter { !$0.stops.isEmpty }
-            .map { DashboardGroupEntity(id: $0.name, name: $0.name) }
+            .map { DashboardGroupEntity(id: $0.name, name: $0.name) })
+        return results
     }
 }
 
 struct DashboardGroupWidgetConfiguration: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Transit group"
-    static var description = IntentDescription("Show and rotate through stops in a Dashboard group.")
+    static var description = IntentDescription("Show active stops from one of your Dashboard groups.")
 
     @Parameter(title: "Dashboard group") var group: DashboardGroupEntity?
 
     init() {
-        group = DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Rotating group")
+        group = DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Active group")
     }
 }
 
@@ -599,6 +646,7 @@ private struct GroupStopWidgetEntry: TimelineEntry {
     let arrivals: [(name: String, color: String, direction: String, seconds: Int, isTimetable: Bool)]
     let stopCount: Int
     let localeCode: String
+    let isPinned: Bool
 }
 
 private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
@@ -607,7 +655,7 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
 
     func placeholder(in context: Context) -> Entry {
         Entry(date: .now, groupID: "", groupName: "To work", stop: .init(id: 1, name: "Universitate", observedAtMs: 0, arrivals: []),
-              arrivals: [("61", "#008F4C", "Piața Unirii", 240, false), ("N105", "#5162A8", "Piața Sf. Vineri", 540, false)], stopCount: 3, localeCode: "en")
+              arrivals: [("61", "#008F4C", "Piața Unirii", 240, false), ("N105", "#5162A8", "Piața Sf. Vineri", 540, false)], stopCount: 3, localeCode: "en", isPinned: false)
     }
 
     func snapshot(for configuration: Intent, in context: Context) async -> Entry {
@@ -627,22 +675,24 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
         let requestedGroup = configuration.group?.id
         if requestedGroup == DashboardGroupEntity.dashboardSelectionID,
            let selection = HomeWidgetStore.dashboardSelection() {
-            let selectedGroup = HomeWidgetGroup(name: selection.group.name, stops: [selection.stop])
+            let selectedGroup = HomeWidgetGroup(name: selection.group.name, stops: [selection.stop],
+                                                activeFrom: selection.group.activeFrom,
+                                                activeTo: selection.group.activeTo,
+                                                selectedStopId: selection.stop.id)
             return makeEntry(for: selectedGroup, at: date)
         }
         if requestedGroup == DashboardGroupEntity.rotatingGroupID || requestedGroup == nil {
             let availableGroups = groups.filter { !$0.stops.isEmpty }
             if !availableGroups.isEmpty {
-                let minuteBucket = Int(date.timeIntervalSince1970 / 60)
-                let group = availableGroups[minuteBucket % availableGroups.count]
+                let group = HomeWidgetStore.activeGroup(from: availableGroups, at: date) ?? availableGroups[0]
                 return makeEntry(for: group, at: date)
             }
         }
-        let group = groups.first { $0.name == requestedGroup } ?? groups.first
+        let group = groups.first { $0.name == requestedGroup } ?? HomeWidgetStore.activeGroup(from: groups, at: date) ?? groups.first
         guard let group, !group.stops.isEmpty else {
             let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
             return Entry(date: date, groupID: "", groupName: locale == "en" ? "Choose a group" : "Alege un grup",
-                         stop: nil, arrivals: [], stopCount: 0, localeCode: locale)
+                         stop: nil, arrivals: [], stopCount: 0, localeCode: locale, isPinned: false)
         }
         return makeEntry(for: group, at: date)
     }
@@ -651,9 +701,17 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
         guard !group.stops.isEmpty else {
             let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
             return Entry(date: date, groupID: group.name, groupName: group.name, stop: nil,
-                         arrivals: [], stopCount: 0, localeCode: locale)
+                         arrivals: [], stopCount: 0, localeCode: locale, isPinned: false)
         }
-        let stop = group.stops[HomeWidgetStore.selectedIndex(for: group.name, count: group.stops.count)]
+        let stop: HomeWidgetStop
+        let isPinned: Bool
+        if let pinnedId = group.selectedStopId, let pinned = group.stops.first(where: { $0.id == pinnedId }) {
+            stop = pinned
+            isPinned = true
+        } else {
+            stop = group.stops[HomeWidgetStore.selectedIndex(for: group.name, count: group.stops.count)]
+            isPinned = false
+        }
         let elapsed = max(0, Int64(date.timeIntervalSince1970 * 1000 - Double(stop.observedAtMs)) / 1000)
         let arrivals = stop.arrivals.compactMap { arrival -> (name: String, color: String, direction: String, seconds: Int, isTimetable: Bool)? in
             guard arrival.seconds >= 0 else { return nil }
@@ -661,7 +719,7 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
         }
         let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
         return Entry(date: date, groupID: group.name, groupName: group.name, stop: stop,
-                     arrivals: arrivals, stopCount: group.stops.count, localeCode: locale)
+                     arrivals: arrivals, stopCount: group.stops.count, localeCode: locale, isPinned: isPinned)
     }
 }
 
@@ -695,8 +753,15 @@ private struct TransitGroupWidgetView: View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 5) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(entry.stop?.name ?? (entry.localeCode == "en" ? "Dashboard stop" : "Stație din Panou"))
-                        .font(.subheadline.weight(.bold)).lineLimit(1)
+                    HStack(spacing: 3) {
+                        Text(entry.stop?.name ?? (entry.localeCode == "en" ? "Dashboard stop" : "Stație din Panou"))
+                            .font(.subheadline.weight(.bold)).lineLimit(1)
+                        if entry.isPinned {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Text(entry.groupName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 2)
@@ -755,9 +820,16 @@ private struct TransitGroupWidgetView: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.stop?.name ?? (entry.localeCode == "en" ? "Dashboard stop" : "Stație din Panou"))
-                            .font(.headline.weight(.bold))
-                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            Text(entry.stop?.name ?? (entry.localeCode == "en" ? "Dashboard stop" : "Stație din Panou"))
+                                .font(.headline.weight(.bold))
+                                .lineLimit(1)
+                            if entry.isPinned {
+                                Image(systemName: "pin.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Text(entry.groupName.isEmpty ? (entry.localeCode == "en" ? "Ungrouped" : "Fără grup") : entry.groupName)
                             .font(.caption)
                             .foregroundStyle(.secondary)

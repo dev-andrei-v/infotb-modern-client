@@ -136,7 +136,10 @@ struct GroupsSheet: View {
                     .onMove { model.moveGroups(from: $0, to: $1) }
                     .onDelete { offsets in offsets.forEach { model.removeGroup(model.groups[$0]) } }
                 } footer: {
-                    Text(tr("dashboard.manageGroupsDescription"))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(tr("dashboard.manageGroupsDescription"))
+                        Text(tr("dashboard.manageGroupsWidgetHelp"))
+                    }
                 }
 
                 Section {
@@ -178,13 +181,36 @@ struct GroupsSheet: View {
     private func row(_ group: String) -> some View {
         let hidden = model.hiddenGroups.contains(group)
         let schedule = model.schedules[group]
+        let pinned = model.pinnedStop(for: group)
+        let calendar = Calendar.current
+        let minuteOfDay = Int32(calendar.component(.hour, from: .now) * 60 + calendar.component(.minute, from: .now))
+        let isActiveNow = schedule?.isActiveAt(minuteOfDay: minuteOfDay) ?? false
+
         return HStack {
             NavigationLink(value: group) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(group).font(.body.weight(.semibold))
-                    Label(schedule.map(DashboardFormat.schedule) ?? tr("dashboard.groupHoursSet"), systemImage: "clock")
-                        .font(.caption)
-                        .foregroundStyle(schedule != nil ? InfoTBDesign.accent : .secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(group).font(.body.weight(.semibold))
+                        if schedule != nil {
+                            Text(isActiveNow ? tr("dashboard.activeNow") : tr("dashboard.inactiveNow"))
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(isActiveNow ? Color.green : Color.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1)
+                                .background(isActiveNow ? Color.green.opacity(0.12) : Color.secondary.opacity(0.12), in: Capsule())
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Label(schedule.map(DashboardFormat.schedule) ?? tr("dashboard.groupHoursSet"), systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(schedule != nil ? InfoTBDesign.accent : .secondary)
+                        if let pinned {
+                            Label(pinned.stopName, systemImage: "pin.fill")
+                                .font(.caption)
+                                .foregroundStyle(InfoTBDesign.accent)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
             Button {
@@ -239,7 +265,45 @@ private struct GroupHoursView: View {
     @State private var to = Date()
 
     var body: some View {
+        let schedule = model.schedules[group]
+        let calendar = Calendar.current
+        let minuteOfDay = Int32(calendar.component(.hour, from: .now) * 60 + calendar.component(.minute, from: .now))
+        let isActiveNow = schedule?.isActiveAt(minuteOfDay: minuteOfDay) ?? false
+
         Form {
+            if schedule != nil {
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: isActiveNow ? "clock.badge.checkmark.fill" : "clock.fill")
+                            .font(.title3)
+                            .foregroundStyle(isActiveNow ? Color.green : Color.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isActiveNow ? tr("dashboard.activeNow") : tr("dashboard.inactiveNow"))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(isActiveNow ? Color.green : Color.secondary)
+                            Text(tr("dashboard.manageGroupsWidgetHelp"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+
+            if let pinned = model.pinnedStop(for: group) {
+                Section(tr("widget.homeScreen")) {
+                    HStack {
+                        Label(pinned.stopName, systemImage: "pin.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(tr("widget.pinnedInWidget"))
+                            .font(.caption)
+                            .foregroundStyle(InfoTBDesign.accent)
+                    }
+                }
+            }
+
             Section {
                 DatePicker(tr("dashboard.groupHoursFrom"), selection: $from, displayedComponents: .hourAndMinute)
                 DatePicker(tr("dashboard.groupHoursTo"), selection: $to, displayedComponents: .hourAndMinute)

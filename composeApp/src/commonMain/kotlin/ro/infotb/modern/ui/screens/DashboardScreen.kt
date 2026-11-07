@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
@@ -527,6 +528,9 @@ fun DashboardScreen(
         GroupsDialog(
             groups = groups,
             hiddenGroups = hiddenGroups,
+            homeWidgetStopIds = homeWidgetStopIds,
+            widgets = widgets,
+            nowMinute = nowMinute,
             locale = locale,
             onAdd = { viewModel.addGroup(it) },
             onRename = { old, new -> viewModel.renameGroup(old, new) },
@@ -1411,14 +1415,14 @@ private fun WidgetOptionsSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
-                        imageVector = if (homeWidgetStopId == widget.stopId) Icons.Default.Check else Icons.Default.Home,
+                        imageVector = if (homeWidgetStopId == widget.stopId) Icons.Default.Check else Icons.Default.Place,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         t(
-                            if (homeWidgetStopId == widget.stopId) "widget.removeHomeScreenStop" else "widget.useHomeScreenStop",
+                            if (homeWidgetStopId == widget.stopId) "widget.unpinStop" else "widget.pinStop",
                             locale
                         )
                     )
@@ -1612,6 +1616,9 @@ private fun GroupChip(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun GroupsDialog(
     groups: List<String>,
     hiddenGroups: List<String>,
+    homeWidgetStopIds: Map<String, Long> = emptyMap(),
+    widgets: List<WidgetConfig> = emptyList(),
+    nowMinute: Int = 0,
     locale: Locale,
     onAdd: (String) -> Unit,
     onRename: (String, String) -> Unit,
@@ -1659,6 +1666,11 @@ private fun GroupsDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalMuted.current
                 )
+                Text(
+                    text = t("dashboard.manageGroupsWidgetHelp", locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 if (groups.isEmpty()) {
                     Text(
                         text = t("dashboard.noGroups", locale),
@@ -1693,19 +1705,37 @@ private fun GroupsDialog(
                                 .alpha(if (isHidden) 0.5f else 1f)
                         ) {
                             val schedule = schedules[group]
+                            val isActiveNow = schedule?.isActiveAt(nowMinute) ?: false
+                            val pinnedStopId = homeWidgetStopIds[group]
+                            val pinnedStop = widgets.firstOrNull { it.stopId == pinnedStopId && it.group == group }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = group,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.clickable {
-                                        renaming = group
-                                        renameValue = group
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = group,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.clickable {
+                                            renaming = group
+                                            renameValue = group
+                                        }
+                                    )
+                                    if (schedule != null) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = t(if (isActiveNow) "dashboard.activeNow" else "dashboard.inactiveNow", locale),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isActiveNow) Color(0xFF4CAF50) else LocalMuted.current,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (isActiveNow) Color(0x224CAF50) else Color(0x18888888))
+                                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
                                     }
-                                )
-                                // Hours live right under the name so the feature is discoverable
+                                }
+                                // Hours and pinned stop live right under the name so the feature is discoverable
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -1725,6 +1755,23 @@ private fun GroupsDialog(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (schedule != null) MaterialTheme.colorScheme.primary else LocalMuted.current
                                     )
+                                    if (pinnedStop != null) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(
+                                            Icons.Default.Place,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(Modifier.width(2.dp))
+                                        Text(
+                                            text = pinnedStop.stopName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                             IconButton(

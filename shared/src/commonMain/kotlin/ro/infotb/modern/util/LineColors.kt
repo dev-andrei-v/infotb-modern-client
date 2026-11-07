@@ -35,3 +35,16 @@ fun isLightColor(hex: String): Boolean {
     val b = (value and 0xFF) / 255.0
     return 0.299 * r + 0.587 * g + 0.114 * b > 0.65
 }
+
+/**
+ * Returns true if the line is an airport express route or destination
+ * (e.g. line 100 or when the name or destination contains "Aeroport").
+ */
+fun isAirportLine(name: String?, routeOrDestination: String? = null): Boolean {
+    val n = name?.trim().orEmpty()
+    if (n == "100") return true
+    if (n.contains("aeroport", ignoreCase = true) || n.contains("airport", ignoreCase = true)) return true
+    val r = routeOrDestination.orEmpty()
+    if (r.contains("aeroport", ignoreCase = true) || r.contains("airport", ignoreCase = true)) return true
+    return false
+}

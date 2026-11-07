@@ -38,4 +38,16 @@ class LineColorsTest {
         assertFalse(isLightColor("#F7941D"))
         assertFalse(isLightColor("not a colour"))
     }
+
+    @Test
+    fun airportLineDetection() {
+        assertTrue(isAirportLine("100"))
+        assertTrue(isAirportLine("100", "Piata Unirii 2 - Aeroport Henri Coanda"))
+        assertTrue(isAirportLine("Aeroport Henri Coanda"))
+        assertTrue(isAirportLine("5", "Aeroport Baneasa"))
+        assertTrue(isAirportLine("A1", "Airport Express"))
+        assertFalse(isAirportLine("41", "Piata Presei"))
+        assertFalse(isAirportLine("335", "Complex Comercial Baneasa"))
+        assertFalse(isAirportLine("101", null))
+    }
 }

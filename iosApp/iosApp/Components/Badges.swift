@@ -34,19 +34,38 @@ struct LineBadge: View {
     let name: String
     let color: String
     var size: BadgeSize = .medium
+    var isAirport: Bool? = nil
+
+    private var showAirport: Bool {
+        isAirport ?? LineColorsKt.isAirportLine(name: name, routeOrDestination: nil)
+    }
+
+    private var airportIconSize: CGFloat {
+        switch size {
+        case .small: 9
+        case .medium: 12
+        case .large: 15
+        }
+    }
 
     var body: some View {
         let background = Color(hex: color) ?? .lineFallback
         let badgeName = name.range(of: "^M\\d+\\s*-.*$", options: [.regularExpression, .caseInsensitive]) != nil
             ? String(name.split(separator: "-", maxSplits: 1).first ?? Substring(name)).trimmingCharacters(in: .whitespacesAndNewlines)
             : name
-        Text(badgeName)
-            .font(size.font.monospacedDigit())
-            .foregroundStyle(background.contrastingText)
-            .lineLimit(1)
-            .padding(size.padding)
-            .frame(minWidth: size.minWidth)
-            .background(background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        HStack(spacing: 3) {
+            if showAirport {
+                Image(systemName: "airplane")
+                    .font(.system(size: airportIconSize, weight: .bold))
+            }
+            Text(badgeName)
+                .font(size.font.monospacedDigit())
+                .lineLimit(1)
+        }
+        .foregroundStyle(background.contrastingText)
+        .padding(size.padding)
+        .frame(minWidth: size.minWidth)
+        .background(background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
 

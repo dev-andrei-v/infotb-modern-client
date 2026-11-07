@@ -13,10 +13,22 @@ final class LinesModel {
     private(set) var favoriteIds: Set<Int64> = []
 
     var searchQuery = "" {
-        didSet { viewModel.setSearchQuery(query: searchQuery) }
+        didSet {
+            if oldValue.isEmpty && !searchQuery.isEmpty {
+                collapsedTypesBeforeSearch = collapsedTypes
+                collapsedTypes.subtract(TransportType.ordered.map(\.name))
+            } else if !oldValue.isEmpty && searchQuery.isEmpty {
+                if let collapsedTypesBeforeSearch {
+                    self.collapsedTypes = collapsedTypesBeforeSearch
+                }
+                collapsedTypesBeforeSearch = nil
+            }
+            viewModel.setSearchQuery(query: searchQuery)
+        }
     }
     var nightOnly = false
     var collapsedTypes: Set<String> = []
+    private var collapsedTypesBeforeSearch: Set<String>?
 
     init() {
         scope.own(viewModel)

@@ -203,11 +203,6 @@ private struct NewsBanner: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
-                    if news.count > 1 {
-                        Text(tr("widget.moreNews").replacingOccurrences(of: "{n}", with: "\(news.count - 1)"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
                 }
                 Spacer(minLength: 4)
                 HStack(spacing: 3) {

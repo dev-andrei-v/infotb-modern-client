@@ -22,7 +22,7 @@ struct ArrivalRow<Expanded: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 Button(action: onLineTap) {
                     LineBadge(name: line.name, color: line.color)
                         .frame(minWidth: 44, minHeight: 44)
@@ -57,7 +57,7 @@ struct ArrivalRow<Expanded: View>: View {
                                 .foregroundStyle(timetableExpanded ? InfoTBDesign.accent : .secondary)
                         }
                     }
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(width: 40, height: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -68,7 +68,7 @@ struct ArrivalRow<Expanded: View>: View {
                         Image(systemName: isTracking ? "bell.slash.fill" : "bell")
                             .symbolEffect(.bounce, value: isTracking)
                             .foregroundStyle(isTracking ? Color.red : .secondary)
-                            .frame(minWidth: 44, minHeight: 44)
+                            .frame(width: 40, height: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -82,6 +82,7 @@ struct ArrivalRow<Expanded: View>: View {
                     )
                     .fixedSize()
                 } else {
+                    Color.clear.frame(width: 40, height: 44).accessibilityHidden(true)
                     OutOfServicePill().fixedSize()
                 }
             }

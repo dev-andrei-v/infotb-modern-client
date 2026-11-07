@@ -13,11 +13,15 @@ import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.LineDetail
 import ro.infotb.modern.data.model.VehiclePosition
 import ro.infotb.modern.data.repository.TransitRepository
+import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.util.Constants
 
 class LineDetailViewModel(
-    private val repository: TransitRepository
+    private val repository: TransitRepository,
+    preferencesStore: PreferencesStore
 ) : ViewModel() {
+
+    val lineDisplayStyle = preferencesStore.lineDisplayStyle
 
     private val _lineDetail = MutableStateFlow<LineDetail?>(null)
     val lineDetail: StateFlow<LineDetail?> = _lineDetail.asStateFlow()

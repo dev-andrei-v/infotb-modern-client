@@ -93,6 +93,7 @@ final class LinesModel {
 
 struct LinesView: View {
     @Bindable var model: LinesModel
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         content
@@ -211,21 +212,28 @@ struct LinesView: View {
         return NavigationLink(value: Route.line(line.id)) {
             VStack(alignment: .leading, spacing: 4) {
                 if model.lineDisplayStyle == "bus_display" {
-                    HStack(spacing: 9) {
-                        LineBadge(name: displayLineName, color: line.color)
-                            .scaleEffect(1.18, anchor: .leading)
+                    HStack(spacing: 14) {
+                        Text(displayLineName)
+                            .font(.system(size: 28, weight: .black, design: .monospaced))
+                            .tracking(0.5)
+                            .lineLimit(1)
+                            .frame(minWidth: 58, alignment: .leading)
                         Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n").isEmpty
                              ? "—"
                              : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n"))
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .tracking(0.5)
-                            .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .tracking(0.35)
+                            .foregroundStyle(colorScheme == .dark ? Color(red: 1, green: 0.78, blue: 0.34) : Color(red: 0.60, green: 0.36, blue: 0.02))
                             .lineLimit(2)
+                            .lineSpacing(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color(red: 0.09, green: 0.12, blue: 0.16), in: RoundedRectangle(cornerRadius: 6))
+                    .foregroundStyle(colorScheme == .dark ? Color(red: 1, green: 0.78, blue: 0.34) : Color(red: 0.60, green: 0.36, blue: 0.02))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+                    .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08)))
                 } else {
                     HStack(spacing: 12) {
                         LineBadge(name: displayLineName, color: line.color)

@@ -49,7 +49,7 @@ object IosServices : KoinComponent {
 
     fun dashboardViewModel() = DashboardViewModel(get(), get(), get(), get(), get())
     fun linesViewModel() = LinesViewModel(get(), get(), get())
-    fun lineDetailViewModel() = LineDetailViewModel(get())
+    fun lineDetailViewModel() = LineDetailViewModel(get(), get())
     fun stopDetailViewModel() = StopDetailViewModel(get())
     fun announcementsViewModel() = AnnouncementsViewModel(get(), get())
 

@@ -13,6 +13,7 @@ final class LineDetailModel {
     private(set) var direction: Direction = .tur
     private(set) var isLoading = false
     private(set) var announcements: [Announcement] = []
+    private(set) var lineDisplayStyle = "normal"
 
     init(lineId: Int64, direction: Direction = .tur) {
         scope.own(viewModel)
@@ -26,6 +27,7 @@ final class LineDetailModel {
         scope.watch(viewModel.direction) { [weak self] in self?.direction = $0 as? Direction ?? .tur }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
         scope.watch(viewModel.announcements) { [weak self] in self?.announcements = Unbox.list($0) }
+        scope.watch(viewModel.lineDisplayStyle) { [weak self] in self?.lineDisplayStyle = $0 as? String ?? "normal" }
         // Before loadLine, so the first fetch is already for the right direction.
         if direction != .tur { viewModel.setDirection(direction: direction) }
         viewModel.loadLine(lineId: lineId)
@@ -79,7 +81,9 @@ private struct LineDetailContent: View {
         return List {
             Section {
                 HStack(spacing: 10) {
-                    LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color, size: .large)
+                    if model.lineDisplayStyle == "normal" {
+                        LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color, size: .large)
+                    }
                     TransportBadge(type: detail.type)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
@@ -92,13 +96,20 @@ private struct LineDetailContent: View {
                     }
                 }
 
+                if model.lineDisplayStyle == "bus_display" {
+                    let directionName = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur
+                    lcdDisplay(lineName: InfoTBDisplayName(detail.name, type: detail.type), route: directionName ?? "")
+                }
+
                 Picker(tr("lineDetail.direction"), selection: Binding(get: { model.direction }, set: { model.setDirection($0) })) {
                     Text(tr("direction.tur")).tag(Direction.tur)
                     Text(tr("direction.retur")).tag(Direction.retur)
                 }
                 .pickerStyle(.segmented)
 
-                if let towards = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur, !towards.isEmpty {
+                if model.lineDisplayStyle == "normal",
+                   let towards = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur,
+                   !towards.isEmpty {
                     Label(towards, systemImage: "arrow.right")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -182,6 +193,38 @@ private struct LineDetailContent: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private func lcdDisplay(lineName: String, route: String) -> some View {
+        let stops = route.components(separatedBy: " - ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let labelColor = colorScheme == .dark
+            ? Color(red: 1, green: 0.78, blue: 0.34)
+            : Color(red: 0.60, green: 0.36, blue: 0.02)
+        return HStack(spacing: 14) {
+            Text(lineName)
+                .font(.system(size: 28, weight: .black, design: .monospaced))
+                .tracking(0.5)
+                .lineLimit(1)
+                .frame(minWidth: 58, alignment: .leading)
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
+                    Text(stop.uppercased())
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+            .tracking(0.35)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundStyle(labelColor)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08)))
     }
 }
 

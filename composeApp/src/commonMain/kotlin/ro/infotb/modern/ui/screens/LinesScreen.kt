@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -487,7 +489,8 @@ private fun LineRow(
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = if (busDisplay) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) else CardDefaults.cardColors()
     ) {
         Row(
             modifier = Modifier
@@ -505,26 +508,32 @@ private fun LineRow(
             }
             val endpoints = listOfNotNull(line.startStopName, line.endStopName)
             if (busDisplay) {
+                val lcdText = if (isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
                 Row(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF18212B)).padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.weight(1f).padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    LineBadge(
-                        name = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
-                        color = line.color,
-                        size = BadgeSize.LARGE
+                    Text(
+                        text = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 28.sp,
+                        lineHeight = 30.sp,
+                        letterSpacing = 0.5.sp,
+                        color = lcdText,
+                        maxLines = 1,
+                        modifier = Modifier.widthIn(min = 58.dp)
                     )
                     Text(
                         text = endpoints.joinToString("\n") { it.uppercase() }.ifBlank { "—" },
                         modifier = Modifier.weight(1f),
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 9.sp,
-                        lineHeight = 10.sp,
-                        letterSpacing = 0.5.sp,
-                        color = Color(0xFFFFC857),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        letterSpacing = 0.35.sp,
+                        color = lcdText,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )

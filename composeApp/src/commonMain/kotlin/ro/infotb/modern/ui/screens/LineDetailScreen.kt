@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -78,6 +79,7 @@ fun LineDetailScreen(
     val direction by viewModel.direction.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
+    val lineDisplayStyle by viewModel.lineDisplayStyle.collectAsState()
     var showFullMap by remember { mutableStateOf(false) }
 
     LaunchedEffect(lineId) {
@@ -119,7 +121,7 @@ fun LineDetailScreen(
         TopAppBar(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (lineDetail != null) {
+                    if (lineDetail != null && lineDisplayStyle == "normal") {
                         LineBadge(
                             name = if (lineDetail!!.type == TransportType.SUBWAY) lineDetail!!.name.substringBefore('-').trim() else lineDetail!!.name,
                             color = lineDetail!!.color,
@@ -181,6 +183,46 @@ fun LineDetailScreen(
                 }
 
                 Spacer(Modifier.height(12.dp))
+
+                if (lineDisplayStyle == "bus_display") {
+                    val directionName = if (direction == Direction.TUR) detail.directionNameTur else detail.directionNameRetur
+                    val routeStops = directionName.orEmpty().split(" - ").map { it.trim() }.filter { it.isNotEmpty() }.take(2)
+                    val lcdColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            text = if (detail.type == TransportType.SUBWAY) detail.name.substringBefore('-').trim() else detail.name,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 28.sp,
+                            lineHeight = 30.sp,
+                            letterSpacing = 0.5.sp,
+                            color = lcdColor,
+                            maxLines = 1,
+                            modifier = Modifier.widthIn(min = 58.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
+                                Text(
+                                    stopName.uppercase(),
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 12.sp,
+                                    lineHeight = 14.sp,
+                                    letterSpacing = 0.35.sp,
+                                    color = lcdColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 // Direction toggle
                 DirectionToggle(

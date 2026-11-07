@@ -235,7 +235,7 @@ fun App(
                     )
                 ) { backStackEntry ->
                     val lineId = backStackEntry.arguments?.getLong("lineId") ?: return@composable
-                    val viewModel = remember(lineId) { LineDetailViewModel(repository) }
+                    val viewModel = remember(lineId) { LineDetailViewModel(repository, preferencesStore) }
                     LineDetailScreen(
                         lineId = lineId,
                         viewModel = viewModel,

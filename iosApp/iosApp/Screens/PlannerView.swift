@@ -347,7 +347,7 @@ struct PlannerView: View {
             let result = try? await IosServices.shared.planRoutes(
                 start: origin,
                 destination: destination,
-                maxWalkDistance: Int(maxWalkDistance),
+                maxWalkDistance: Int32(maxWalkDistance),
                 startTimeMs: Int64(time.timeIntervalSince1970 * 1000),
                 vehicleTypes: TransportType.ordered.filter { modes.contains($0.name) }.map(\.name),
                 accessible: accessible

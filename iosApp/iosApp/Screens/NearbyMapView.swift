@@ -698,7 +698,7 @@ struct NearbyMapView: View {
     private var lineStrip: some View {
         let visibleLineLimit = sheetLevel == .collapsed ? 4 : 10
         let shownLines = Array(nearbyLines.prefix(visibleLineLimit))
-        VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
                 Group {

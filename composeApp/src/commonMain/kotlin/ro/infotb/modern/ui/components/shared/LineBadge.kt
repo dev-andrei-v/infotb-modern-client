@@ -29,6 +29,7 @@ fun LineBadge(
     size: BadgeSize = BadgeSize.MEDIUM,
     modifier: Modifier = Modifier
 ) {
+    val displayName = if (name.matches(Regex("(?i)^M\\d+\\s*-.*"))) name.substringBefore('-').trim() else name
     val bgColor = try {
         parseColor(color)
     } catch (_: Exception) {
@@ -50,7 +51,7 @@ fun LineBadge(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = name,
+            text = displayName,
             color = if (isLightColor(color)) Color.Black else Color.White,
             fontSize = fontSize.sp,
             fontWeight = FontWeight.Bold,

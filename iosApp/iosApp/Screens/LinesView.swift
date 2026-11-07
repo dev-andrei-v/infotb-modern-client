@@ -207,18 +207,16 @@ struct LinesView: View {
 
     private func row(_ line: Line, showsType: Bool = false) -> some View {
         let isFavorite = model.favoriteIds.contains(line.id)
-        let displayLineName = line.type.name == "SUBWAY"
-            ? (line.name.split(separator: "-", maxSplits: 1).first.map(String.init)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? line.name)
-            : line.name
+        let displayLineName = InfoTBDisplayName(line.name, type: line.type)
         return NavigationLink(value: Route.line(line.id)) {
             VStack(alignment: .leading, spacing: 4) {
                 if model.lineDisplayStyle == "bus_display" {
                     HStack(spacing: 9) {
                         LineBadge(name: displayLineName, color: line.color)
                             .scaleEffect(1.18, anchor: .leading)
-                        Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: " - ").isEmpty
+                        Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n").isEmpty
                              ? "—"
-                             : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: " - "))
+                             : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n"))
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .tracking(0.5)
                             .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))

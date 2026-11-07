@@ -517,7 +517,7 @@ private fun LineRow(
                         size = BadgeSize.LARGE
                     )
                     Text(
-                        text = endpoints.joinToString(" - ") { it.uppercase() }.ifBlank { "—" },
+                        text = endpoints.joinToString("\n") { it.uppercase() }.ifBlank { "—" },
                         modifier = Modifier.weight(1f),
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,

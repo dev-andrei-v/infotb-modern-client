@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.model.Direction
+import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.VehiclePosition
 import ro.infotb.modern.ui.components.shared.DirectionToggle
@@ -120,14 +121,14 @@ fun LineDetailScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (lineDetail != null) {
                         LineBadge(
-                            name = lineDetail!!.name,
+                            name = if (lineDetail!!.type == TransportType.SUBWAY) lineDetail!!.name.substringBefore('-').trim() else lineDetail!!.name,
                             color = lineDetail!!.color,
                             size = BadgeSize.MEDIUM
                         )
                         Spacer(Modifier.width(8.dp))
                     }
                     Text(
-                        text = "${t("lineDetail.linePrefix", locale)} ${lineDetail?.name ?: ""}",
+                        text = "${t("lineDetail.linePrefix", locale)} ${lineDetail?.let { if (it.type == TransportType.SUBWAY) it.name.substringBefore('-').trim() else it.name } ?: ""}",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

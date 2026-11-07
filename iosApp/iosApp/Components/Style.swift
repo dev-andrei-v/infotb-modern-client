@@ -7,6 +7,14 @@ enum InfoTBDesign {
     static let cardRadius: CGFloat = 18
 }
 
+func InfoTBDisplayName(_ name: String, type: TransportType) -> String {
+    guard type == .subway,
+          let first = name.split(separator: "-", maxSplits: 1).first,
+          first.trimmingCharacters(in: .whitespacesAndNewlines).range(of: "^M\\d+$", options: .regularExpression) != nil
+    else { return name }
+    return first.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
 extension Color {
     /// Parses "#RRGGBB" from the STB API; nil when it isn't a colour.
     init?(hex: String) {

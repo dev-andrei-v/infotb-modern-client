@@ -37,7 +37,10 @@ struct LineBadge: View {
 
     var body: some View {
         let background = Color(hex: color) ?? .lineFallback
-        Text(name)
+        let badgeName = name.range(of: "^M\\d+\\s*-.*$", options: [.regularExpression, .caseInsensitive]) != nil
+            ? String(name.split(separator: "-", maxSplits: 1).first ?? Substring(name)).trimmingCharacters(in: .whitespacesAndNewlines)
+            : name
+        Text(badgeName)
             .font(size.font.monospacedDigit())
             .foregroundStyle(background.contrastingText)
             .lineLimit(1)

@@ -61,7 +61,7 @@ private struct LineDetailContent: View {
                 ContentUnavailableView(tr("lineDetail.notFound"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
             }
         }
-        .navigationTitle("\(tr("lineDetail.linePrefix")) \(model.detail?.name ?? "")")
+        .navigationTitle("\(tr("lineDetail.linePrefix")) \(model.detail.map { InfoTBDisplayName($0.name, type: $0.type) } ?? "")")
         .navigationBarTitleDisplayMode(.inline)
         .foregroundLocation(location, enabled: nearbyStopCount > 0)
     }
@@ -79,7 +79,7 @@ private struct LineDetailContent: View {
         return List {
             Section {
                 HStack(spacing: 10) {
-                    LineBadge(name: detail.name, color: detail.color, size: .large)
+                    LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color, size: .large)
                     TransportBadge(type: detail.type)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 4) {
@@ -320,7 +320,7 @@ private struct LiveMapScreen: View {
 
                 if let detail = model.detail {
                     HStack(spacing: 8) {
-                        LineBadge(name: detail.name, color: detail.color)
+                        LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color)
                         if let towards = model.direction == .tur ? detail.directionNameTur : detail.directionNameRetur,
                            !towards.isEmpty {
                             Image(systemName: "arrow.right")
@@ -470,7 +470,7 @@ private struct MapStopCard: View {
     private var arrivals: some View {
         if let arrival, arrival.arrivingTime >= 0 {
             HStack(spacing: 8) {
-                LineBadge(name: detail.name, color: detail.color)
+                LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color)
                 ArrivalBadge(
                     seconds: arrival.arrivingTime,
                     isTimetable: arrival.isTimetable,
@@ -486,7 +486,7 @@ private struct MapStopCard: View {
             }
         } else if loaded {
             HStack(spacing: 8) {
-                LineBadge(name: detail.name, color: detail.color)
+                LineBadge(name: InfoTBDisplayName(detail.name, type: detail.type), color: detail.color)
                 Text(arrival == nil ? tr("widget.noData") : tr("widget.outOfService"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

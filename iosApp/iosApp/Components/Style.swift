@@ -15,6 +15,15 @@ func InfoTBDisplayName(_ name: String, type: TransportType) -> String {
     return first.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+func InfoTBTransitLineColor(name: String?, type: String?, apiColor: String?) -> String? {
+    guard ["SUBWAY", "METRO"].contains(type?.uppercased() ?? ""),
+          let name,
+          let match = name.range(of: #"^\s*M([1-5])\b"#, options: .regularExpression),
+          let number = Int(name[match].filter(\.isNumber)) else { return apiColor }
+    let metroColors = [1: "#FFC20E", 2: "#0070BA", 3: "#E2231A", 4: "#009A49", 5: "#F7941D"]
+    return metroColors[number] ?? apiColor
+}
+
 extension Color {
     /// Parses "#RRGGBB" from the STB API; nil when it isn't a colour.
     init?(hex: String) {

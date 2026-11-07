@@ -684,7 +684,11 @@ struct PlannerView: View {
                     startTime: segment["start_time"] as? String,
                     stopTime: segment["stop_time"] as? String,
                     durationSeconds: (segment["duration_seconds"] as? NSNumber)?.intValue,
-                    color: segment["transport_color"] as? String,
+                    color: InfoTBTransitLineColor(
+                        name: name,
+                        type: mode,
+                        apiColor: segment["transport_color"] as? String
+                    ),
                     vehicleCode: vehicleCode,
                     hasLiveVehicle: vehicleId > 0 || (!timetable && vehicleCode != nil),
                     vehicleCoordinate: vehicleCoordinate,

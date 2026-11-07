@@ -4,6 +4,9 @@ import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ro.infotb.modern.getSystemLanguage
 import ro.infotb.modern.util.Constants
 
@@ -29,6 +32,22 @@ class PreferencesStore(private val settings: Settings) {
     fun setHomeWidgetStopId(stopId: Long?) {
         if (stopId == null) settings.remove(homeWidgetStopKey) else settings.putString(homeWidgetStopKey, stopId.toString())
         _homeWidgetStopId.value = stopId
+    }
+
+    private val homeWidgetStopsKey = "dashboard.home_widget_stop_ids.v1"
+    private val widgetStopsJson = Json { ignoreUnknownKeys = true }
+    private val _homeWidgetStopIds = MutableStateFlow(
+        settings.getStringOrNull(homeWidgetStopsKey)?.let {
+            runCatching { widgetStopsJson.decodeFromString<Map<String, Long>>(it) }.getOrNull()
+        }.orEmpty()
+    )
+    val homeWidgetStopIds: StateFlow<Map<String, Long>> = _homeWidgetStopIds.asStateFlow()
+
+    fun setHomeWidgetStop(groupName: String, stopId: Long?) {
+        val updated = _homeWidgetStopIds.value.toMutableMap()
+        if (stopId == null) updated.remove(groupName) else updated[groupName] = stopId
+        settings.putString(homeWidgetStopsKey, widgetStopsJson.encodeToString(updated))
+        _homeWidgetStopIds.value = updated
     }
 
     private val _dashboardSort = MutableStateFlow(

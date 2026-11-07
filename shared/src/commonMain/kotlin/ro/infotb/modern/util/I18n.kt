@@ -214,6 +214,20 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "lines.night" to mapOf(Locale.RO to "Noapte", Locale.EN to "Night"),
     "lines.nearby" to mapOf(Locale.RO to "Linii apropiate", Locale.EN to "Nearby lines"),
     "lines.nearbyLoading" to mapOf(Locale.RO to "Se cauta liniile din apropiere...", Locale.EN to "Finding nearby lines..."),
+    "lines.locatingTitle" to mapOf(Locale.RO to "Se cauta linii in apropiere...", Locale.EN to "Finding nearby lines..."),
+    "lines.locatingDescription" to mapOf(
+        Locale.RO to "Identificam liniile de transport din zona ta",
+        Locale.EN to "Locating transit routes near your current position"
+    ),
+    "lines.noNearbyTitle" to mapOf(Locale.RO to "Nicio linie in apropiere", Locale.EN to "No nearby lines found"),
+    "lines.noNearbyDescription" to mapOf(
+        Locale.RO to "Nu am gasit statii sau linii active la mai putin de 1 km de tine.",
+        Locale.EN to "No active transit lines or stops found within 1 km of your location."
+    ),
+    "lines.locationPermissionTitle" to mapOf(
+        Locale.RO to "Localizarea nu este disponibila",
+        Locale.EN to "Location unavailable"
+    ),
     "lines.emptyTitle" to mapOf(Locale.RO to "Nicio linie gasita", Locale.EN to "No lines found"),
     "lines.searchingStops" to mapOf(Locale.RO to "Se cauta liniile...", Locale.EN to "Searching lines..."),
     "lines.emptyDescription" to mapOf(
@@ -240,6 +254,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     // Stop detail page
     "stopDetail.back" to mapOf(Locale.RO to "Inapoi", Locale.EN to "Back"),
     "stopDetail.arrivals" to mapOf(Locale.RO to "Sosiri", Locale.EN to "Arrivals"),
+    "stopDetail.navigateToStop" to mapOf(Locale.RO to "Navighează la stație", Locale.EN to "Navigate to stop"),
     "stopDetail.lines" to mapOf(Locale.RO to "linii", Locale.EN to "lines"),
     "stopDetail.noLines" to mapOf(Locale.RO to "Nicio linie la aceasta statie", Locale.EN to "No lines at this station"),
     "stopDetail.notFound" to mapOf(Locale.RO to "Statia nu a fost gasita", Locale.EN to "Station not found"),

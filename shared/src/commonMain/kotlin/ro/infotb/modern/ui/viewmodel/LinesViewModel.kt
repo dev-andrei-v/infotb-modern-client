@@ -171,7 +171,17 @@ class LinesViewModel(
 
     fun setNearbyOnly(enabled: Boolean) {
         _nearbyOnly.value = enabled
-        if (enabled && !nearbyLoaded) loadNearbyLines()
+        if (enabled && (!nearbyLoaded || _nearbyError.value != null)) {
+            nearbyLoaded = false
+            nearbyLineIds.value = emptySet()
+            loadNearbyLines()
+        }
+    }
+
+    fun refreshNearbyLines() {
+        nearbyLoaded = false
+        nearbyLineIds.value = emptySet()
+        loadNearbyLines()
     }
 
     private fun loadNearbyLines() {

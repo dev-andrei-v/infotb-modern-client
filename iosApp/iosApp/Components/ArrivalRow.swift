@@ -9,6 +9,7 @@ struct ArrivalRow<Expanded: View>: View {
     var elapsed: Int64 = 0
     var followUpCount = 3
     var directionLines = 2
+    var destinationOnly = false
     var isTracking = false
     var timetableExpanded = false
     var timetableLoading = false
@@ -30,10 +31,11 @@ struct ArrivalRow<Expanded: View>: View {
                 .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(line.directionName)
+                    Text(destinationOnly ? "→ \(line.directionName.components(separatedBy: " - ").last ?? line.directionName)" : line.directionName)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(directionLines)
+                        .lineLimit(destinationOnly ? 2 : directionLines)
+                        .minimumScaleFactor(0.88)
                     if inService {
                         let followUps = Array(line.arrivingTimes.dropFirst().prefix(followUpCount))
                         if !followUps.isEmpty {

@@ -94,6 +94,7 @@ fun StopDetailScreen(
     activeSubscriptions: List<NotificationSubscription> = emptyList(),
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
+    onNavigateToStop: (latitude: Double, longitude: Double, name: String) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
     onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean, lineType: String) -> Unit,
     onStopNotification: (subscriptionId: String) -> Unit = {},
@@ -126,6 +127,16 @@ fun StopDetailScreen(
                 }
             }
         )
+
+        if (stopCoordinates != null) {
+            TextButton(onClick = {
+                stopCoordinates?.let { onNavigateToStop(it.lat, it.lng, stopInfo?.name ?: it.name) }
+            }, modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp)) {
+                Icon(Icons.Default.Place, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(t("stopDetail.navigateToStop", locale))
+            }
+        }
 
         if (isLoading && stopInfo == null) {
             Box(
@@ -421,7 +432,7 @@ private fun StopLineRow(
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = line.directionName,
+                    text = "→ ${line.directionName.substringAfterLast(" - ").trim()}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 2,

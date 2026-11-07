@@ -69,6 +69,7 @@ final class LinesModel {
 
     func toggleFavorite(_ line: Line) { viewModel.toggleFavorite(lineId: line.id) }
     func reload() { viewModel.refreshLines() }
+    func refreshNearbyLines() { viewModel.refreshNearbyLines() }
     func setLineDisplayStyle(_ style: String) { viewModel.setLineDisplayStyle(style: style) }
 
     var favorites: [Line] { lines.filter { favoriteIds.contains($0.id) } }
@@ -171,6 +172,33 @@ struct LinesView: View {
                 Text(tr("lines.errorDescription"))
             } actions: {
                 Button(tr("common.retry")) { model.reload() }.buttonStyle(.borderedProminent)
+            }
+        } else if model.nearbyOnly && model.isLoadingNearby && model.lines.isEmpty {
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.large)
+                Text(tr("lines.locatingTitle"))
+                    .font(.headline)
+                Text(tr("lines.locatingDescription"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if model.nearbyOnly && model.nearbyError != nil && model.lines.isEmpty {
+            ContentUnavailableView {
+                Label(tr("lines.locationPermissionTitle"), systemImage: "location.slash")
+            } description: {
+                Text(model.nearbyError ?? tr("lines.errorDescription"))
+            } actions: {
+                Button(tr("common.retry")) { model.refreshNearbyLines() }.buttonStyle(.borderedProminent)
+            }
+        } else if model.nearbyOnly && model.lines.isEmpty {
+            ContentUnavailableView {
+                Label(tr("lines.noNearbyTitle"), systemImage: "location.slash")
+            } description: {
+                Text(tr("lines.noNearbyDescription"))
+            } actions: {
+                Button(tr("common.retry")) { model.refreshNearbyLines() }.buttonStyle(.borderedProminent)
             }
         } else if model.lines.isEmpty && model.isSearchingStops {
             VStack(spacing: 12) {

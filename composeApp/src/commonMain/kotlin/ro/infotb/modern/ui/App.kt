@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -74,6 +75,7 @@ fun App(
     notificationNav: MutableState<PendingStopNav?> = remember { mutableStateOf(null) },
     quickActionNav: MutableState<PendingQuickAction?> = remember { mutableStateOf(null) }
 ) {
+    val uriHandler = LocalUriHandler.current
     val preferencesStore: PreferencesStore = koinInject()
     val repository: TransitRepository = koinInject()
     val dashboardStore: DashboardStore = koinInject()
@@ -292,6 +294,9 @@ fun App(
                         onBack = { navController.popBackStack() },
                         onNavigateToLine = { lid ->
                             navController.navigate(Screen.LineDetail(lid).route)
+                        },
+                        onNavigateToStop = { lat, lng, name ->
+                            runCatching { uriHandler.openUri("geo:$lat,$lng?q=$lat,$lng") }
                         },
                         onAddToDashboard = { sid, stopName ->
                             dashboardStore.addWidget(

@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,6 +70,8 @@ import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
+import ro.infotb.modern.ui.components.shared.LocationOffIcon
+import ro.infotb.modern.ui.components.shared.LocationSearchingIcon
 import ro.infotb.modern.ui.components.shared.vehicleIcon
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.transportColor
@@ -220,6 +223,73 @@ fun LinesScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         TextButton(onClick = { viewModel.loadLines() }) {
+                            Text(t("common.retry", locale))
+                        }
+                    }
+                }
+
+                nearbyOnly && isLoadingNearby && filteredLines.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(64.dp),
+                                    strokeWidth = 3.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Icon(
+                                    imageVector = LocationSearchingIcon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(Modifier.height(20.dp))
+                            Text(
+                                text = t("lines.locatingTitle", locale),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = t("lines.locatingDescription", locale),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = LocalMuted.current,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                nearbyOnly && nearbyError != null && filteredLines.isEmpty() -> {
+                    EmptyState(
+                        icon = LocationOffIcon,
+                        title = t("lines.locationPermissionTitle", locale),
+                        description = nearbyError ?: t("lines.errorDescription", locale),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        TextButton(onClick = { viewModel.refreshNearbyLines() }) {
+                            Text(t("common.retry", locale))
+                        }
+                    }
+                }
+
+                nearbyOnly && filteredLines.isEmpty() -> {
+                    EmptyState(
+                        icon = LocationOffIcon,
+                        title = t("lines.noNearbyTitle", locale),
+                        description = t("lines.noNearbyDescription", locale),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        TextButton(onClick = { viewModel.refreshNearbyLines() }) {
                             Text(t("common.retry", locale))
                         }
                     }

@@ -85,7 +85,7 @@ struct ArrivalBadge: View {
         .contentTransition(.numericText())
         .onTapGesture { showInfo = true }
         .sheet(isPresented: $showInfo) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 Label(
                     isTimetable ? tr("arrival.scheduled") : "Live GPS",
                     systemImage: isTimetable ? "calendar" : "dot.radiowaves.left.and.right"
@@ -97,10 +97,9 @@ struct ArrivalBadge: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(24)
-            .presentationDetents([.medium])
+            .padding(20)
+            .presentationDetents([.height(145)])
             .presentationDragIndicator(.visible)
         }
         .accessibilityElement(children: .combine)

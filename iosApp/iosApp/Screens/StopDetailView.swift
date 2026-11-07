@@ -1,5 +1,7 @@
 import Shared
 import SwiftUI
+import MapKit
+import UIKit
 
 @Observable
 final class StopDetailModel {
@@ -108,6 +110,15 @@ private struct StopDetailContent: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             if let info = model.info {
+                if let stop = model.coordinates {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            openMaps(latitude: stop.lat, longitude: stop.lng, name: info.name)
+                        } label: { Image(systemName: "arrow.triangle.turn.up.right.diamond") }
+                        .accessibilityLabel(tr("stopDetail.navigateToStop"))
+                        .accessibilityHint(tr("stopDetail.navigateToStopHint"))
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         app.addToDashboard(stopId: model.stopId, stopName: info.name)
@@ -116,6 +127,19 @@ private struct StopDetailContent: View {
                     }
                 }
             }
+        }
+    }
+
+    private func openMaps(latitude: Double, longitude: Double, name: String) {
+        let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let googleURL = URL(string: "comgooglemaps://?daddr=\(latitude),\(longitude)&q=\(encodedName)"),
+           UIApplication.shared.canOpenURL(googleURL) {
+            UIApplication.shared.open(googleURL)
+        } else {
+            let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+            item.name = name
+            item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
         }
     }
 
@@ -162,6 +186,7 @@ private struct StopDetailContent: View {
         return ArrivalRow(
             line: line,
             followUpCount: 3,
+            destinationOnly: true,
             isTracking: subscription != nil,
             timetableExpanded: model.expandedTimetables.contains(key),
             timetableLoading: model.timetableLoading.contains(key),

@@ -82,6 +82,7 @@ class DashboardViewModel(
     val hiddenGroups: StateFlow<List<String>> = dashboardStore.hiddenGroups
     val groupSchedules: StateFlow<Map<String, GroupSchedule>> = dashboardStore.groupSchedules
     val homeWidgetStopId: StateFlow<Long?> = preferencesStore.homeWidgetStopId
+    val homeWidgetStopIds: StateFlow<Map<String, Long>> = preferencesStore.homeWidgetStopIds
 
     private val _isEditing = MutableStateFlow(false)
     val isEditing: StateFlow<Boolean> = _isEditing.asStateFlow()
@@ -256,6 +257,10 @@ class DashboardViewModel(
 
     fun setHomeWidgetStop(stopId: Long?) {
         preferencesStore.setHomeWidgetStopId(stopId)
+    }
+
+    fun setHomeWidgetStop(groupName: String, stopId: Long?) {
+        preferencesStore.setHomeWidgetStop(groupName, stopId)
     }
 
     fun addGroup(name: String) {

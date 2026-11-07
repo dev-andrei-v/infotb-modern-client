@@ -67,7 +67,6 @@ struct DashboardCard: View {
         }
         .padding(14)
         .card(radius: InfoTBDesign.cardRadius)
-        .contextMenu { menuItems }
     }
 
     private func header(state: StopCardState?, isStale: Bool) -> some View {
@@ -115,10 +114,10 @@ struct DashboardCard: View {
                 menuItems
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .glassBackground(in: Circle(), interactive: true)
+                    .frame(width: 34, height: 34)
+                    .background(.thinMaterial, in: Circle())
             }
             .accessibilityLabel(tr("widget.options"))
         }
@@ -126,35 +125,40 @@ struct DashboardCard: View {
 
     @ViewBuilder
     private var menuItems: some View {
-        Button(action: onOptions) {
-            Label(tr("widget.options"), systemImage: "slider.horizontal.3")
+        Section {
+            Button(action: onOptions) {
+                Label(tr("widget.options"), systemImage: "slider.horizontal.3")
+            }
+            Button {
+                model.resize(widget, to: widget.size == .large ? .medium : .large)
+            } label: {
+                Label(
+                    widget.size == .large ? tr("widget.sizeMedium") : tr("widget.sizeLarge"),
+                    systemImage: widget.size == .large ? "rectangle.compress.vertical" : "rectangle.expand.vertical"
+                )
+            }
         }
-        Button {
-            model.resize(widget, to: widget.size == .large ? .medium : .large)
-        } label: {
-            Label(
-                widget.size == .large ? tr("widget.sizeMedium") : tr("widget.sizeLarge"),
-                systemImage: widget.size == .large ? "rectangle.compress.vertical" : "rectangle.expand.vertical"
-            )
+        Section {
+            Button {
+                model.toggleHomeScreenStop(widget.stopId)
+            } label: {
+                Label(
+                    model.homeWidgetStopID == widget.stopId ? tr("widget.removeHomeScreenStop") : tr("widget.useHomeScreenStop"),
+                    systemImage: model.homeWidgetStopID == widget.stopId ? "checkmark.square.fill" : "square.on.square"
+                )
+            }
+            Button {
+                model.toggleHidden(widget)
+            } label: {
+                Label(tr("widget.hide"), systemImage: "eye.slash")
+            }
         }
-        Button {
-            model.toggleHomeScreenStop(widget.stopId)
-        } label: {
-            Label(
-                model.homeWidgetStopID == widget.stopId ? tr("widget.removeHomeScreenStop") : tr("widget.useHomeScreenStop"),
-                systemImage: model.homeWidgetStopID == widget.stopId ? "checkmark.square.fill" : "square.on.square"
-            )
-        }
-        Button {
-            model.toggleHidden(widget)
-        } label: {
-            Label(tr("widget.hide"), systemImage: "eye.slash")
-        }
-        Divider()
-        Button(role: .destructive) {
-            model.remove(widget)
-        } label: {
-            Label(tr("widget.delete"), systemImage: "trash")
+        Section {
+            Button(role: .destructive) {
+                model.remove(widget)
+            } label: {
+                Label(tr("widget.delete"), systemImage: "trash")
+            }
         }
     }
 

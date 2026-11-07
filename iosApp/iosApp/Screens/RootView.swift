@@ -31,7 +31,7 @@ struct RootView: View {
                 PlannerView()
                     .routeDestinations()
             }
-            .tabItem { Label(tr("nav.planner"), systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
+            .tabItem { Label(tr("nav.planner"), systemImage: "arrow.triangle.swap") }
             .tag(AppTab.planner)
 
             NavigationStack(path: $app.settingsPath) {

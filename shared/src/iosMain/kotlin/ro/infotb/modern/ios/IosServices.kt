@@ -37,6 +37,8 @@ import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
  * exposed as properties; view models are created fresh, mirroring App.kt.
  */
 object IosServices : KoinComponent {
+    var lastPlannerError: String? = null
+
     val preferencesStore: PreferencesStore get() = get()
     val dashboardStore: DashboardStore get() = get()
     val favoritesStore: FavoritesStore get() = get()
@@ -60,11 +62,12 @@ object IosServices : KoinComponent {
     }
 
     suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean): String? = try {
+        lastPlannerError = null
         get<TransitRepository>().planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        println("Planner route request failed: ${e.message}")
+        lastPlannerError = e.message?.take(500)
         null
     }
 

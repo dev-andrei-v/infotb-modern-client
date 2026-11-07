@@ -82,24 +82,26 @@ struct PlannerView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                placesCard
                 departureCard
                 modeCard
                 advancedCard
-                Button(action: findRoutes) {
-                    HStack { if loading { ProgressView().tint(.white) }; Text(tr("planner.findRoutes")) }
-                        .frame(maxWidth: .infinity).padding(.vertical, 5)
+                if let error {
+                    Label {
+                        Text(error).textSelection(.enabled)
+                    } icon: {
+                        Image(systemName: "wifi.exclamationmark")
+                    }
+                    .font(.subheadline).foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(loading || origin == nil || destination == nil || modes.isEmpty)
-
-                if let error { Label(error, systemImage: "wifi.exclamationmark").font(.subheadline).foregroundStyle(.secondary) }
                 if let response { routeResults(response) }
                 savedSection
             }
-            .padding()
+            .padding(.horizontal, InfoTBDesign.pageInset)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
         }
         .background(Color(.systemGroupedBackground))
+        .safeAreaInset(edge: .bottom, spacing: 0) { tripControlsDock }
         .navigationTitle(tr("planner.title"))
         .navigationBarTitleDisplayMode(.inline)
         .foregroundLocation(plannerLocation)
@@ -111,41 +113,67 @@ struct PlannerView: View {
         }
     }
 
-    private var placesCard: some View {
-        VStack(spacing: 0) {
-            placeRow(title: tr("planner.from"), place: origin, icon: "circle.fill", field: .origin)
-            Divider().padding(.leading, 46)
-            placeRow(title: tr("planner.to"), place: destination, icon: "mappin.and.ellipse", field: .destination)
-            if origin != nil && destination != nil {
+    private var tripControlsDock: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                placeDockButton(title: tr("planner.from"), place: origin, icon: "circle.fill", field: .origin)
                 Button {
                     swap(&origin, &destination)
-                } label: { Label(tr("planner.swap"), systemImage: "arrow.up.arrow.down") }
-                .font(.caption.weight(.semibold)).frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 10)
+                } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 40, height: 52)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(InfoTBDesign.accent)
+                .disabled(origin == nil || destination == nil)
+                .accessibilityLabel(tr("planner.swap"))
+                placeDockButton(title: tr("planner.to"), place: destination, icon: "mappin.and.ellipse", field: .destination)
             }
+            Button(action: findRoutes) {
+                HStack(spacing: 8) {
+                    if loading { ProgressView().tint(.white) }
+                    Text(tr("planner.findRoutes"))
+                }
+                .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(loading || origin == nil || destination == nil || modes.isEmpty)
         }
-        .padding(16)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        .padding(.horizontal, InfoTBDesign.pageInset)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(.regularMaterial)
     }
 
-    private func placeRow(title: String, place: PlannerPlace?, icon: String, field target: PlannerPlaceField) -> some View {
+    private func placeDockButton(title: String, place: PlannerPlace?, icon: String, field target: PlannerPlaceField) -> some View {
         Button {
             query = ""
             suggestions = []
+            placePickerMessage = nil
             field = target
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: icon).foregroundStyle(target == .origin ? InfoTBDesign.accent : Color.red).frame(width: 20)
-                VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(target == .origin ? InfoTBDesign.accent : Color.red)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     Text(place?.name ?? tr(target == .origin ? "planner.chooseOrigin" : "planner.chooseDestination"))
-                        .font(.body.weight(.medium)).foregroundStyle(place == nil ? Color.secondary : Color.primary).lineLimit(1)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(place == nil ? Color.secondary : Color.primary)
+                        .lineLimit(1)
                 }
-                Spacer()
-                Image(systemName: "magnifyingglass").foregroundStyle(.tertiary)
+                Spacer(minLength: 0)
             }
-            .contentShape(Rectangle())
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityHint(tr(target == .origin ? "planner.chooseOrigin" : "planner.chooseDestination"))
     }
 
     private var departureCard: some View {
@@ -481,7 +509,8 @@ struct PlannerView: View {
             )
             await MainActor.run {
                 loading = false
-                if let result { response = result } else { error = tr("planner.loadFailed") }
+                if let result { response = result }
+                else { error = IosServices.shared.lastPlannerError ?? tr("planner.loadFailed") }
             }
         }
     }

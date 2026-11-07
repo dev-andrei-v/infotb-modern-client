@@ -67,6 +67,11 @@ private struct MapViewport: Equatable {
         let longitudeMeters = longitudeDelta * 111_000 * max(0.1, cos(latitude * .pi / 180))
         return min(5_000, max(1_000, hypot(latitudeMeters, longitudeMeters) / 2))
     }
+
+    var minimumSpanMeters: Double {
+        min(latitudeDelta * 111_000,
+            longitudeDelta * 111_000 * max(0.1, cos(latitude * .pi / 180)))
+    }
 }
 
 private struct StopMapMarker: View {
@@ -165,6 +170,7 @@ private final class NearbyMapModel {
     var routes: [Int64: [NearbyRoute]] = [:]
     private var lastSearch: CLLocation?
     private var lastLoaded = Date.distantPast
+    private var lastViewport: MapViewport?
     private var searchId = UUID()
     private var linesRequestId = UUID()
     private var routesRequestId = UUID()
@@ -202,6 +208,9 @@ private final class NearbyMapModel {
     }
 
     func load(in viewport: MapViewport, force: Bool = false) async {
+        // Very wide views are served from the local catalogue. Wait until the
+        // rider zooms in before requesting a large, low-value stop rectangle.
+        guard force || viewport.stopSearchRadius <= 4_500 else { return }
         let bounds = viewport.searchBounds
         if !force, StopLocationCache.shared.hasFreshCoverage(
             south: bounds.south, west: bounds.west, north: bounds.north, east: bounds.east
@@ -209,8 +218,13 @@ private final class NearbyMapModel {
             failed = false
             return
         }
-        if !force, let lastSearch, viewport.center.distance(from: lastSearch) < 350,
-           Date().timeIntervalSince(lastLoaded) < 30 { return }
+        if !force, let lastViewport, Date().timeIntervalSince(lastLoaded) < 90 {
+            let panThreshold = max(650, min(viewport.minimumSpanMeters, lastViewport.minimumSpanMeters) * 0.35)
+            let panDistance = viewport.center.distance(from: lastViewport.center)
+            let zoomRatio = viewport.stopSearchRadius / max(1, lastViewport.stopSearchRadius)
+            let zoomChange = abs(zoomRatio - 1)
+            if panDistance < panThreshold && zoomChange < 0.3 { return }
+        }
 
         let requestId = UUID()
         searchId = requestId
@@ -224,6 +238,7 @@ private final class NearbyMapModel {
             StopLocationCache.shared.storeArea(result, south: bounds.south, west: bounds.west,
                                                north: bounds.north, east: bounds.east)
             lastSearch = viewport.center
+            lastViewport = viewport
             lastLoaded = .now
             failed = false
         } else {
@@ -245,6 +260,7 @@ private final class NearbyMapModel {
         }
         for start in stride(from: 0, to: pending.count, by: 4) {
             guard !Task.isCancelled else { return }
+            var batch: [(stopId: Int64, lines: [Line])] = []
             await withTaskGroup(of: (Int64, [Line]?).self) { group in
                 for stop in pending[start..<min(start + 4, pending.count)] {
                     group.addTask { @MainActor in
@@ -253,10 +269,11 @@ private final class NearbyMapModel {
                 }
                 for await (id, lines) in group {
                     guard !Task.isCancelled, linesRequestId == requestId else { continue }
-                    if let lines { StopLocationCache.shared.storeLines(lines, for: id) }
+                    if let lines { batch.append((stopId: id, lines: lines)) }
                     else { linesFailed = true }
                 }
             }
+            if !batch.isEmpty { StopLocationCache.shared.storeLines(batch) }
         }
     }
 
@@ -266,21 +283,23 @@ private final class NearbyMapModel {
         routesLoading = true
         routesFailed = false
         defer { if routesRequestId == requestId { routesLoading = false } }
+        var routeStops: [Stop] = []
         for id in lineIds where !completedRoutes.contains(id) {
             guard !Task.isCancelled else { return }
             var paths: [NearbyRoute] = []
             for direction in [Direction.tur, .retur] {
                 if let detail = try? await IosServices.shared.mapLine(lineId: id, direction: direction) {
                     guard !Task.isCancelled else { return }
-                    StopLocationCache.shared.store(detail.stops)
+                    routeStops.append(contentsOf: detail.stops)
                     paths.append(NearbyRoute(detail: detail, direction: direction))
-                    routes[id] = paths
                 } else {
                     routesFailed = true
                 }
             }
+            routes[id] = paths
             if paths.count == 2 { completedRoutes.insert(id) }
         }
+        if !routeStops.isEmpty { StopLocationCache.shared.store(routeStops) }
     }
 }
 
@@ -289,7 +308,7 @@ struct NearbyMapView: View {
     @State private var model = NearbyMapModel()
     @State private var cache = StopLocationCache.shared
     @State private var position: MapCameraPosition = .region(Self.bucharest)
-    @State private var mapViewport: MapViewport?
+    @State private var mapViewport: MapViewport? = MapViewport(Self.bucharest)
     @State private var centered = false
     @State private var selectedGroupId: String?
     @State private var selectedStop: CachedStop?
@@ -303,6 +322,7 @@ struct NearbyMapView: View {
     @State private var sheetLevel: MapSheetLevel = .collapsed
     @State private var sheetDrag = 0.0
     @State private var routeColors: [Int64: String] = [:]
+    @State private var clockNow = Date()
 
     private static let bucharest = MKCoordinateRegion(
         center: .init(latitude: 44.435, longitude: 26.10),
@@ -317,27 +337,45 @@ struct NearbyMapView: View {
         // Include nearby metro entrances even in dense clusters of surface
         // stops, so the metro filter can discover its nearest lines too.
         let groups = NearbyStopGroup.groups(stops)
-        let first = Array(groups.prefix(8))
+        let radius = mapViewport?.stopSearchRadius ?? 1_000
+        let groupLimit = radius < 1_700 ? 8 : radius < 3_200 ? 5 : 3
+        let metroLimit = radius < 3_200 ? 2 : 1
+        let first = Array(groups.prefix(groupLimit))
         let ids = Set(first.map(\.id))
-        let metro = groups.filter { !ids.contains($0.id) && $0.stops.contains { $0.type == "SUBWAY_STATION" } }.prefix(2)
+        let metro = groups.filter { !ids.contains($0.id) && $0.stops.contains { $0.type == "SUBWAY_STATION" } }.prefix(metroLimit)
         return (first + metro).flatMap(\.stops).sorted { $0.distance(from: center) < $1.distance(from: center) }
     }
 
     private var nearbyLines: [CachedStopLine] {
         var seen: Set<Int64> = []
-        return nearestStops.flatMap(\.lines).filter { seen.insert($0.id).inserted && selectedTypes.contains($0.type) }
+        return nearestStops.flatMap(\.lines).filter {
+            selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0)) && seen.insert($0.id).inserted
+        }
     }
 
     private var visibleStops: [CachedStop] {
         nearestStops.filter {
-            selectedTypes.count == TransportType.ordered.count || $0.lines.contains { selectedTypes.contains($0.type) }
+            guard !$0.lines.isEmpty else { return true }
+            return $0.lines.contains {
+                selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0))
+            }
         }
+    }
+
+    private var isNightTransitTime: Bool {
+        let hour = Calendar.current.component(.hour, from: clockNow)
+        return hour >= 22 || hour < 5
+    }
+
+    private func isNightBus(_ line: CachedStopLine) -> Bool {
+        line.type == TransportType.bus.name && line.name.range(of: "^N\\d+$", options: .regularExpression) != nil
     }
 
     private var visibleGroups: [NearbyStopGroup] { NearbyStopGroup.groups(visibleStops) }
 
     private var routeIds: [Int64] {
-        var ids = Array(nearbyLines.prefix(6).map(\.id))
+        let routeLimit = (mapViewport?.stopSearchRadius ?? 1_000) < 1_700 ? 6 : 3
+        var ids = Array(nearbyLines.prefix(routeLimit).map(\.id))
         if let selectedLineId, nearbyLines.contains(where: { $0.id == selectedLineId }), !ids.contains(selectedLineId) {
             ids.append(selectedLineId)
         }
@@ -388,16 +426,40 @@ struct NearbyMapView: View {
                 position = .region(.init(center: fix.coordinate, latitudinalMeters: 2_500, longitudinalMeters: 2_500))
                 centered = true
             }
-            await model.load(near: fix)
+        }
+        .task {
+            let calendar = Calendar.current
+            while !Task.isCancelled {
+                let hour = calendar.component(.hour, from: .now)
+                let transitionHour = (hour >= 5 && hour < 22) ? 22 : 5
+                var components = DateComponents()
+                components.hour = transitionHour
+                components.minute = 0
+                let next = calendar.nextDate(after: .now, matching: components, matchingPolicy: .nextTime) ?? .now.addingTimeInterval(60)
+                try? await Task.sleep(for: .seconds(max(1, next.timeIntervalSinceNow)))
+                if !Task.isCancelled { clockNow = .now }
+            }
         }
         .task(id: mapViewport) {
             guard let viewport = mapViewport else { return }
-            try? await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(650))
             guard !Task.isCancelled else { return }
             await model.load(in: viewport)
         }
-        .task(id: nearestStops.map(\.id)) { await model.loadLines(for: nearestStops) }
-        .task(id: routeIds) { await model.loadRoutes(routeIds) }
+        .task(id: nearestStops.map(\.id)) {
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            while model.loading {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { return }
+            }
+            await model.loadLines(for: nearestStops)
+        }
+        .task(id: routeIds) {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            await model.loadRoutes(routeIds)
+        }
         .task(id: selectedStop?.id) {
             guard let stop = selectedStop else { stopPreview = nil; previewLoading = false; return }
             stopPreview = nil
@@ -634,6 +696,8 @@ struct NearbyMapView: View {
     }
 
     private var lineStrip: some View {
+        let visibleLineLimit = sheetLevel == .collapsed ? 4 : 10
+        let shownLines = Array(nearbyLines.prefix(visibleLineLimit))
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
@@ -654,39 +718,48 @@ struct NearbyMapView: View {
             }
             .padding(.horizontal)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                Button {
+                    selectedLineId = nil
+                } label: {
+                    Label(tr("map.nearestRoutes"), systemImage: "point.3.connected.trianglepath.dotted")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 12).frame(height: 38)
+                        .background(selectedLineId == nil ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(selectedLineId == nil ? Color.accentColor : .secondary)
+                .accessibilityAddTraits(selectedLineId == nil ? .isSelected : [])
+
+                ForEach(shownLines) { line in
+                    let selected = selectedLineId == line.id
                     Button {
-                        selectedLineId = nil
+                        selectedLineId = selected ? nil : line.id
                     } label: {
-                        Label(tr("map.nearestRoutes"), systemImage: "point.3.connected.trianglepath.dotted")
-                            .font(.subheadline.weight(.medium))
-                            .padding(.horizontal, 12).frame(height: 38)
-                            .background(selectedLineId == nil ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
+                        HStack(spacing: 6) {
+                            LineBadge(name: line.name, color: routeColor(line.id))
+                            if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+                        }
+                        .padding(.horizontal, 9).frame(height: 38)
+                        .background(selected ? Color.accentColor.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
+                        .overlay(Capsule().stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(selectedLineId == nil ? Color.accentColor : .secondary)
-                    .accessibilityAddTraits(selectedLineId == nil ? .isSelected : [])
-
-                    ForEach(nearbyLines) { line in
-                        let selected = selectedLineId == line.id
-                        Button {
-                            selectedLineId = selected ? nil : line.id
-                        } label: {
-                            HStack(spacing: 6) {
-                                LineBadge(name: line.name, color: routeColor(line.id))
-                                if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
-                            }
-                            .padding(.horizontal, 9).frame(height: 38)
-                            .background(selected ? Color.accentColor.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
-                            .overlay(Capsule().stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("\(tr("lineDetail.linePrefix")) \(line.name)")
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                    }
+                    .accessibilityLabel("\(tr("lineDetail.linePrefix")) \(line.name)")
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
-                .padding(.horizontal)
+                if nearbyLines.count > visibleLineLimit {
+                    Text("+\(nearbyLines.count - visibleLineLimit)")
+                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 10).frame(height: 34)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                        .accessibilityLabel("\(nearbyLines.count - visibleLineLimit) \(tr("map.moreLines"))")
+                }
+            }
+            .padding(.horizontal, 16)
+            if !isNightTransitTime {
+                Text(tr("map.nightBusesHidden"))
+                    .font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 16)
             }
             if model.linesFailed || model.routesFailed {
                 HStack {
@@ -709,8 +782,8 @@ struct NearbyMapView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(group.name).font(.body.weight(.medium)).foregroundStyle(.primary)
                 FlowLayout(spacing: 4, lineSpacing: 4) {
-                    ForEach(group.lines.filter { selectedTypes.contains($0.type) }) { line in
-                        LineBadge(name: line.name, color: routeColor(line.id), size: .small)
+                    ForEach(group.lines.filter { selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0)) }) { line in
+                        LineBadge(name: line.name, color: routeColor(line.id), size: .medium)
                     }
                 }
                 if group.stops.count > 1 {
@@ -741,8 +814,8 @@ struct NearbyMapView: View {
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                 }
                 FlowLayout(spacing: 4, lineSpacing: 4) {
-                    ForEach(stop.lines.filter { selectedTypes.contains($0.type) }) { line in
-                        LineBadge(name: line.name, color: routeColor(line.id), size: .small)
+                    ForEach(stop.lines.filter { selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0)) }) { line in
+                        LineBadge(name: line.name, color: routeColor(line.id), size: .medium)
                     }
                 }
             }

@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @Bindable private var app = AppModel.shared
     @AppStorage(LineStopPreferences.countKey) private var nearbyStopCount = LineStopPreferences.defaultCount
+    @AppStorage(LineStopPreferences.radiusKey) private var nearbyStopRadius = LineStopPreferences.defaultRadius
 
     var body: some View {
         Form {
@@ -34,10 +35,16 @@ struct SettingsView: View {
                         Text("\(count)").tag(count)
                     }
                 }
+                Picker(tr("settings.nearbyStopRadius"), selection: $nearbyStopRadius) {
+                    ForEach(LineStopPreferences.radii, id: \.self) { radius in
+                        Text("\(radius) m").tag(radius)
+                    }
+                }
+                .disabled(nearbyStopCount == 0)
             } header: {
                 Text(tr("lineDetail.nearbyStops"))
             } footer: {
-                Text(tr("settings.nearbyStopsDescription"))
+                Text(tr("settings.nearbyStopsDescription").replacingOccurrences(of: "{distance}", with: "\(nearbyStopRadius) m"))
                 Text(tr("settings.stopCacheDescription"))
             }
 

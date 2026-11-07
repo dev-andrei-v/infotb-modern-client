@@ -70,21 +70,33 @@ final class StopLocationCache {
     private let defaults: UserDefaults
 
     func store(_ values: [Stop]) {
+        var updatedStops = stops
         for stop in values {
-            let coordinate = CLLocationCoordinate2D(latitude: stop.lat, longitude: stop.lng)
-            guard CLLocationCoordinate2DIsValid(coordinate), stop.lat != 0 || stop.lng != 0 else { continue }
-            var record = stops[stop.id] ?? CachedStop(id: stop.id, name: stop.name, latitude: stop.lat, longitude: stop.lng)
-            record.name = stop.name
-            record.latitude = stop.lat
-            record.longitude = stop.lng
-            record.type = stop.type ?? record.type
-            record.color = stop.iconColor ?? record.color
-            record.description = stop.description_ ?? record.description
-            record.updated = .now
-            stops[stop.id] = record
-            if let lines = stop.lines { storeLines(lines, for: stop.id, persist: false) }
+            merge(stop, into: &updatedStops)
         }
+        stops = updatedStops
         persist()
+    }
+
+    private func merge(_ stop: Stop, into records: inout [Int64: CachedStop]) {
+        let coordinate = CLLocationCoordinate2D(latitude: stop.lat, longitude: stop.lng)
+        guard CLLocationCoordinate2DIsValid(coordinate), stop.lat != 0 || stop.lng != 0 else { return }
+        var record = records[stop.id] ?? CachedStop(id: stop.id, name: stop.name, latitude: stop.lat, longitude: stop.lng)
+        record.name = stop.name
+        record.latitude = stop.lat
+        record.longitude = stop.lng
+        record.type = stop.type ?? record.type
+        record.color = stop.iconColor ?? record.color
+        record.description = stop.description_ ?? record.description
+        record.updated = .now
+        if let lines = stop.lines {
+            var seen: Set<Int64> = []
+            record.lines = lines.map { CachedStopLine(id: $0.id, name: $0.name, color: $0.color, type: $0.type.name) }
+                .filter { seen.insert($0.id).inserted }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            record.linesUpdated = .now
+        }
+        records[stop.id] = record
     }
 
     func storeLines(_ lines: [LineArrival], for stopId: Int64, persist shouldPersist: Bool = true) {
@@ -93,6 +105,21 @@ final class StopLocationCache {
 
     func storeLines(_ lines: [Line], for stopId: Int64) {
         setLines(lines.map { CachedStopLine(id: $0.id, name: $0.name, color: $0.color, type: $0.type.name) }, for: stopId)
+    }
+
+    func storeLines(_ updates: [(stopId: Int64, lines: [Line])]) {
+        var updatedStops = stops
+        for (stopId, lines) in updates {
+            guard var record = updatedStops[stopId] else { continue }
+            var seen: Set<Int64> = []
+            record.lines = lines.map { CachedStopLine(id: $0.id, name: $0.name, color: $0.color, type: $0.type.name) }
+                .filter { seen.insert($0.id).inserted }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            record.linesUpdated = .now
+            updatedStops[stopId] = record
+        }
+        stops = updatedStops
+        persist()
     }
 
     private func setLines(_ lines: [CachedStopLine], for stopId: Int64, persist shouldPersist: Bool = true) {
@@ -128,15 +155,16 @@ final class StopLocationCache {
         let valid = values.filter { $0.type == "STATION" || $0.type == "SUBWAY_STATION" }
         let ids = Set(valid.map(\.id))
         // A successful refresh also removes stops that no longer exist here.
-        stops = stops.filter { ids.contains($0.key) || !area.contains(latitude: $0.value.latitude, longitude: $0.value.longitude) }
-        store(valid)
+        var updatedStops = stops.filter { ids.contains($0.key) || !area.contains(latitude: $0.value.latitude, longitude: $0.value.longitude) }
+        for stop in valid { merge(stop, into: &updatedStops) }
+        stops = updatedStops
         areas.removeAll {
             Date().timeIntervalSince($0.updated) >= Self.coordinateTTL ||
                 (area.contains(latitude: $0.south, longitude: $0.west) && area.contains(latitude: $0.north, longitude: $0.east))
         }
         if valid.allSatisfy({ stops[$0.id] != nil }) { areas.append(area) }
         areas = Array(areas.suffix(32))
-        if let data = try? JSONEncoder().encode(areas) { defaults.set(data, forKey: Self.areasKey) }
+        persist()
     }
 
     func markUsed(_ id: Int64) {
@@ -170,10 +198,12 @@ final class StopLocationCache {
         }.prefix(1_000))
         let retainedIds = Set(retained.map(\.id))
         let evicted = stops.values.filter { !retainedIds.contains($0.id) }
-        stops = Dictionary(uniqueKeysWithValues: retained.map { ($0.id, $0) })
-        // Eviction can make a saved area's catalogue incomplete; refetch it
-        // next time instead of treating missing stops as a valid empty area.
-        areas.removeAll { area in evicted.contains { area.contains(latitude: $0.latitude, longitude: $0.longitude) } }
+        if !evicted.isEmpty {
+            stops = Dictionary(uniqueKeysWithValues: retained.map { ($0.id, $0) })
+            // Eviction can make a saved area's catalogue incomplete; refetch it
+            // next time instead of treating missing stops as a valid empty area.
+            areas.removeAll { area in evicted.contains { area.contains(latitude: $0.latitude, longitude: $0.longitude) } }
+        }
         if let data = try? JSONEncoder().encode(retained) { defaults.set(data, forKey: Self.key) }
         if let data = try? JSONEncoder().encode(areas) { defaults.set(data, forKey: Self.areasKey) }
     }

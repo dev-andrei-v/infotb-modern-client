@@ -45,6 +45,7 @@ struct LineDetailView: View {
 private struct LineDetailContent: View {
     let model: LineDetailModel
     @AppStorage(LineStopPreferences.countKey) private var nearbyStopCount = LineStopPreferences.defaultCount
+    @AppStorage(LineStopPreferences.radiusKey) private var nearbyStopRadius = LineStopPreferences.defaultRadius
     @State private var location = ForegroundLocation()
 
     var body: some View {
@@ -70,7 +71,8 @@ private struct LineDetailContent: View {
                 return fix.distance(from: CLLocation(latitude: stop.lat, longitude: stop.lng))
             }
         }
-        let selection = NearbyStopSelection(distances: distances, stopCount: detail.stops.count, count: nearbyStopCount)
+        let selection = NearbyStopSelection(distances: distances, stopCount: detail.stops.count, count: nearbyStopCount,
+                                            maximumDistance: Double(nearbyStopRadius))
         return List {
             Section {
                 HStack(spacing: 10) {
@@ -149,6 +151,9 @@ private struct LineDetailContent: View {
                     }
                     if location.location == nil {
                         LocationStatusView(location: location)
+                    } else if selection.nearby.isEmpty {
+                        Text(tr("lineDetail.noNearbyStops"))
+                            .font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
             }

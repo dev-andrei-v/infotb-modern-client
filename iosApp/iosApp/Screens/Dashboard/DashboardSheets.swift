@@ -37,7 +37,7 @@ struct WidgetOptionsSheet: View {
                                 Text(line.directionName).foregroundStyle(.primary).lineLimit(1)
                                 Spacer()
                                 Image(systemName: visible ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(visible ? Color.accentColor : .secondary)
+                                    .foregroundStyle(visible ? InfoTBDesign.accent : .secondary)
                                     .font(.title3)
                             }
                         }
@@ -184,14 +184,14 @@ struct GroupsSheet: View {
                     Text(group).font(.body.weight(.semibold))
                     Label(schedule.map(DashboardFormat.schedule) ?? tr("dashboard.groupHoursSet"), systemImage: "clock")
                         .font(.caption)
-                        .foregroundStyle(schedule != nil ? Color.accentColor : .secondary)
+                        .foregroundStyle(schedule != nil ? InfoTBDesign.accent : .secondary)
                 }
             }
             Button {
                 model.toggleGroupHidden(group)
             } label: {
                 Image(systemName: hidden ? "eye.slash" : "eye")
-                    .foregroundStyle(hidden ? Color.secondary : Color.accentColor)
+                    .foregroundStyle(hidden ? Color.secondary : InfoTBDesign.accent)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(hidden ? tr("widget.show") : tr("widget.hide"))
@@ -204,7 +204,7 @@ struct GroupsSheet: View {
             } label: {
                 Label(tr("dashboard.groupRename"), systemImage: "pencil")
             }
-            .tint(.accentColor)
+            .tint(InfoTBDesign.accent)
         }
         .contextMenu {
             Button {

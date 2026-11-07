@@ -16,7 +16,6 @@ struct DashboardCard: View {
 
     var body: some View {
         let state = model.cardStates[widget.stopId]
-        let allLines = state?.info?.lines ?? []
         let lines = model.lines(for: widget)
         let detailed = widget.size == .large
         let maxRows = detailed ? Int.max : 4
@@ -25,57 +24,49 @@ struct DashboardCard: View {
         let elapsed = (state?.lastUpdatedMs ?? 0) > 0 ? max(0, (nowMs - state!.lastUpdatedMs) / 1000) : 0
         let isStale = state?.hasData == true && (state?.error != nil || nowMs - (state?.lastUpdatedMs ?? 0) > staleAfterMs)
 
-        HStack(spacing: 0) {
-            cardAccent(for: allLines, sorted: lines)
-                .frame(width: 5)
+        VStack(alignment: .leading, spacing: 8) {
+            header(state: state, isStale: isStale)
 
-            VStack(alignment: .leading, spacing: 8) {
-                header(state: state, isStale: isStale)
-
-                let news = model.news(for: lines)
-                if !news.isEmpty {
-                    NewsBanner(news: news) { app.openNews() }
-                }
-
-                if state?.info != nil, !lines.isEmpty {
-                    VStack(spacing: 0) {
-                        ForEach(Array(lines.prefix(maxRows).enumerated()), id: \.offset) { index, line in
-                            if index > 0 { Divider() }
-                            row(line, elapsed: elapsed, detailed: detailed)
-                                .padding(.vertical, 6)
-                        }
-                    }
-                    if lines.count > maxRows {
-                        Button {
-                            app.push(.stop(widget.stopId))
-                        } label: {
-                            Text("+\(lines.count - maxRows) \(tr("widget.moreLines"))")
-                                .font(.footnote.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.bordered)
-                        .buttonBorderShape(.capsule)
-                    }
-                } else if state?.info == nil && widget.hidden {
-                    Text(tr("widget.hidden")).font(.footnote).foregroundStyle(.secondary)
-                } else if state?.info == nil && state?.error == nil {
-                    ProgressView().frame(maxWidth: .infinity, minHeight: 48)
-                } else if state?.info == nil {
-                    Label(tr("widget.loadFailed"), systemImage: "exclamationmark.triangle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .symbolRenderingMode(.multicolor)
-                } else {
-                    Text(tr("widget.noData")).font(.footnote).foregroundStyle(.secondary)
-                }
+            let news = model.news(for: lines)
+            if !news.isEmpty {
+                NewsBanner(news: news) { app.openNews() }
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 10)
-            .padding(.vertical, 12)
+
+            if state?.info != nil, !lines.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(lines.prefix(maxRows).enumerated()), id: \.offset) { index, line in
+                        if index > 0 { Divider() }
+                        row(line, elapsed: elapsed, detailed: detailed)
+                            .padding(.vertical, 6)
+                    }
+                }
+                if lines.count > maxRows {
+                    Button {
+                        app.push(.stop(widget.stopId))
+                    } label: {
+                        Text("+\(lines.count - maxRows) \(tr("widget.moreLines"))")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                }
+            } else if state?.info == nil && widget.hidden {
+                Text(tr("widget.hidden")).font(.footnote).foregroundStyle(.secondary)
+            } else if state?.info == nil && state?.error == nil {
+                ProgressView().frame(maxWidth: .infinity, minHeight: 48)
+            } else if state?.info == nil {
+                Label(tr("widget.loadFailed"), systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .symbolRenderingMode(.multicolor)
+            } else {
+                Text(tr("widget.noData")).font(.footnote).foregroundStyle(.secondary)
+            }
         }
-        .card()
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(14)
+        .card(radius: InfoTBDesign.cardRadius)
         .contextMenu { menuItems }
     }
 
@@ -98,7 +89,7 @@ struct DashboardCard: View {
                         if model.nearestMode, let meters = model.distances[widget.stopId] {
                             Label(DashboardFormat.distance(meters), systemImage: "location.fill")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(InfoTBDesign.accent)
                         }
                         if showGroup && !widget.group.isEmpty {
                             Text(widget.group).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -126,7 +117,7 @@ struct DashboardCard: View {
                 Image(systemName: "ellipsis")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .frame(width: 32, height: 32)
+                    .frame(minWidth: 44, minHeight: 44)
                     .glassBackground(in: Circle(), interactive: true)
             }
             .accessibilityLabel(tr("widget.options"))

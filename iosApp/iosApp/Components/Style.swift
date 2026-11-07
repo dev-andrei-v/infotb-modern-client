@@ -1,6 +1,12 @@
 import Shared
 import SwiftUI
 
+enum InfoTBDesign {
+    static let accent = Color(hex: "#C92335") ?? .red
+    static let pageInset: CGFloat = 16
+    static let cardRadius: CGFloat = 18
+}
+
 extension Color {
     /// Parses "#RRGGBB" from the STB API; nil when it isn't a colour.
     init?(hex: String) {
@@ -39,18 +45,6 @@ extension TransportType {
 extension LineArrivalDetail {
     /// "lineId_direction": a line in one direction, unique at a stop.
     var lineKey: String { "\(id)_\(direction.value)" }
-}
-
-/// Colour of the line arriving next, falling back to the stop's dominant transport type.
-func cardAccent(for lines: [LineArrivalDetail], sorted: [LineArrivalDetail]) -> Color {
-    if let next = sorted.first(where: { $0.arrivingTime >= 0 }), let color = Color(hex: next.color) {
-        return color
-    }
-    let counts = Dictionary(grouping: lines, by: { $0.type.name }).mapValues(\.count)
-    if let top = counts.max(by: { $0.value < $1.value })?.key {
-        return TransportType.Companion.shared.fromString(value: top).color
-    }
-    return .accentColor
 }
 
 // MARK: - Liquid Glass

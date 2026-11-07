@@ -545,6 +545,7 @@ struct NearbyMapView: View {
                             transportType: group.lines.first?.type,
                             selected: selectedGroupId == group.id
                         )
+                        .frame(minWidth: 44, minHeight: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(group.name)
@@ -554,7 +555,7 @@ struct NearbyMapView: View {
                 Annotation(vehicle.code.map { "\(vehicle.lineName) · \($0)" } ?? vehicle.lineName, coordinate: vehicle.coordinate) {
                     VehicleGlyph(type: vehicle.type ?? TransportType.bus.name, size: 11)
                         .foregroundStyle(.white)
-                        .padding(6).background(Color(hex: vehicle.color) ?? .accentColor, in: Circle())
+                        .padding(6).background(Color(hex: vehicle.color) ?? InfoTBDesign.accent, in: Circle())
                         .overlay(Circle().stroke(.white, lineWidth: 1.5))
                 }
             }
@@ -608,7 +609,7 @@ struct NearbyMapView: View {
             Capsule()
                 .fill(.secondary.opacity(0.42))
                 .frame(width: 38, height: 5)
-                .frame(width: 80, height: 30)
+                .frame(width: 80, height: 44)
                 .contentShape(Rectangle())
                 .onTapGesture { toggleSheetLevel() }
                 .gesture(DragGesture(minimumDistance: 8).onEnded { value in
@@ -628,7 +629,7 @@ struct NearbyMapView: View {
             Button(action: toggleSheetLevel) {
                 Image(systemName: isCompactSheet ? "chevron.up" : "chevron.down")
                     .font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                    .frame(width: 32, height: 30)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -686,7 +687,7 @@ struct NearbyMapView: View {
         }
         .font(.subheadline)
         .padding(.horizontal, 12)
-        .frame(height: 40)
+        .frame(minHeight: 44)
         .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -711,9 +712,9 @@ struct NearbyMapView: View {
                                 if selected { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)) }
                             }
                             .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10).frame(height: 34)
+                            .padding(.horizontal, 10).frame(minHeight: 44)
                             .foregroundStyle(selected ? Color.white : Color.primary)
-                            .background(selected ? Color.accentColor : Color(.tertiarySystemFill), in: Capsule())
+                            .background(selected ? InfoTBDesign.accent : Color(.tertiarySystemFill), in: Capsule())
                             .overlay(Capsule().stroke(selected ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
@@ -919,11 +920,11 @@ struct NearbyMapView: View {
         } label: {
             Label(tr("map.nearestRoutes"), systemImage: "point.3.connected.trianglepath.dotted")
                 .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 12).frame(height: 38)
-                .background(selectedLineId == nil ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
+                .padding(.horizontal, 12).frame(minHeight: 44)
+                .background(selectedLineId == nil ? InfoTBDesign.accent.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(selectedLineId == nil ? Color.accentColor : .secondary)
+        .foregroundStyle(selectedLineId == nil ? InfoTBDesign.accent : .secondary)
         .accessibilityAddTraits(selectedLineId == nil ? .isSelected : [])
     }
 
@@ -934,11 +935,11 @@ struct NearbyMapView: View {
         } label: {
             HStack(spacing: 6) {
                 LineBadge(name: line.name, color: routeColor(line.id))
-                if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+                if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(InfoTBDesign.accent) }
             }
-            .padding(.horizontal, 9).frame(height: 38)
-            .background(selected ? Color.accentColor.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
-            .overlay(Capsule().stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
+            .padding(.horizontal, 9).frame(minHeight: 44)
+            .background(selected ? InfoTBDesign.accent.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
+            .overlay(Capsule().stroke(selected ? InfoTBDesign.accent : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(tr("lineDetail.linePrefix")) \(line.name)")
@@ -948,7 +949,7 @@ struct NearbyMapView: View {
     private func moreLinesChip(_ count: Int) -> some View {
         Text("+\(count)")
             .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            .padding(.horizontal, 10).frame(height: 34)
+            .padding(.horizontal, 10).frame(minHeight: 44)
             .background(Color(.tertiarySystemFill), in: Capsule())
             .accessibilityLabel("\(count) \(tr("map.moreLines"))")
     }

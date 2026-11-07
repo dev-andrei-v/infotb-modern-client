@@ -134,7 +134,7 @@ struct PlannerView: View {
             field = target
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: icon).foregroundStyle(target == .origin ? Color.accentColor : Color.red).frame(width: 20)
+                Image(systemName: icon).foregroundStyle(target == .origin ? InfoTBDesign.accent : Color.red).frame(width: 20)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                     Text(place?.name ?? tr(target == .origin ? "planner.chooseOrigin" : "planner.chooseDestination"))
@@ -170,7 +170,7 @@ struct PlannerView: View {
                         if isOn { modes.remove(type.name) } else { modes.insert(type.name) }
                     } label: {
                         Label(type.label, systemImage: modeIcon(type.name))
-                            .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 40)
+                            .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
                             .foregroundStyle(isOn ? type.color : Color.secondary)
                             .background(isOn ? type.color.opacity(0.12) : Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(isOn ? type.color.opacity(0.35) : .clear, lineWidth: 1))
@@ -211,7 +211,7 @@ struct PlannerView: View {
                     HStack(spacing: 12) {
                         Button { open(trip) } label: {
                             HStack(spacing: 12) {
-                            Image(systemName: "arrow.triangle.swap").foregroundStyle(Color.accentColor)
+                            Image(systemName: "arrow.triangle.swap").foregroundStyle(InfoTBDesign.accent)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("\(trip.from.name) → \(trip.to.name)").font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
                                 Text(trip.departure.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
@@ -246,12 +246,12 @@ struct PlannerView: View {
                 HStack(spacing: 10) {
                     Button { useCurrentLocation(for: target) } label: {
                         Label(tr("planner.currentLocation"), systemImage: "location.fill")
-                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                     Button { beginMapPick(for: target) } label: {
                         Label(tr("planner.pickOnMap"), systemImage: "map")
-                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                 }
@@ -377,7 +377,7 @@ struct PlannerView: View {
                         HStack {
                             Text(row.title ?? "\(tr("planner.option")) \(index + 1)").font(.headline)
                             Spacer()
-                            if let duration = row.duration { Label(duration, systemImage: "clock").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor) }
+                            if let duration = row.duration { Label(duration, systemImage: "clock").font(.caption.weight(.semibold)).foregroundStyle(InfoTBDesign.accent) }
                         }
                         if let detail = row.detail { Text(detail).font(.subheadline).foregroundStyle(.secondary) }
                         if !row.lines.isEmpty { Text(row.lines.joined(separator: "  ·  ")).font(.subheadline.weight(.semibold)).foregroundStyle(.primary) }

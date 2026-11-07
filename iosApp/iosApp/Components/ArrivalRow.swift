@@ -25,6 +25,7 @@ struct ArrivalRow<Expanded: View>: View {
             HStack(spacing: 8) {
                 Button(action: onLineTap) {
                     LineBadge(name: line.name, color: line.color)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
 
@@ -53,10 +54,10 @@ struct ArrivalRow<Expanded: View>: View {
                             ProgressView().controlSize(.mini)
                         } else {
                             Image(systemName: timetableExpanded ? "calendar.circle.fill" : "calendar")
-                                .foregroundStyle(timetableExpanded ? Color.accentColor : .secondary)
+                                .foregroundStyle(timetableExpanded ? InfoTBDesign.accent : .secondary)
                         }
                     }
-                    .frame(width: 30, height: 30)
+                    .frame(minWidth: 44, minHeight: 44)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -67,7 +68,7 @@ struct ArrivalRow<Expanded: View>: View {
                         Image(systemName: isTracking ? "bell.slash.fill" : "bell")
                             .symbolEffect(.bounce, value: isTracking)
                             .foregroundStyle(isTracking ? Color.red : .secondary)
-                            .frame(width: 30, height: 30)
+                            .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)

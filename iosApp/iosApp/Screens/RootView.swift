@@ -41,6 +41,7 @@ struct RootView: View {
             .tabItem { Label(tr("nav.settings"), systemImage: "gearshape.fill") }
             .tag(AppTab.settings)
         }
+        .tint(InfoTBDesign.accent)
         .overlay(alignment: .top) { ToastView(message: app.toast) }
         .onAppear { app.applyTheme() }
     }

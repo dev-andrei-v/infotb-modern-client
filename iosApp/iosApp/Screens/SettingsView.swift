@@ -67,7 +67,7 @@ struct SettingsView: View {
                         .font(.title2)
                         .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
-                        .background(Color.accentColor.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .background(InfoTBDesign.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading) {
                         Text("InfoTB").font(.headline)
                         Text(tr("settings.aboutDescription")).font(.caption).foregroundStyle(.secondary)

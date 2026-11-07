@@ -91,8 +91,6 @@ struct DashboardView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     statusHeader(now: now)
-                    plannerEntry
-
                     if model.visibleCount == 0 {
                         Text(tr("dashboard.allHidden"))
                             .font(.subheadline)
@@ -121,36 +119,13 @@ struct DashboardView: View {
                         }
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, InfoTBDesign.pageInset)
                 .padding(.bottom, 24)
                 .animation(.snappy, value: model.widgets.map(\.id))
             }
             .background(Color(.systemGroupedBackground))
             .refreshable { await model.refresh() }
         }
-    }
-
-    private var plannerEntry: some View {
-        Button { app.dashboardPath.append(.planner) } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "arrow.triangle.swap")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(tr("planner.title")).font(.headline).foregroundStyle(.primary)
-                    Text(tr("planner.subtitle")).font(.subheadline).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(14)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
-            .contentShape(RoundedRectangle(cornerRadius: 20))
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(tr("planner.subtitle"))
     }
 
     @ViewBuilder
@@ -296,7 +271,7 @@ struct DashboardView: View {
                 model.toggleHidden(widget)
             } label: {
                 Image(systemName: widget.hidden ? "eye.slash" : "eye")
-                    .foregroundStyle(widget.hidden ? Color.secondary : Color.accentColor)
+                    .foregroundStyle(widget.hidden ? Color.secondary : InfoTBDesign.accent)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(widget.hidden ? tr("widget.show") : tr("widget.hide"))

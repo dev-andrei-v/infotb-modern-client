@@ -136,7 +136,7 @@ private struct LineDetailContent: View {
                         let stop = detail.stops[index]
                         NavigationLink(value: Route.stop(stop.id, lineId: detail.id, direction: model.direction)) {
                             HStack(spacing: 12) {
-                                Image(systemName: "location.fill").foregroundStyle(Color.accentColor)
+                                Image(systemName: "location.fill").foregroundStyle(InfoTBDesign.accent)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(stop.name).font(.body.weight(.medium))
                                     Text(tr("lineDetail.stopOf")
@@ -386,7 +386,7 @@ private struct LiveMapScreen: View {
             withAnimation(.snappy) { selectedStopId = stop.id }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "location.fill").foregroundStyle(Color.accentColor)
+                Image(systemName: "location.fill").foregroundStyle(InfoTBDesign.accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tr("lineDetail.nearestStop")).font(.caption).foregroundStyle(.secondary)
                     Text(stop.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)

@@ -150,15 +150,6 @@ private struct StopDetailContent: View {
                 }
             } header: {
                 Text("\(info.lines.count) \(tr("stopDetail.lines"))")
-            } footer: {
-                Button {
-                    app.addToDashboard(stopId: model.stopId, stopName: info.name)
-                } label: {
-                    Label(tr("stopDetail.addToDashboardLong"), systemImage: "plus")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .padding(.top, 8)
             }
         }
         .listStyle(.insetGrouped)

@@ -45,9 +45,12 @@ class LinesViewModel(
     val selectedTypes: StateFlow<Set<TransportType>> = _selectedTypes.asStateFlow()
 
     private val stopSearchLineIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val _isSearchingStops = MutableStateFlow(false)
+    val isSearchingStops: StateFlow<Boolean> = _isSearchingStops.asStateFlow()
     private val lineSummaries = MutableStateFlow<Map<Long, LineSummary>>(emptyMap())
     private val requestedSummaryIds = mutableSetOf<Long>()
     private var stopSearchJob: Job? = null
+    private var stopSearchGeneration = 0
 
     private data class LineSummary(val start: String?, val end: String?)
 
@@ -91,25 +94,32 @@ class LinesViewModel(
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+        val generation = ++stopSearchGeneration
         stopSearchJob?.cancel()
+        _isSearchingStops.value = false
         stopSearchLineIds.value = emptySet()
         val normalized = query.trim()
         if (normalized.length < 2) return
+        _isSearchingStops.value = true
         stopSearchJob = viewModelScope.launch {
-            delay(300)
-            val stopIds = runCatching { repository.searchPlannerPlaces(normalized) }
-                .getOrDefault(emptyList())
-                .mapNotNull { it.stop_id }
-                .distinct()
-                .take(4)
-            val matchingIds = mutableSetOf<Long>()
-            for (stopId in stopIds) {
-                if (!coroutineContext.isActive) return@launch
-                runCatching { repository.getStopLines(stopId) }
+            try {
+                delay(300)
+                val stopIds = runCatching { repository.searchPlannerPlaces(normalized) }
                     .getOrDefault(emptyList())
-                    .mapTo(matchingIds) { it.id }
+                    .mapNotNull { it.stop_id }
+                    .distinct()
+                    .take(4)
+                val matchingIds = mutableSetOf<Long>()
+                for (stopId in stopIds) {
+                    if (!coroutineContext.isActive) return@launch
+                    runCatching { repository.getStopLines(stopId) }
+                        .getOrDefault(emptyList())
+                        .mapTo(matchingIds) { it.id }
+                }
+                if (_searchQuery.value.trim() == normalized) stopSearchLineIds.value = matchingIds
+            } finally {
+                if (stopSearchGeneration == generation) _isSearchingStops.value = false
             }
-            if (_searchQuery.value.trim() == normalized) stopSearchLineIds.value = matchingIds
         }
     }
 

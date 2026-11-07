@@ -198,12 +198,12 @@ fun LineDetailScreen(
                             text = if (detail.type == TransportType.SUBWAY) detail.name.substringBefore('-').trim() else detail.name,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 28.sp,
-                            lineHeight = 30.sp,
-                            letterSpacing = 0.5.sp,
+                            fontSize = 30.sp,
+                            lineHeight = 32.sp,
+                            letterSpacing = 0.8.sp,
                             color = lcdColor,
                             maxLines = 1,
-                            modifier = Modifier.widthIn(min = 58.dp)
+                            modifier = Modifier.widthIn(min = 64.dp)
                         )
                         Column(modifier = Modifier.weight(1f)) {
                             routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
@@ -211,9 +211,9 @@ fun LineDetailScreen(
                                     stopName.uppercase(),
                                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 12.sp,
-                                    lineHeight = 14.sp,
-                                    letterSpacing = 0.35.sp,
+                                    fontSize = 13.sp,
+                                    lineHeight = 16.sp,
+                                    letterSpacing = 0.6.sp,
                                     color = lcdColor,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis

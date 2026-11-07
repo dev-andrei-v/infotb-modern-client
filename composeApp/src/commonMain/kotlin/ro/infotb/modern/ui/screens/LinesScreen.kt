@@ -82,6 +82,7 @@ fun LinesScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val isSearchingStops by viewModel.isSearchingStops.collectAsState()
     val selectedTypes by viewModel.selectedTypes.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val lineDisplayStyle by viewModel.lineDisplayStyle.collectAsState()
@@ -204,6 +205,16 @@ fun LinesScreen(
                     ) {
                         TextButton(onClick = { viewModel.loadLines() }) {
                             Text(t("common.retry", locale))
+                        }
+                    }
+                }
+
+                filteredLines.isEmpty() && isSearchingStops -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(12.dp))
+                            Text(t("lines.searchingStops", locale), color = LocalMuted.current)
                         }
                     }
                 }
@@ -518,21 +529,21 @@ private fun LineRow(
                         text = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.Black,
-                        fontSize = 28.sp,
-                        lineHeight = 30.sp,
-                        letterSpacing = 0.5.sp,
+                        fontSize = 30.sp,
+                        lineHeight = 32.sp,
+                        letterSpacing = 0.8.sp,
                         color = lcdText,
                         maxLines = 1,
-                        modifier = Modifier.widthIn(min = 58.dp)
+                        modifier = Modifier.widthIn(min = 64.dp)
                     )
                     Text(
                         text = endpoints.joinToString("\n") { it.uppercase() }.ifBlank { "—" },
                         modifier = Modifier.weight(1f),
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 12.sp,
-                        lineHeight = 14.sp,
-                        letterSpacing = 0.35.sp,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                        letterSpacing = 0.6.sp,
                         color = lcdText,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

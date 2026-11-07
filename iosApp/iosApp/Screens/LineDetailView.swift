@@ -204,10 +204,10 @@ private struct LineDetailContent: View {
             : Color(red: 0.60, green: 0.36, blue: 0.02)
         return HStack(spacing: 14) {
             Text(lineName)
-                .font(.system(size: 28, weight: .black, design: .monospaced))
-                .tracking(0.5)
+                .font(.system(size: 30, weight: .black, design: .monospaced))
+                .tracking(0.8)
                 .lineLimit(1)
-                .frame(minWidth: 58, alignment: .leading)
+                .frame(minWidth: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
                     Text(stop.uppercased())
@@ -215,8 +215,8 @@ private struct LineDetailContent: View {
                         .truncationMode(.tail)
                 }
             }
-            .font(.system(size: 12, weight: .heavy, design: .monospaced))
-            .tracking(0.35)
+            .font(.system(size: 13, weight: .heavy, design: .monospaced))
+            .tracking(0.6)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .foregroundStyle(labelColor)

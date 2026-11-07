@@ -9,6 +9,7 @@ final class LinesModel {
     private(set) var lines: [Line] = []
     private(set) var isLoading = false
     private(set) var error: String?
+    private(set) var isSearchingStops = false
     private(set) var selectedTypes: Set<String> = []
     private(set) var favoriteIds: Set<Int64> = []
     private(set) var lineDisplayStyle = "normal"
@@ -36,6 +37,7 @@ final class LinesModel {
         scope.watch(viewModel.filteredLines) { [weak self] in self?.lines = Unbox.list($0) }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
         scope.watch(viewModel.error) { [weak self] in self?.error = $0 as? String }
+        scope.watch(viewModel.isSearchingStops) { [weak self] in self?.isSearchingStops = Unbox.bool($0) }
         scope.watch(viewModel.selectedTypes) { [weak self] value in
             self?.selectedTypes = Set(((value as? NSSet)?.allObjects as? [TransportType] ?? []).map(\.name))
         }
@@ -144,6 +146,14 @@ struct LinesView: View {
             } actions: {
                 Button(tr("common.retry")) { model.reload() }.buttonStyle(.borderedProminent)
             }
+        } else if model.lines.isEmpty && model.isSearchingStops {
+            VStack(spacing: 12) {
+                ProgressView()
+                Text(tr("lines.searchingStops"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.lines.isEmpty {
             ContentUnavailableView.search(text: model.searchQuery)
         } else {
@@ -214,15 +224,15 @@ struct LinesView: View {
                 if model.lineDisplayStyle == "bus_display" {
                     HStack(spacing: 14) {
                         Text(displayLineName)
-                            .font(.system(size: 28, weight: .black, design: .monospaced))
-                            .tracking(0.5)
+                            .font(.system(size: 30, weight: .black, design: .monospaced))
+                            .tracking(0.8)
                             .lineLimit(1)
-                            .frame(minWidth: 58, alignment: .leading)
+                            .frame(minWidth: 64, alignment: .leading)
                         Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n").isEmpty
                              ? "—"
                              : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n"))
-                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
-                            .tracking(0.35)
+                            .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                            .tracking(0.6)
                             .foregroundStyle(colorScheme == .dark ? Color(red: 1, green: 0.78, blue: 0.34) : Color(red: 0.60, green: 0.36, blue: 0.02))
                             .lineLimit(2)
                             .lineSpacing(1)

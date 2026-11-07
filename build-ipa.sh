@@ -79,7 +79,7 @@ if [[ ! -f "$PBXPROJ" ]]; then
 fi
 
 VERSION="$(grep -m1 'MARKETING_VERSION = ' "$PBXPROJ" | sed -E 's/.*= ([0-9.]+);.*/\1/' || true)"
-VERSION="${VERSION:-0.2.0}"
+VERSION="${VERSION:-0.4.0}"
 
 if [[ -z "$TEAM" ]]; then
   TEAM="$(grep -m1 'DEVELOPMENT_TEAM = ' "$PBXPROJ" | sed -E 's/.*= ([A-Z0-9]+);.*/\1/' || true)"
@@ -193,6 +193,17 @@ else
   fi
 
   cp -R "$APP_PATH" "$STAGE/Payload/"
+
+  # Keep the app-group entitlement in the shipped signatures. Re-signing tools
+  # discover requested capabilities from these, even for an unsigned archive.
+  # Ad-hoc signatures still require re-signing with a device provisioning profile.
+  STAGED_APP="$STAGE/Payload/$(basename "$APP_PATH")"
+  codesign --force --sign - --timestamp=none --generate-entitlement-der \
+    --entitlements "$ROOT/iosApp/InfoTBLiveActivity/InfoTBLiveActivity.entitlements" \
+    "$STAGED_APP/PlugIns/InfoTBLiveActivity.appex"
+  codesign --force --sign - --timestamp=none --generate-entitlement-der \
+    --entitlements "$ROOT/iosApp/iosApp/iosApp.entitlements" "$STAGED_APP"
+  codesign --verify --deep --strict "$STAGED_APP"
   FINAL="$OUT/InfoTB-$VERSION-$STAMP-unsigned.ipa"
   (cd "$STAGE" && zip -qry "$FINAL" Payload)
   rm -rf "$STAGE"

@@ -39,6 +39,9 @@ struct DashboardSection: Identifiable {
 
 @Observable
 final class DashboardModel {
+    static var widgetSharingAvailable: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ro.infotb.modern") != nil
+    }
     let viewModel = IosServices.shared.dashboardViewModel()
     private let scope = KotlinScope()
 
@@ -59,6 +62,7 @@ final class DashboardModel {
     private(set) var timetables: [String: [TimetableHour]] = [:]
     private(set) var timetableLoading: Set<String> = []
     private var widgetLocaleCode = "ro"
+    private var widgetReloadTask: Task<Void, Never>?
     private(set) var homeWidgetStopID: Int64?
     private(set) var homeWidgetStopIDs: [String: Int64] = [:]
 
@@ -85,7 +89,10 @@ final class DashboardModel {
             self.groups = Unbox.list($0)
             self.publishHomeScreenWidgetData()
         }
-        scope.watch(vm.hiddenGroups) { [weak self] in self?.hiddenGroups = Set(Unbox.list($0) as [String]) }
+        scope.watch(vm.hiddenGroups) { [weak self] in
+            self?.hiddenGroups = Set(Unbox.list($0) as [String])
+            self?.publishHomeScreenWidgetData()
+        }
         scope.watch(vm.groupSchedules) { [weak self] in
             guard let self else { return }
             self.schedules = Unbox.stringKeyed($0)
@@ -127,13 +134,14 @@ final class DashboardModel {
             }
         }
         distances = result
+        publishHomeScreenWidgetData()
     }
 
     private func publishHomeScreenWidgetData() {
         let suite = UserDefaults(suiteName: "group.ro.infotb.modern")
         let groupNames = groups + (widgets.contains(where: { $0.group.isEmpty }) ? [""] : [])
         let snapshots = groupNames.map { group in
-            let stops = widgets.filter { !$0.hidden && $0.group == group }.map { widget in
+            let stops = widgets.filter { !$0.hidden && !hiddenGroups.contains($0.group) && $0.group == group }.map { widget in
                 let state = cardStates[widget.stopId]
                 let arrivals = (state?.info?.lines ?? [])
                     .filter { widget.visibleLines.isEmpty || widget.visibleLines.contains($0.lineKey) }
@@ -167,14 +175,28 @@ final class DashboardModel {
             )
         }
         guard let data = try? JSONEncoder().encode(snapshots) else { return }
+        // Write the snapshot atomically before requesting a widget reload. This
+        // avoids a cross-process UserDefaults propagation race on first setup.
+        if let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ro.infotb.modern") {
+            try? data.write(to: directory.appendingPathComponent("dashboard-widget-groups.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
         suite?.set(data, forKey: "dashboard.homeWidgetGroups.v1")
+        if let nearest = viewModel.nearestWidgetStopId() {
+            suite?.set(NSNumber(value: nearest.int64Value), forKey: "dashboard.homeWidgetNearestStopID.v1")
+        } else {
+            suite?.removeObject(forKey: "dashboard.homeWidgetNearestStopID.v1")
+        }
         suite?.set(widgetLocaleCode, forKey: "dashboard.homeWidgetLocale.v1")
         if let homeWidgetStopID {
             suite?.set(NSNumber(value: homeWidgetStopID), forKey: "dashboard.homeWidgetSelectedStopID.v1")
         } else {
             suite?.removeObject(forKey: "dashboard.homeWidgetSelectedStopID.v1")
         }
-        WidgetCenter.shared.reloadTimelines(ofKind: "TransitGroupWidget")
+        widgetReloadTask?.cancel()
+        widgetReloadTask = Task {
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            WidgetCenter.shared.reloadTimelines(ofKind: "TransitGroupWidget")
+        }
     }
 
     func updateWidgetLocale(_ localeCode: String) {

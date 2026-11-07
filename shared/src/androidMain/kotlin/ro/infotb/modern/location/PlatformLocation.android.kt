@@ -4,32 +4,32 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
-import android.os.Build
+import android.os.CancellationSignal
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import ro.infotb.modern.AndroidContext
 import kotlin.coroutines.resume
 
-/**
- * Bridge for the runtime permission prompt, which only an Activity can show.
- * MainActivity installs a requester at startup.
- */
+/** Bridge for the runtime permission prompt, which only an Activity can show. */
 object AndroidLocationPermission {
     @Volatile
     var requester: ((onResult: (Boolean) -> Unit) -> Unit)? = null
 }
 
 actual class PlatformLocation actual constructor() {
-
     actual fun isSupported(): Boolean = true
 
-    actual suspend fun current(): GeoPoint? {
+    actual suspend fun current(): GeoPoint? = withContext(Dispatchers.Main.immediate) {
         val context = AndroidContext.appContext
-        if (!hasPermission(context) && !requestPermission()) return null
-        return withTimeoutOrNull(8_000) { readLocation(context) }
+        if (!hasPermission(context) && !requestPermission()) return@withContext null
+        readLocation(context)
     }
 
     private fun hasPermission(context: Context): Boolean =
@@ -46,28 +46,49 @@ actual class PlatformLocation actual constructor() {
     @SuppressLint("MissingPermission")
     private suspend fun readLocation(context: Context): GeoPoint? {
         val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
-        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER)
+        if (!LocationManagerCompat.isLocationEnabled(manager)) return null
+        val finePermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        // Network/fused also work indoors. Do not wait for an outdoor GPS fix first,
+        // or request GPS with only approximate-location permission on older devices.
+        val providers = listOf("fused", LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
+            .filter { it != LocationManager.GPS_PROVIDER || finePermission }
             .filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
         if (providers.isEmpty()) return null
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val provider = providers.first()
-            val fresh = suspendCancellableCoroutine<GeoPoint?> { cont ->
-                try {
-                    manager.getCurrentLocation(provider, null, context.mainExecutor) { location ->
-                        if (cont.isActive) cont.resume(location?.let { GeoPoint(it.latitude, it.longitude) })
+        fun recentCachedLocation(): Location? = providers
+            .mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
+            .filter { it.isRecentFix() }
+            .maxByOrNull { it.elapsedRealtimeNanos }
+
+        recentCachedLocation()?.let { return GeoPoint(it.latitude, it.longitude) }
+        val fresh = firstAvailableLocation(providers.map { provider ->
+            suspend {
+                suspendCancellableCoroutine<Location?> { continuation ->
+                    val cancellation = CancellationSignal()
+                    continuation.invokeOnCancellation { cancellation.cancel() }
+                    try {
+                        LocationManagerCompat.getCurrentLocation(
+                            manager, provider, cancellation, ContextCompat.getMainExecutor(context)
+                        ) { location ->
+                            if (continuation.isActive) continuation.resume(location?.takeIf { it.isRecentFix() })
+                        }
+                    } catch (_: SecurityException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    } catch (_: IllegalArgumentException) {
+                        if (continuation.isActive) continuation.resume(null)
                     }
-                } catch (_: Exception) {
-                    if (cont.isActive) cont.resume(null)
                 }
             }
-            if (fresh != null) return fresh
-        }
-
-        // Fall back to the most recent fix any provider has
-        return providers
-            .mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
-            .maxByOrNull { it.time }
-            ?.let { GeoPoint(it.latitude, it.longitude) }
+        })
+        // Keep fallback outside the timeout: a provider can update its cache even
+        // when its current-location callback never arrives.
+        return (fresh ?: recentCachedLocation())?.let { GeoPoint(it.latitude, it.longitude) }
     }
+}
+
+private fun Location.isRecentFix(): Boolean {
+    val ageNanos = SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos
+    return ageNanos in 0..120_000_000_000L &&
+        latitude.isFinite() && longitude.isFinite() &&
+        latitude in -90.0..90.0 && longitude in -180.0..180.0
 }

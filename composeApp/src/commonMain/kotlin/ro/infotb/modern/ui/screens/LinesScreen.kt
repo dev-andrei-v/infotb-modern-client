@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
+import ro.infotb.modern.ui.components.shared.TextFormatIcon
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -183,8 +184,8 @@ fun LinesScreen(
                 }
             }
             Box {
-                TextButton(onClick = { showDisplayMenu = true }) {
-                    Text(t(if (lineDisplayStyle == "bus_display") "lines.styleBusDisplay" else "lines.styleNormal", locale), maxLines = 1)
+                IconButton(onClick = { showDisplayMenu = true }) {
+                    Icon(TextFormatIcon, contentDescription = t("lines.displayStyle", locale))
                 }
                 DropdownMenu(expanded = showDisplayMenu, onDismissRequest = { showDisplayMenu = false }) {
                     DropdownMenuItem(text = { Text(t("lines.styleNormal", locale)) }, onClick = { viewModel.setLineDisplayStyle("normal"); showDisplayMenu = false })

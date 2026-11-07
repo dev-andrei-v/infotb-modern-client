@@ -170,7 +170,7 @@ fun DashboardScreen(
 
     // Keep Android home-screen widgets aligned with the dashboard's locally
     // cached groups and latest arrival snapshots.
-    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopIds, homeWidgetStopId, groupSchedules) {
+    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopIds, homeWidgetStopId, groupSchedules, userLocation, stopCoordinates) {
         val widgetGroups = (groups + "").distinct().map { groupName ->
             HomeWidgetGroupSnapshot(
                 name = groupName,
@@ -194,7 +194,7 @@ fun DashboardScreen(
             )
         }
         publishDashboardWidgetSnapshot(
-            kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups)),
+            kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups, viewModel.nearestWidgetStopId())),
             homeWidgetStopId ?: homeWidgetStopIds.values.firstOrNull()
         )
     }
@@ -574,7 +574,7 @@ fun DashboardScreen(
 }
 
 @kotlinx.serialization.Serializable
-private data class HomeWidgetSnapshot(val groups: List<HomeWidgetGroupSnapshot>)
+private data class HomeWidgetSnapshot(val groups: List<HomeWidgetGroupSnapshot>, val nearestStopId: Long? = null)
 
 @kotlinx.serialization.Serializable
 private data class HomeWidgetGroupSnapshot(
@@ -1170,152 +1170,139 @@ private fun WidgetLineRow(
     val followUps = if (inService) line.arrivingTimes.drop(1).take(upcomingCount) else emptyList()
 
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            val destination = formatDestination(line.directionName, line.direction)
-            val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName) || isAirportLineName(line.name)
+        // Both columns share the same row height, including wrapped destinations.
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.widthIn(min = 36.dp)
-            ) {
-                Box(modifier = Modifier.clickable(onClick = onLineClick)) {
-                    LineBadge(
-                        name = line.name,
-                        color = line.color,
-                        size = BadgeSize.MEDIUM,
-                        isAirport = isAirportLineName(line.name)
+        val destination = formatDestination(line.directionName, line.direction)
+        val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName) || isAirportLineName(line.name)
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.width(48.dp).clickable(onClick = onLineClick), contentAlignment = Alignment.Center) {
+                LineBadge(name = line.name, color = line.color, size = BadgeSize.MEDIUM, isAirport = isAirportLineName(line.name))
+            }
+            Spacer(Modifier.width(10.dp))
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isAirportDest) {
+                        Icon(
+                            imageVector = AirplaneIcon,
+                            contentDescription = "Airport",
+                            tint = LocalMuted.current,
+                            modifier = Modifier.size(13.dp).rotate(45f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        text = destination,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                Spacer(Modifier.width(8.dp))
+                if (inService) {
+                    Box(
+                        modifier = if (isImminent) Modifier
+                            .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(8.dp))
+                        else Modifier
+                    ) {
+                        ArrivalTimeBadge(
+                            seconds = liveSeconds,
+                            isTimetable = line.isTimetable,
+                            size = if (detailed) BadgeSize.LARGE else BadgeSize.MEDIUM,
+                            modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = t("widget.outOfService", locale),
+                            fontSize = 11.sp,
+                            color = LocalMuted.current
+                        )
+                    }
+                }
+            }
+        }
+
+        val showSecondary = followUps.isNotEmpty() || detailed
+        if (showSecondary) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (followUps.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = t("dashboard.nextArrivals", locale),
                         style = MaterialTheme.typography.labelSmall,
                         color = LocalMuted.current,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.width(48.dp)
                     )
+                } else {
+                    Spacer(Modifier.width(48.dp))
                 }
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Spacer(Modifier.width(10.dp))
+                if (followUps.isNotEmpty()) {
                     Row(
-                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (isAirportDest) {
-                            Icon(
-                                imageVector = AirplaneIcon,
-                                contentDescription = "Airport",
-                                tint = LocalMuted.current,
-                                modifier = Modifier.size(13.dp).rotate(45f)
+                        followUps.forEach { arrival ->
+                            ArrivalTimeBadge(
+                                seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
+                                isTimetable = arrival.isTimetable,
+                                size = BadgeSize.SMALL
                             )
-                            Spacer(Modifier.width(4.dp))
                         }
-                        Text(
-                            text = destination,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(
+                    onClick = {
+                        if (!showTimetable) {
+                            onLoadTimetable()
+                        }
+                        showTimetable = !showTimetable
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    if (timetableLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 1.5.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = if (showTimetable) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
-                    if (inService) {
-                        Box(
-                            modifier = if (isImminent) Modifier
-                                .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                                .clip(RoundedCornerShape(8.dp))
-                            else Modifier
-                        ) {
-                            ArrivalTimeBadge(
-                                seconds = liveSeconds,
-                                isTimetable = line.isTimetable,
-                                size = if (detailed) BadgeSize.LARGE else BadgeSize.MEDIUM,
-                                modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = t("widget.outOfService", locale),
-                                fontSize = 11.sp,
-                                color = LocalMuted.current
-                            )
-                        }
-                    }
                 }
-
-                val showSecondary = followUps.isNotEmpty() || detailed
-                if (showSecondary) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                if (inService) {
+                    IconButton(
+                        onClick = onBellClick,
+                        modifier = Modifier.size(28.dp)
                     ) {
-                        if (followUps.isNotEmpty()) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                followUps.forEach { arrival ->
-                                    ArrivalTimeBadge(
-                                        seconds = (arrival.arrivingTime - elapsedSec).coerceAtLeast(0),
-                                        isTimetable = arrival.isTimetable,
-                                        size = BadgeSize.SMALL
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.weight(1f))
-                        IconButton(
-                            onClick = {
-                                if (!showTimetable) {
-                                    onLoadTimetable()
-                                }
-                                showTimetable = !showTimetable
-                            },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            if (timetableLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(14.dp),
-                                    strokeWidth = 1.5.dp
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.DateRange,
-                                    contentDescription = null,
-                                    tint = if (showTimetable) MaterialTheme.colorScheme.primary else LocalMuted.current,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                        if (inService) {
-                            IconButton(
-                                onClick = onBellClick,
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = null,
-                                    tint = LocalMuted.current,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = LocalMuted.current,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }

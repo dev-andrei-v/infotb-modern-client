@@ -68,7 +68,7 @@ struct AnnouncementsView: View {
     }
 }
 
-private struct AnnouncementRow: View {
+struct AnnouncementRow: View {
     let announcement: Announcement
     @State private var expanded = false
 

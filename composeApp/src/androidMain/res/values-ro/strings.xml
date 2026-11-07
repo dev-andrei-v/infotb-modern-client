@@ -14,4 +14,6 @@
     <string name="widget_due">Acum</string>
     <string name="widget_no_arrival">Fără sosiri</string>
     <string name="widget_minutes">%1$d min</string>
+    <string name="widget_nearest_stop">Cea mai apropiată stație din Panou</string>
+    <string name="widget_nearest_unavailable">Deschide Panoul și activează localizarea</string>
 </resources>

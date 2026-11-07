@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,9 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import org.maplibre.android.annotations.IconFactory
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
@@ -24,7 +20,6 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/bright"
 
@@ -38,42 +33,28 @@ actual fun EmbeddedMapView(
 ) {
     val context = LocalContext.current
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var styleLoaded by remember { mutableStateOf(false) }
     var currentMarker by remember { mutableStateOf<Marker?>(null) }
 
     val mapView = remember {
-        MapView(context).apply {
+        createTransitMapView(context).apply {
             onCreate(null)
             getMapAsync { map ->
                 mapInstance = map
+                map.startInBucharest()
                 map.setStyle(OPENFREEMAP_STYLE) {
-                    map.uiSettings.isAttributionEnabled = false
                     map.uiSettings.isLogoEnabled = false
                     map.uiSettings.isRotateGesturesEnabled = false
                     map.uiSettings.isTiltGesturesEnabled = false
-
-                    val position = LatLng(lat, lng)
-                    map.cameraPosition = CameraPosition.Builder()
-                        .target(position)
-                        .zoom(zoom.toDouble())
-                        .build()
-
-                    val iconFactory = IconFactory.getInstance(context)
-                    val icon = iconFactory.fromBitmap(createStopPinBitmap())
-
-                    currentMarker = map.addMarker(
-                        MarkerOptions()
-                            .position(position)
-                            .title(label)
-                            .icon(icon)
-                    )
-                    currentMarker?.showInfoWindow(map, this@apply)
+                    styleLoaded = true
                 }
             }
         }
     }
 
     // Update camera and marker if coordinates change
-    LaunchedEffect(lat, lng, zoom, label, mapInstance) {
+    LaunchedEffect(lat, lng, zoom, label, styleLoaded) {
+        if (!styleLoaded) return@LaunchedEffect
         val map = mapInstance ?: return@LaunchedEffect
         val target = LatLng(lat, lng)
         map.animateCamera(CameraUpdateFactory.newLatLngZoom(target, zoom.toDouble()))
@@ -89,25 +70,7 @@ actual fun EmbeddedMapView(
         currentMarker?.showInfoWindow(map, mapView)
     }
 
-    // Lifecycle forwarding
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, mapView) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            mapView.onDestroy()
-        }
-    }
+    TransitMapLifecycle(mapView)
 
     AndroidView(
         factory = { mapView },

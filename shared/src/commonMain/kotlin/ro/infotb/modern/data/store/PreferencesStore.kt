@@ -15,6 +15,35 @@ enum class DashboardSort { GROUPS, NEAREST }
 
 class PreferencesStore(private val settings: Settings) {
 
+    private val dismissedNewsKey = "announcements.dismissed.v1"
+    private val _dismissedAnnouncementIds = MutableStateFlow(
+        settings.getString(dismissedNewsKey, "").split(',').mapNotNull { it.toLongOrNull() }.toSet()
+    )
+    val dismissedAnnouncementIds: StateFlow<Set<Long>> = _dismissedAnnouncementIds.asStateFlow()
+
+    fun dismissAnnouncement(id: Long) {
+        val updated = _dismissedAnnouncementIds.value + id
+        settings.putString(dismissedNewsKey, updated.joinToString(","))
+        _dismissedAnnouncementIds.value = updated
+    }
+
+    private val _nearbyStopCount = MutableStateFlow(settings.getInt("lineNearbyStopCount", 3).coerceIn(0, 5))
+    val nearbyStopCount: StateFlow<Int> = _nearbyStopCount.asStateFlow()
+    private val _nearbyStopRadius = MutableStateFlow(settings.getInt("lineNearbyStopRadius", 1000))
+    val nearbyStopRadius: StateFlow<Int> = _nearbyStopRadius.asStateFlow()
+
+    fun setNearbyStopCount(count: Int) {
+        val value = count.coerceIn(0, 5)
+        settings.putInt("lineNearbyStopCount", value)
+        _nearbyStopCount.value = value
+    }
+
+    fun setNearbyStopRadius(radius: Int) {
+        val value = radius.takeIf { it in listOf(200, 500, 1000, 2000) } ?: 1000
+        settings.putInt("lineNearbyStopRadius", value)
+        _nearbyStopRadius.value = value
+    }
+
     private val lineDisplayStyleKey = "lines.display_style"
     private val _lineDisplayStyle = MutableStateFlow(settings.getString(lineDisplayStyleKey, "normal"))
     val lineDisplayStyle: StateFlow<String> = _lineDisplayStyle.asStateFlow()

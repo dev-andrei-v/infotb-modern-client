@@ -32,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import ro.infotb.modern.util.nearbyStopIndices
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,6 +79,7 @@ fun LineDetailScreen(
     viewModel: LineDetailViewModel,
     locale: Locale,
     onBack: () -> Unit,
+    onShowMap: (Direction) -> Unit,
     onNavigateToStop: (stopId: Long, lineId: Long, direction: Direction) -> Unit
 ) {
     val lineDetail by viewModel.lineDetail.collectAsState()
@@ -85,41 +88,14 @@ fun LineDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
     val lineDisplayStyle by viewModel.lineDisplayStyle.collectAsState()
-    var showFullMap by remember { mutableStateOf(false) }
+    val nearbyStopCount by viewModel.nearbyStopCount.collectAsState()
+    val nearbyStopRadius by viewModel.nearbyStopRadius.collectAsState()
+    val userLocation by viewModel.userLocation.collectAsState()
+    val locationLoading by viewModel.locationLoading.collectAsState()
+    LaunchedEffect(nearbyStopCount) { if (nearbyStopCount > 0) viewModel.refreshLocation() }
 
     LaunchedEffect(lineId) {
         viewModel.loadLine(lineId)
-    }
-
-    // Full-screen map overlay
-    if (showFullMap && lineDetail != null) {
-        val detail = lineDetail!!
-        Box(modifier = Modifier.fillMaxSize()) {
-            EmbeddedRouteMapView(
-                stops = detail.stops,
-                vehicles = vehicles,
-                lineColor = detail.color,
-                segmentPath = detail.segmentPath,
-                modifier = Modifier.fillMaxSize()
-            )
-            // Close button
-            IconButton(
-                onClick = { showFullMap = false },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(top = 48.dp, start = 16.dp)
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-            ) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Close map",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-        return
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -262,42 +238,9 @@ fun LineDetailScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // Announcements banner
-            if (announcements.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFF8E1)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            tint = Color(0xFFFF8F00),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = announcements.first().title,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            color = Color(0xFF5D4037)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-
             // Live map button
             FilledTonalButton(
-                onClick = { showFullMap = true },
+                onClick = { onShowMap(direction) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
@@ -331,6 +274,49 @@ fun LineDetailScreen(
                     vertical = 8.dp
                 )
             ) {
+                announcements.forEach { notice ->
+                    item(key = "news_${notice.id}") {
+                        var expanded by remember(notice.id) { mutableStateOf(false) }
+                        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(stripHtml(notice.title), style = MaterialTheme.typography.titleSmall)
+                                if (expanded) Text(stripHtml(notice.message), style = MaterialTheme.typography.bodyMedium)
+                                Row {
+                                    TextButton(onClick = { expanded = !expanded }) { Text(t("planner.seeDetails", locale)) }
+                                    Spacer(Modifier.weight(1f))
+                                    TextButton(onClick = { viewModel.dismissAnnouncement(notice.id) }) { Text(t("notice.markRead", locale)) }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (nearbyStopCount > 0) {
+                    item(key = "nearby_header") {
+                        Text(t("lineDetail.nearbyStops", locale), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    val indices = nearbyStopIndices(detail.stops, userLocation, nearbyStopCount, nearbyStopRadius)
+                    if (userLocation == null) {
+                        item(key = "location_status") {
+                            TextButton(onClick = { viewModel.refreshLocation() }, enabled = !locationLoading) {
+                                Text(t(if (locationLoading) "dashboard.locationLoading" else "map.locationUnavailable", locale))
+                            }
+                        }
+                    } else if (indices.isEmpty()) {
+                        item(key = "nearby_empty") { Text(t("lineDetail.noNearbyStops", locale), color = LocalMuted.current) }
+                    }
+                    indices.forEach { index ->
+                        item(key = "nearby_${detail.stops[index].id}") {
+                            val stop = detail.stops[index]
+                            StopRow(index, stop, detail.color, true, true, vehicles, locale) {
+                                onNavigateToStop(stop.id, detail.id, direction)
+                            }
+                        }
+                    }
+                }
+                item(key = "all_header") {
+                    Text(t("lineDetail.allStops", locale), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp))
+                }
                 itemsIndexed(detail.stops, key = { _, stop -> stop.id }) { index, stop ->
                     StopRow(
                         index = index,

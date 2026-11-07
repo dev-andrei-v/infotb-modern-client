@@ -11,5 +11,7 @@ expect fun EmbeddedRouteMapView(
     vehicles: List<VehiclePosition>,
     lineColor: String,
     segmentPath: String?,
+    selectedStopId: Long? = null,
+    onStopSelect: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 )

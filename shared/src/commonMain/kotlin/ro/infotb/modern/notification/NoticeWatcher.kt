@@ -70,13 +70,16 @@ class NoticeWatcher(
 
         val enabled = preferencesStore.noticeAlerts.value
         val followed = followedLineIds()
-        val nowSeconds = currentTimeMillis() / 1000
-        val fresh = notices.filter { it.id !in seen }
+        val nowMs = currentTimeMillis()
+        val fresh = notices.filter { it.id !in seen && it.id !in preferencesStore.dismissedAnnouncementIds.value }
 
         var announced = false
         if (enabled && followed.isNotEmpty()) {
             fresh
-                .filter { nowSeconds - it.created_at <= MAX_NOTICE_AGE_SECONDS }
+                .filter {
+                    val publishedMs = if (it.created_at < 100_000_000_000L) it.created_at * 1000 else it.created_at
+                    nowMs - publishedMs in 0..MAX_NOTICE_AGE_SECONDS * 1000
+                }
                 .filter { notice -> notice.lines.any { it.id != null && it.id in followed } }
                 .forEach { notice ->
                     val lineNames = notice.lines

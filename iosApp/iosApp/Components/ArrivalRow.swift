@@ -35,22 +35,14 @@ struct ArrivalRow<Expanded: View>: View {
         let showFollowUps = !followUps.isEmpty
 
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .center, spacing: 4) {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
+                GridRow(alignment: .center) {
                     Button(action: onLineTap) {
                         LineBadge(name: line.name, color: line.color, isAirport: LineColorsKt.isAirportLineName(name: line.name))
-                            .frame(minWidth: 44)
                     }
                     .buttonStyle(.plain)
+                    .frame(width: 48)
 
-                    if showFollowUps {
-                        Text(tr("dashboard.nextArrivals"))
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         HStack(alignment: .firstTextBaseline, spacing: 5) {
                             if isAirportDest {
@@ -65,24 +57,21 @@ struct ArrivalRow<Expanded: View>: View {
                                 .minimumScaleFactor(0.80)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-
                         if inService {
-                            ArrivalBadge(
-                                seconds: liveSeconds,
-                                isTimetable: line.isTimetable,
-                                size: detailed ? .large : .medium,
-                                imminent: liveSeconds < 120
-                            )
-                            .fixedSize()
-                        } else {
-                            OutOfServicePill()
+                            ArrivalBadge(seconds: liveSeconds, isTimetable: line.isTimetable,
+                                         size: detailed ? .large : .medium, imminent: liveSeconds < 120)
                                 .fixedSize()
+                        } else {
+                            OutOfServicePill().fixedSize()
                         }
                     }
-
-                    // Secondary row: follow-ups and action buttons
-                    let showSecondary = showFollowUps || detailed || destinationOnly
-                    if showSecondary {
+                }
+                if showFollowUps || detailed || destinationOnly {
+                    GridRow(alignment: .center) {
+                        Text(showFollowUps ? tr("dashboard.nextArrivals") : "")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 48)
                         HStack(spacing: 6) {
                             if showFollowUps {
                                 ViewThatFits(in: .horizontal) {
@@ -93,9 +82,7 @@ struct ArrivalRow<Expanded: View>: View {
                             }
                             Spacer(minLength: 4)
                             timetableButton
-                            if inService {
-                                bellButton
-                            }
+                            if inService { bellButton }
                         }
                     }
                 }

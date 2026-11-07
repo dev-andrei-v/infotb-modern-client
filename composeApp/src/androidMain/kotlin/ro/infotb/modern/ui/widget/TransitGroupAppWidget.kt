@@ -53,6 +53,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         const val SNAPSHOT_KEY = "dashboard_snapshot"
         const val SELECTED_STOP_KEY = "dashboard_selected_stop"
         const val DASHBOARD_SELECTION_ID = "__dashboard_selection__"
+        const val NEAREST_STOP_ID = "__nearest_stop__"
         const val ROTATING_GROUP_ID = "__active_group__"
         const val EXTRA_OPEN_GROUP = "open_dashboard_group"
         const val ACTION_SCHEDULE_UPDATE = "ro.infotb.modern.widget.SCHEDULE_UPDATE"
@@ -66,8 +67,11 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         private fun resolveGroupName(context: Context, widgetId: Int): String {
             val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             val selected = prefs.getString(groupKey(widgetId), "").orEmpty()
-            if (selected == DASHBOARD_SELECTION_ID) {
-                val stopId = prefs.getString(SELECTED_STOP_KEY, null) ?: return ""
+            if (selected == DASHBOARD_SELECTION_ID || selected == NEAREST_STOP_ID) {
+                val snapshot = runCatching { JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}") }.getOrNull()
+                val stopId = if (selected == NEAREST_STOP_ID) snapshot?.optString("nearestStopId")?.takeIf { it != "null" && it.isNotBlank() }
+                    else prefs.getString(SELECTED_STOP_KEY, null)
+                if (stopId == null) return ""
                 val groups = runCatching { JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}").optJSONArray("groups") }.getOrNull()
                 return (0 until (groups?.length() ?: 0)).mapNotNull { groups?.optJSONObject(it) }
                     .firstOrNull { group ->
@@ -102,9 +106,10 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             val groupName = resolveGroupName(context, widgetId)
             val snapshot = runCatching { JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}") }.getOrNull()
             val groups = snapshot?.optJSONArray("groups")
-            val selectedStopId = prefs.getString(SELECTED_STOP_KEY, null)
+            val selectedStopId = if (storedGroup == NEAREST_STOP_ID) snapshot?.optString("nearestStopId")?.takeIf { it != "null" && it.isNotBlank() }
+                else prefs.getString(SELECTED_STOP_KEY, null)
             val widgetStopId = prefs.getString(stopKey(widgetId), null)
-            val selectedStop = if (storedGroup == DASHBOARD_SELECTION_ID && selectedStopId != null) {
+            val selectedStop = if ((storedGroup == DASHBOARD_SELECTION_ID || storedGroup == NEAREST_STOP_ID) && selectedStopId != null) {
                 (0 until (groups?.length() ?: 0)).asSequence()
                     .mapNotNull { groups?.optJSONObject(it)?.optJSONArray("stops") }
                     .flatMap { stops -> (0 until stops.length()).asSequence().mapNotNull { stops.optJSONObject(it) } }
@@ -115,6 +120,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                 .firstOrNull { it.optString("name") == groupName }
             val groupStops = group?.optJSONArray("stops")
             val stop = when {
+                storedGroup == NEAREST_STOP_ID -> selectedStop
                 selectedStop != null -> selectedStop
                 widgetStopId != null -> (0 until (groupStops?.length() ?: 0)).asSequence().mapNotNull { groupStops?.optJSONObject(it) }
                     .firstOrNull { it.optString("id") == widgetStopId }
@@ -132,6 +138,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                     }?.optString("name").orEmpty()
                 } else groupName
                 val title = when {
+                    storedGroup == NEAREST_STOP_ID -> context.getString(R.string.widget_nearest_stop)
                     storedGroup == DASHBOARD_SELECTION_ID && selectedGroupName.isNotBlank() ->
                         context.getString(R.string.widget_dashboard_selection) + " · " + selectedGroupName
                     storedGroup == DASHBOARD_SELECTION_ID -> context.getString(R.string.widget_dashboard_selection)
@@ -146,7 +153,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                 setViewVisibility(R.id.widget_line_rows, if (visibleCount > 0) android.view.View.VISIBLE else android.view.View.GONE)
                 setViewVisibility(R.id.widget_empty, if (visibleCount == 0) android.view.View.VISIBLE else android.view.View.GONE)
                 if (visibleCount == 0) {
-                    setTextViewText(R.id.widget_empty, if (stop == null) context.getString(R.string.widget_choose_stop) else context.getString(R.string.widget_open_dashboard))
+                    setTextViewText(R.id.widget_empty, if (storedGroup == NEAREST_STOP_ID && stop == null) context.getString(R.string.widget_nearest_unavailable) else if (stop == null) context.getString(R.string.widget_choose_stop) else context.getString(R.string.widget_open_dashboard))
                 }
                 var accent = Color.parseColor("#C92335")
                 repeat(visibleCount) { rowIndex ->
@@ -276,9 +283,10 @@ class TransitGroupWidgetConfigureActivity : android.app.Activity() {
         val storedNames = (0 until (groups?.length() ?: 0))
             .mapNotNull { groups?.optJSONObject(it)?.optString("name") }
             .distinct()
-        val names = listOf(TransitGroupAppWidget.ROTATING_GROUP_ID, TransitGroupAppWidget.DASHBOARD_SELECTION_ID) + storedNames.ifEmpty { listOf("") }
+        val names = listOf(TransitGroupAppWidget.ROTATING_GROUP_ID, TransitGroupAppWidget.DASHBOARD_SELECTION_ID, TransitGroupAppWidget.NEAREST_STOP_ID) + storedNames.ifEmpty { listOf("") }
         val options = names.map { name ->
             if (name == TransitGroupAppWidget.ROTATING_GROUP_ID) getString(R.string.widget_rotating_group)
+            else if (name == TransitGroupAppWidget.NEAREST_STOP_ID) getString(R.string.widget_nearest_stop)
             else if (name == TransitGroupAppWidget.DASHBOARD_SELECTION_ID) getString(R.string.widget_dashboard_selection)
             else name.ifBlank { getString(R.string.widget_default_group) }
         }.toTypedArray()

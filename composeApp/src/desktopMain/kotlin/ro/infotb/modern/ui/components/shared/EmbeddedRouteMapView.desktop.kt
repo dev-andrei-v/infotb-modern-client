@@ -17,6 +17,8 @@ actual fun EmbeddedRouteMapView(
     vehicles: List<VehiclePosition>,
     lineColor: String,
     segmentPath: String?,
+    selectedStopId: Long?,
+    onStopSelect: (Long) -> Unit,
     modifier: Modifier
 ) {
     Box(

@@ -102,7 +102,9 @@ class DashboardViewModel(
 
     /** Service notices; cards show the ones that mention a line they display. */
     private val _announcements = MutableStateFlow<List<Announcement>>(emptyList())
-    val announcements: StateFlow<List<Announcement>> = _announcements.asStateFlow()
+    val announcements: StateFlow<List<Announcement>> = combine(_announcements, preferencesStore.dismissedAnnouncementIds) { notices, dismissed ->
+        notices.filter { it.id !in dismissed }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private var announcementsFetchedMs = 0L
 
     /** Wall-clock time of the last completed full refresh, 0 if none yet. */
@@ -117,6 +119,7 @@ class DashboardViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     private var tickerJob: Job? = null
+    private var locationRequestedAtMs = 0L
     private var isActive = false
 
     init {
@@ -133,7 +136,10 @@ class DashboardViewModel(
                 if (missing.isNotEmpty() && isActive) {
                     fetchStops(missing, force = false)
                 }
-                if (sortMode.value == DashboardSort.NEAREST) ensureCoordinates(ids)
+                if (isActive) {
+                    ensureCoordinates(ids)
+                    if (ids.isNotEmpty() && _userLocation.value == null) refreshLocation()
+                }
             }
         }
     }
@@ -148,7 +154,7 @@ class DashboardViewModel(
         if (active) {
             startTicker()
             refreshAnnouncements()
-            if (sortMode.value == DashboardSort.NEAREST) refreshLocation()
+            if (widgets.value.isNotEmpty()) refreshLocation()
         } else {
             stopTicker()
         }
@@ -161,11 +167,12 @@ class DashboardViewModel(
 
     /** Re-reads the device position and makes sure every card has coordinates. */
     fun refreshLocation() {
-        if (!locationSupported) return
+        if (!locationSupported || _locationLoading.value) return
+        locationRequestedAtMs = currentTimeMillis()
         viewModelScope.launch {
             _locationLoading.value = true
             val point = try { platformLocation.current() } catch (_: Exception) { null }
-            _userLocation.value = point ?: _userLocation.value
+            _userLocation.value = point
             _locationFailed.value = point == null
             _locationLoading.value = false
         }
@@ -179,6 +186,14 @@ class DashboardViewModel(
         return distanceMeters(user, stop)
     }
 
+    /** Nearest visible saved dashboard stop, independent of pinned stops and schedules. */
+    fun nearestWidgetStopId(): Long? {
+        return widgets.value.asSequence()
+            .filter { !it.hidden && it.group !in hiddenGroups.value }
+            .mapNotNull { widget -> distanceTo(widget.stopId)?.takeIf { it.isFinite() }?.let { widget.stopId to it } }
+            .minByOrNull { it.second }?.first
+    }
+
     private fun ensureCoordinates(stopIds: Collection<Long>) {
         val missing = stopIds.distinct().filter { it !in _stopCoordinates.value && it !in coordinatesInFlight }
         if (missing.isEmpty()) return
@@ -187,8 +202,8 @@ class DashboardViewModel(
             viewModelScope.launch {
                 try {
                     val stops = repository.getHomeStops(stopId)
-                    val stop = stops.firstOrNull { it.id == stopId } ?: stops.firstOrNull()
-                    if (stop != null) {
+                    val stop = stops.firstOrNull { it.id == stopId }
+                    if (stop != null && (stop.lat != 0.0 || stop.lng != 0.0)) {
                         _stopCoordinates.update { it + (stopId to GeoPoint(stop.lat, stop.lng)) }
                     }
                 } catch (_: Exception) {
@@ -201,6 +216,7 @@ class DashboardViewModel(
     }
 
     fun refreshNow() {
+        refreshLocation()
         refreshAnnouncements(force = true)
         viewModelScope.launch {
             _isRefreshing.value = true
@@ -353,6 +369,7 @@ class DashboardViewModel(
         tickerJob?.cancel()
         tickerJob = viewModelScope.launch {
             while (true) {
+                if (currentTimeMillis() - locationRequestedAtMs >= 60_000 && visibleStopIds.value.isNotEmpty()) refreshLocation()
                 fetchStops(visibleStopIds.value, force = false)
                 delay(Constants.REFETCH_ARRIVALS_MS)
             }

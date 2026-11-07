@@ -24,6 +24,10 @@ private fun navGlyph(name: String, vararg pathData: String): ImageVector =
         }
     }.build()
 
+val TextFormatIcon: ImageVector by lazy {
+    navGlyph("TextFormat", "M2 5h12v2H9v14H7V7H2V5zM13 11h9v2h-3.5v8h-2v-8H13v-2z")
+}
+
 val MapFilledIcon: ImageVector by lazy {
     navGlyph(
         "MapFilled",

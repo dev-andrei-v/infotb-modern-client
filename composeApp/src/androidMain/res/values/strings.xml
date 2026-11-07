@@ -15,4 +15,6 @@
     <string name="widget_due">Due</string>
     <string name="widget_no_arrival">No arrival</string>
     <string name="widget_minutes">%1$d min</string>
+    <string name="widget_nearest_stop">Nearest dashboard stop</string>
+    <string name="widget_nearest_unavailable">Open Dashboard and enable location</string>
 </resources>

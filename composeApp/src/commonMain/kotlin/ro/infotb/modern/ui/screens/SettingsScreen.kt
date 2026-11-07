@@ -1,6 +1,7 @@
 package ro.infotb.modern.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,6 +82,8 @@ fun SettingsScreen(
     onNotificationChanged: (() -> Unit)? = null,
     onNavigateToNews: (() -> Unit)? = null
 ) {
+    val nearbyStopCount by preferencesStore.nearbyStopCount.collectAsState()
+    val nearbyStopRadius by preferencesStore.nearbyStopRadius.collectAsState()
     val theme by preferencesStore.theme.collectAsState()
     val noticeAlerts by preferencesStore.noticeAlerts.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
@@ -313,6 +316,29 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(Modifier.height(16.dp))
+
+        SettingsSection(
+            title = t("lineDetail.nearbyStops", locale),
+            description = t("settings.nearbyStopsDescription", locale).replace("{distance}", "$nearbyStopRadius m")
+        ) {
+            Text(t("settings.nearbyStopCount", locale), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                (0..5).forEach { count ->
+                    TextButton(onClick = { preferencesStore.setNearbyStopCount(count) }) {
+                        Text((if (count == 0) t("settings.nearbyStopsOff", locale) else "$count") + if (count == nearbyStopCount) " ✓" else "")
+                    }
+                }
+            }
+            Text(t("settings.nearbyStopRadius", locale), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                listOf(200, 500, 1000, 2000).forEach { radius ->
+                    TextButton(onClick = { preferencesStore.setNearbyStopRadius(radius) }, enabled = nearbyStopCount > 0) {
+                        Text("$radius m" + if (radius == nearbyStopRadius) " ✓" else "")
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         // Backup & restore section

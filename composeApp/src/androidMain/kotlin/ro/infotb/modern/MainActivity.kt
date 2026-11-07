@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import io.github.vinceglb.filekit.core.FileKit
 import ro.infotb.modern.location.AndroidLocationPermission
 import ro.infotb.modern.ui.App
@@ -27,28 +28,34 @@ class MainActivity : ComponentActivity() {
     private val pendingQuickAction = mutableStateOf<PendingQuickAction?>(null)
     private var quickActionRequestId = 0
 
+    private var notificationPermissionInFlight = false
+    private var locationPermissionInFlight = false
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* granted or not, we continue */ }
+    ) {
+        notificationPermissionInFlight = false
+        launchPendingLocationPermission()
+    }
 
-    private var locationPermissionCallback: ((Boolean) -> Unit)? = null
+    private val locationPermissionCallbacks = mutableListOf<(Boolean) -> Unit>()
+    private val requestLocationPermission: ((Boolean) -> Unit) -> Unit = { onResult ->
+        locationPermissionCallbacks.add(onResult)
+        launchPendingLocationPermission()
+    }
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
+        locationPermissionInFlight = false
         val granted = result.values.any { it }
-        locationPermissionCallback?.invoke(granted)
-        locationPermissionCallback = null
+        val callbacks = locationPermissionCallbacks.toList()
+        locationPermissionCallbacks.clear()
+        callbacks.forEach { it(granted) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FileKit.init(this)
-        AndroidLocationPermission.requester = { onResult ->
-            locationPermissionCallback = onResult
-            locationPermissionLauncher.launch(
-                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
-            )
-        }
+        AndroidLocationPermission.requester = requestLocationPermission
         enableEdgeToEdge()
         requestNotificationPermission()
         requestBatteryOptimizationExemption()
@@ -58,6 +65,32 @@ class MainActivity : ComponentActivity() {
         setContent {
             App(notificationNav = pendingNav, quickActionNav = pendingQuickAction)
         }
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        launchPendingLocationPermission()
+    }
+
+    private fun launchPendingLocationPermission() {
+        // Startup also opens notification/battery dialogs. Wait until this
+        // Activity is visible and its other runtime permission request is done.
+        if (locationPermissionCallbacks.isEmpty() || locationPermissionInFlight ||
+            notificationPermissionInFlight || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+        locationPermissionInFlight = true
+        locationPermissionLauncher.launch(
+            arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+        )
+    }
+
+    override fun onDestroy() {
+        if (AndroidLocationPermission.requester === requestLocationPermission) {
+            AndroidLocationPermission.requester = null
+        }
+        val callbacks = locationPermissionCallbacks.toList()
+        locationPermissionCallbacks.clear()
+        callbacks.forEach { it(false) }
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -71,6 +104,7 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) {
+                notificationPermissionInFlight = true
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }

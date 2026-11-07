@@ -1,5 +1,11 @@
 package ro.infotb.modern.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -44,6 +51,7 @@ import ro.infotb.modern.ui.components.layout.AppShell
 import ro.infotb.modern.ui.navigation.Screen
 import ro.infotb.modern.ui.screens.AnnouncementsScreen
 import ro.infotb.modern.ui.screens.DashboardScreen
+import ro.infotb.modern.ui.screens.LineMapScreen
 import ro.infotb.modern.ui.screens.LineDetailScreen
 import ro.infotb.modern.ui.screens.LinesScreen
 import ro.infotb.modern.ui.screens.NearbyMapScreen
@@ -184,7 +192,11 @@ fun App(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Screen.Dashboard.route
+                startDestination = Screen.Dashboard.route,
+                enterTransition = { if (isMapTransition()) EnterTransition.None else fadeIn(tween(200)) },
+                exitTransition = { if (isMapTransition()) ExitTransition.None else fadeOut(tween(200)) },
+                popEnterTransition = { if (isMapTransition()) EnterTransition.None else fadeIn(tween(200)) },
+                popExitTransition = { if (isMapTransition()) ExitTransition.None else fadeOut(tween(200)) }
             ) {
                 composable(Screen.Dashboard.route) {
                     DashboardScreen(
@@ -241,9 +253,10 @@ fun App(
                     )
                 ) { backStackEntry ->
                     val lineId = backStackEntry.arguments?.getLong("lineId") ?: return@composable
-                    val viewModel = remember(lineId) { LineDetailViewModel(repository, preferencesStore) }
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel { LineDetailViewModel(repository, preferencesStore, platformLocation) }
                     LineDetailScreen(
                         lineId = lineId,
+                        onShowMap = { direction -> navController.navigate(Screen.LineMap(lineId, direction.value).route) },
                         viewModel = viewModel,
                         locale = locale,
                         onBack = { navController.popBackStack() },
@@ -257,6 +270,18 @@ fun App(
                             )
                         }
                     )
+                }
+
+                composable(
+                    route = Screen.LineMap.ROUTE,
+                    arguments = listOf(navArgument("lineId") { type = NavType.LongType }, navArgument("direction") { type = NavType.IntType })
+                ) { entry ->
+                    val lineId = entry.arguments?.getLong("lineId") ?: return@composable
+                    val initialDirection = Direction.fromInt(entry.arguments?.getInt("direction") ?: 0)
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel { LineDetailViewModel(repository, preferencesStore, platformLocation) }
+                    LineMapScreen(lineId, initialDirection, viewModel, locale,
+                        onBack = { navController.popBackStack() },
+                        onNavigateToStop = { stopId, direction -> navController.navigate(Screen.StopDetail(stopId, lineId, direction.value).route) })
                 }
 
                 composable(
@@ -401,4 +426,11 @@ fun App(
         )
         }
     }
+}
+
+// Remove the outgoing map immediately instead of keeping it behind transparent
+// destination content for the duration of NavHost's crossfade.
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isMapTransition(): Boolean {
+    fun isMap(route: String?) = route == Screen.NearbyMap.route || route == Screen.LineMap.ROUTE
+    return isMap(initialState.destination.route) || isMap(targetState.destination.route)
 }

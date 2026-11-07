@@ -488,12 +488,18 @@ private enum HomeWidgetStore {
     private static let snapshotKey = "dashboard.homeWidgetGroups.v1"
 
     static func groups() -> [HomeWidgetGroup] {
+        if let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName),
+           let data = try? Data(contentsOf: directory.appendingPathComponent("dashboard-widget-groups.json")),
+           let groups = try? JSONDecoder().decode([HomeWidgetGroup].self, from: data) {
+            return groups
+        }
         guard let data = UserDefaults(suiteName: suiteName)?.data(forKey: snapshotKey) else { return [] }
         return (try? JSONDecoder().decode([HomeWidgetGroup].self, from: data)) ?? []
     }
 
-    static func dashboardSelection() -> (group: HomeWidgetGroup, stop: HomeWidgetStop)? {
-        guard let stopID = UserDefaults(suiteName: suiteName)?.object(forKey: "dashboard.homeWidgetSelectedStopID.v1") as? NSNumber else { return nil }
+    static func dashboardSelection(nearest: Bool = false) -> (group: HomeWidgetGroup, stop: HomeWidgetStop)? {
+        let key = nearest ? "dashboard.homeWidgetNearestStopID.v1" : "dashboard.homeWidgetSelectedStopID.v1"
+        guard let stopID = UserDefaults(suiteName: suiteName)?.object(forKey: key) as? NSNumber else { return nil }
         for group in groups() {
             if let stop = group.stops.first(where: { $0.id == stopID.int64Value }) {
                 return (group, stop)
@@ -554,6 +560,7 @@ private enum HomeWidgetStore {
 struct DashboardGroupEntity: AppEntity, Identifiable {
     static let rotatingGroupID = "__rotating_group__"
     static let dashboardSelectionID = "__dashboard_selection__"
+    static let nearestStopID = "__nearest_stop__"
     static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Dashboard group")
     static var defaultQuery = DashboardGroupQuery()
 
@@ -566,6 +573,8 @@ struct DashboardGroupEntity: AppEntity, Identifiable {
         switch id {
         case Self.rotatingGroupID:
             displayName = locale == "en" ? "Active group (by schedule)" : "Grup activ (după orar)"
+        case Self.nearestStopID:
+            displayName = locale == "en" ? "Nearest dashboard stop" : "Cea mai apropiată stație din Panou"
         case Self.dashboardSelectionID:
             displayName = locale == "en" ? "Dashboard selection" : "Selecție din Panou"
         default:
@@ -594,6 +603,9 @@ struct DashboardGroupQuery: EntityQuery {
             let selName = locale == "en" ? "Dashboard selection" : "Selecție din Panou"
             entities.append(DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: selName))
         }
+        if identifiers.contains(DashboardGroupEntity.nearestStopID) {
+            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.nearestStopID, name: "Nearest dashboard stop"))
+        }
         return entities
     }
 
@@ -605,6 +617,7 @@ struct DashboardGroupQuery: EntityQuery {
             let selName = locale == "en" ? "Dashboard selection" : "Selecție din Panou"
             results.append(DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: selName))
         }
+        results.append(DashboardGroupEntity(id: DashboardGroupEntity.nearestStopID, name: "Nearest dashboard stop"))
         results.append(contentsOf: HomeWidgetStore.groups()
             .filter { !$0.stops.isEmpty }
             .map { DashboardGroupEntity(id: $0.name, name: $0.name) })
@@ -673,6 +686,17 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
     private func makeEntry(_ configuration: Intent, at date: Date) -> Entry {
         let groups = HomeWidgetStore.groups()
         let requestedGroup = configuration.group?.id
+        if requestedGroup == DashboardGroupEntity.nearestStopID {
+            let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
+            let title = locale == "en" ? "Nearest dashboard stop" : "Cea mai apropiată stație din Panou"
+            guard let selection = HomeWidgetStore.dashboardSelection(nearest: true) else {
+                return Entry(date: date, groupID: DashboardGroupEntity.nearestStopID, groupName: title,
+                             stop: nil, arrivals: [], stopCount: 0, localeCode: locale, isPinned: false)
+            }
+            let entry = makeEntry(for: HomeWidgetGroup(name: selection.group.name, stops: [selection.stop], selectedStopId: selection.stop.id), at: date)
+            return Entry(date: date, groupID: DashboardGroupEntity.nearestStopID, groupName: title,
+                          stop: entry.stop, arrivals: entry.arrivals, stopCount: 1, localeCode: locale, isPinned: false)
+        }
         if requestedGroup == DashboardGroupEntity.dashboardSelectionID,
            let selection = HomeWidgetStore.dashboardSelection() {
             let selectedGroup = HomeWidgetGroup(name: selection.group.name, stops: [selection.stop],
@@ -741,6 +765,21 @@ private struct TransitGroupWidgetView: View {
     let entry: GroupStopWidgetEntry
     @Environment(\.widgetFamily) private var family
 
+    private var emptyMessage: String {
+        let english = entry.localeCode == "en"
+        if FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ro.infotb.modern") == nil {
+            return english ? "Re-sign with shared widget data enabled" : "Re-semnează cu partajarea datelor activată"
+        }
+        if entry.stop == nil {
+            return english ? "Open Dashboard to update this widget" : "Deschide Panoul pentru a actualiza widgetul"
+        }
+        return english ? "No arrival data" : "Fără date de sosire"
+    }
+
+    private var groupLinkURL: URL {
+        entry.groupID == DashboardGroupEntity.nearestStopID ? refreshURL() : groupURL(entry.groupName)
+    }
+
     var body: some View {
         Group {
             if family == .systemSmall {
@@ -781,7 +820,7 @@ private struct TransitGroupWidgetView: View {
                 }
             }
             if entry.arrivals.isEmpty {
-                Text(entry.localeCode == "en" ? "No arrival data" : "Fără date de sosire")
+                Text(emptyMessage)
                     .font(.caption).foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
@@ -805,7 +844,7 @@ private struct TransitGroupWidgetView: View {
                 }
             }
             Spacer(minLength: 0)
-            Link(destination: groupURL(entry.groupName)) {
+            Link(destination: groupLinkURL) {
                 Label(entry.localeCode == "en" ? "Other stops" : "Alte stații", systemImage: "arrow.up.right")
                     .font(.caption2.weight(.semibold)).lineLimit(1)
             }
@@ -856,7 +895,7 @@ private struct TransitGroupWidgetView: View {
                 }
 
                 if entry.arrivals.isEmpty {
-                    Text(entry.localeCode == "en" ? "No arrival data" : "Fără date de sosire")
+                    Text(emptyMessage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -885,7 +924,7 @@ private struct TransitGroupWidgetView: View {
                 }
 
                 HStack {
-                    Link(destination: groupURL(entry.groupName)) {
+                    Link(destination: groupLinkURL) {
                         Label(entry.localeCode == "en" ? "Other stops" : "Alte stații", systemImage: "arrow.up.right")
                             .font(.caption2.weight(.semibold))
                     }
@@ -920,6 +959,7 @@ private struct TransitGroupWidgetView: View {
         if let stopId = entry.stop?.id, stopId >= 0 {
             return stopURL(stopId)
         }
+        if entry.groupID == DashboardGroupEntity.nearestStopID { return refreshURL() }
         if !entry.groupName.isEmpty {
             return groupURL(entry.groupName)
         }

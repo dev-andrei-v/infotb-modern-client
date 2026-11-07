@@ -62,6 +62,16 @@ struct SettingsView: View {
 
             BackupSection()
 
+            if !DashboardModel.widgetSharingAvailable {
+                Section {
+                    Label(tr("widget.sharingUnavailable"), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Text(tr("widget.sharingHelp")).font(.footnote)
+                } header: {
+                    Text(tr("widget.homeScreen"))
+                }
+            }
+
             Section(tr("settings.about")) {
                 HStack(spacing: 12) {
                     Image(systemName: "bus.doubledecker.fill")

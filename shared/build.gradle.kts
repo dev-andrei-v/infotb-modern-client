@@ -53,6 +53,13 @@ kotlin {
             }
         }
 
+        val androidUnitTest by getting {
+            dependencies {
+                implementation(kotlin("test-junit"))
+                implementation(libs.kotlinx.coroutines.test)
+            }
+        }
+
         val androidMain by getting {
             dependencies {
                 implementation(libs.ktor.client.okhttp)

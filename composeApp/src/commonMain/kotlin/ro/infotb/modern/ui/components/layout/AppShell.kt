@@ -37,6 +37,10 @@ fun AppShell(
     platform: String = getPlatformName(),
     content: @Composable () -> Unit
 ) {
+    if (currentRoute == ro.infotb.modern.ui.navigation.Screen.LineMap.ROUTE) {
+        content()
+        return
+    }
     val navItems = mainNavItemsFor(platform)
     BoxWithConstraints(
         modifier = Modifier

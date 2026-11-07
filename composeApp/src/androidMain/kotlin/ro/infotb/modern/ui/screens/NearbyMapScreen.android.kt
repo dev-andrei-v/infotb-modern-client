@@ -1,5 +1,12 @@
 package ro.infotb.modern.ui.screens
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.content.ContextCompat
+import androidx.compose.material3.AlertDialog
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -56,7 +63,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,14 +81,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.util.formatDestination
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlin.math.hypot
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.maplibre.android.MapLibre
+import ro.infotb.modern.ui.components.shared.createTransitMapView
+import ro.infotb.modern.ui.components.shared.TransitMapLifecycle
+import ro.infotb.modern.ui.components.shared.startInBucharest
 import org.maplibre.android.annotations.IconFactory
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
@@ -93,7 +98,6 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.Stop
@@ -128,6 +132,10 @@ actual fun NearbyMapScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var isLocating by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var locationSettings by remember { mutableStateOf<Intent?>(null) }
+
     var loadedStops by remember { mutableStateOf<List<Stop>>(emptyList()) }
     var isLoadingStops by remember { mutableStateOf(false) }
     var currentZoom by remember { mutableStateOf(13.5) }
@@ -161,9 +169,6 @@ actual fun NearbyMapScreen(
 
     // Markers cache to avoid recreating
     val markersMap = remember { mutableMapOf<Long, Marker>() }
-
-    // Init MapLibre once
-    remember { MapLibre.getInstance(context) }
 
     fun loadNearbyLinesAndRoutes(stops: List<Stop>, center: LatLng) {
         if (stops.isEmpty()) return
@@ -910,22 +915,13 @@ actual fun NearbyMapScreen(
         ) {
             // MapLibre native map view
             val mapView = remember {
-                MapView(context).apply {
+                createTransitMapView(context).apply {
                     onCreate(null)
                     getMapAsync { map ->
                         mapInstance = map
+                        map.startInBucharest()
                         map.setStyle(MAP_STYLE_URL) {
-                            coroutineScope.launch {
-                                val userLoc = platformLocation.current()
-                                val initialLat = userLoc?.lat ?: BUCHAREST_LAT
-                                val initialLng = userLoc?.lng ?: BUCHAREST_LNG
-                                map.cameraPosition = CameraPosition.Builder()
-                                    .target(LatLng(initialLat, initialLng))
-                                    .zoom(13.5)
-                                    .build()
-
-                                refreshStopsInViewport(map)
-                            }
+                            refreshStopsInViewport(map)
 
                             map.addOnCameraIdleListener {
                                 currentZoom = map.cameraPosition.zoom
@@ -944,25 +940,7 @@ actual fun NearbyMapScreen(
                 }
             }
 
-            // Lifecycle forwarding
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner, mapView) {
-                val observer = LifecycleEventObserver { _, event ->
-                    when (event) {
-                        Lifecycle.Event.ON_START -> mapView.onStart()
-                        Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                        Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                        Lifecycle.Event.ON_STOP -> mapView.onStop()
-                        Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
-                        else -> {}
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose {
-                    lifecycleOwner.lifecycle.removeObserver(observer)
-                    mapView.onDestroy()
-                }
-            }
+            TransitMapLifecycle(mapView)
 
             AndroidView(
                 factory = { mapView },
@@ -972,14 +950,26 @@ actual fun NearbyMapScreen(
             // Floating controls: My Location button
             FloatingControls(
                 isLoading = isLoadingStops,
+                isLocating = isLocating,
                 onMyLocation = {
                     val map = mapInstance ?: return@FloatingControls
-                    coroutineScope.launch {
-                        val loc = platformLocation.current()
-                        if (loc != null) {
-                            map.animateCamera(
-                                CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lng), 15.0)
-                            )
+                    if (!isLocating) coroutineScope.launch {
+                        isLocating = true
+                        try {
+                            val loc = platformLocation.current()
+                            if (loc != null) {
+                                map.animateCamera(
+                                    CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lng), 15.0)
+                                )
+                            } else {
+                                val granted = listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
+                                    .any { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+                                locationError = if (granted) "map.locationUnavailable" else "map.locationPermissionRequired"
+                                locationSettings = if (granted) Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                                    else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                            }
+                        } finally {
+                            isLocating = false
                         }
                     }
                 },
@@ -988,6 +978,21 @@ actual fun NearbyMapScreen(
                     .padding(16.dp)
             )
         }
+    }
+    locationError?.let { error ->
+        AlertDialog(
+            onDismissRequest = { locationError = null },
+            text = { Text(t(error, locale)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    locationSettings?.let { context.startActivity(it) }
+                    locationError = null
+                }) { Text(t("map.openSettings", locale)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { locationError = null }) { Text(t("dashboard.close", locale)) }
+            }
+        )
     }
 }
 
@@ -1000,6 +1005,7 @@ private data class StationGroup(
 @Composable
 private fun FloatingControls(
     isLoading: Boolean,
+    isLocating: Boolean,
     onMyLocation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1017,13 +1023,18 @@ private fun FloatingControls(
         ) {
             IconButton(
                 onClick = onMyLocation,
+                enabled = !isLocating,
                 modifier = Modifier.fillMaxSize()
             ) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = "My Location",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                if (isLocating) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = "My Location",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 

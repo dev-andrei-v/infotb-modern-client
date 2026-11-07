@@ -35,6 +35,7 @@ final class LineDetailModel {
 
     func setDirection(_ direction: Direction) { viewModel.setDirection(direction: direction) }
     func refreshVehicles() { viewModel.refreshVehicles() }
+    func dismissAnnouncement(_ id: Int64) { viewModel.dismissAnnouncement(id: id) }
 }
 
 struct LineDetailView: View {
@@ -126,18 +127,11 @@ private struct LineDetailContent: View {
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
 
-            if let notice = model.announcements.first {
+            ForEach(model.announcements, id: \.id) { notice in
                 Section {
-                    Button {
-                        AppModel.shared.openNews()
-                    } label: {
-                        Label {
-                            Text(notice.title).font(.subheadline).lineLimit(2)
-                        } icon: {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        }
-                    }
-                    .foregroundStyle(.primary)
+                    AnnouncementRow(announcement: notice)
+                    Button(tr("notice.markRead")) { model.dismissAnnouncement(notice.id) }
+                        .font(.subheadline.weight(.semibold))
                 }
             }
 

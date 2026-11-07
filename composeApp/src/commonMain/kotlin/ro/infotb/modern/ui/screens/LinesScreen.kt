@@ -666,19 +666,12 @@ private fun LineRow(
                             color = lcdText,
                             maxLines = 1
                         )
-                        if (isAirport) {
-                            Icon(
-                                imageVector = AirplaneIcon,
-                                contentDescription = "Airport",
-                                tint = lcdText,
-                                modifier = Modifier.size(24.dp).rotate(45f)
-                            )
-                        }
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         endpoints.ifEmpty { listOf("—") }.forEach { endpoint ->
+                            val showAirport = isAirport || isAirportStopName(endpoint)
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (isAirportStopName(endpoint)) {
+                                if (showAirport) {
                                     Icon(
                                         imageVector = AirplaneIcon,
                                         contentDescription = "Airport",
@@ -705,8 +698,9 @@ private fun LineRow(
             } else if (endpoints.isNotEmpty()) {
                 Column(modifier = Modifier.weight(1f)) {
                     endpoints.forEach { endpoint ->
+                        val showAirport = isAirport || isAirportStopName(endpoint)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (isAirportStopName(endpoint)) {
+                            if (showAirport) {
                                 Icon(
                                     imageVector = AirplaneIcon,
                                     contentDescription = "Airport",

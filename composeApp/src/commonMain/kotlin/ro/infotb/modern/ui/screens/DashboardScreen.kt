@@ -1175,7 +1175,7 @@ private fun WidgetLineRow(
             verticalAlignment = Alignment.Top
         ) {
             val destination = formatDestination(line.directionName, line.direction)
-            val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName)
+            val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName) || isAirportLineName(line.name)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

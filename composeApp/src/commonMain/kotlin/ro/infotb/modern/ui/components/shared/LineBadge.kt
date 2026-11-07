@@ -36,7 +36,7 @@ fun LineBadge(
     color: String,
     size: BadgeSize = BadgeSize.MEDIUM,
     modifier: Modifier = Modifier,
-    isAirport: Boolean = isAirportLineName(name)
+    isAirport: Boolean = false
 ) {
     val displayName = if (name.matches(Regex("(?i)^M\\d+\\s*-.*"))) name.substringBefore('-').trim() else name
     val bgColor = try {
@@ -45,10 +45,10 @@ fun LineBadge(
         Color(0xFF1E88E5)
     }
 
-    val (fontSize, hPad, vPad, minWidth, iconSize) = when (size) {
-        BadgeSize.SMALL -> arrayOf(10f, 4f, 1f, 28f, 10f)
-        BadgeSize.MEDIUM -> arrayOf(13f, 8f, 3f, 36f, 12f)
-        BadgeSize.LARGE -> arrayOf(16f, 12f, 5f, 48f, 15f)
+    val (fontSize, hPad, vPad, minWidth) = when (size) {
+        BadgeSize.SMALL -> arrayOf(10f, 4f, 1f, 28f)
+        BadgeSize.MEDIUM -> arrayOf(13f, 8f, 3f, 36f)
+        BadgeSize.LARGE -> arrayOf(16f, 12f, 5f, 48f)
     }
     val contentColor = if (isLightColor(color)) Color.Black else Color.White
 
@@ -60,27 +60,13 @@ fun LineBadge(
             .padding(horizontal = Dp(hPad), vertical = Dp(vPad)),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = displayName,
-                color = contentColor,
-                fontSize = fontSize.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-            if (isAirport) {
-                Spacer(Modifier.width(3.dp))
-                Icon(
-                    imageVector = AirplaneIcon,
-                    contentDescription = "Airport",
-                    tint = contentColor,
-                    modifier = Modifier.size(Dp(iconSize)).rotate(45f)
-                )
-            }
-        }
+        Text(
+            text = displayName,
+            color = contentColor,
+            fontSize = fontSize.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
     }
 }

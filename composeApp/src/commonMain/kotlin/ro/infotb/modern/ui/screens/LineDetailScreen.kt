@@ -216,19 +216,12 @@ fun LineDetailScreen(
                                 color = lcdColor,
                                 maxLines = 1
                             )
-                            if (isAirport) {
-                                Icon(
-                                    imageVector = AirplaneIcon,
-                                    contentDescription = "Airport",
-                                    tint = lcdColor,
-                                    modifier = Modifier.size(24.dp).rotate(45f)
-                                )
-                            }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
+                                val showAirport = isAirport || isAirportStopName(stopName)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (isAirportStopName(stopName)) {
+                                    if (showAirport) {
                                         Icon(
                                             imageVector = AirplaneIcon,
                                             contentDescription = "Airport",

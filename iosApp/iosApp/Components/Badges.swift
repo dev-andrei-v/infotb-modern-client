@@ -57,10 +57,6 @@ struct LineBadge: View {
             Text(badgeName)
                 .font(size.font.monospacedDigit())
                 .lineLimit(1)
-            if showAirport {
-                Image(systemName: "airplane")
-                    .font(.system(size: airportIconSize, weight: .bold))
-            }
         }
         .foregroundStyle(background.contrastingText)
         .padding(size.padding)

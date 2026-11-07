@@ -25,7 +25,9 @@ struct ArrivalRow<Expanded: View>: View {
         LineColorsKt.formatDestination(directionName: line.directionName, direction: line.direction)
     }
     private var isAirportDest: Bool {
-        LineColorsKt.isAirportStopName(name: destinationText) || LineColorsKt.isAirportStopName(name: line.directionName)
+        LineColorsKt.isAirportStopName(name: destinationText) ||
+        LineColorsKt.isAirportStopName(name: line.directionName) ||
+        LineColorsKt.isAirportLineName(name: line.name)
     }
 
     var body: some View {

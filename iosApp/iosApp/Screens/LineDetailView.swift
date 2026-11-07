@@ -216,16 +216,13 @@ private struct LineDetailContent: View {
                     .font(.system(size: 30, weight: .black, design: .monospaced))
                     .tracking(0.8)
                     .lineLimit(1)
-                if showAirport {
-                    Image(systemName: "airplane")
-                        .font(.system(size: 22, weight: .bold))
-                }
             }
             .frame(minWidth: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
+                    let stopAirport = showAirport || LineColorsKt.isAirportStopName(name: stop)
                     HStack(spacing: 4) {
-                        if LineColorsKt.isAirportStopName(name: stop) {
+                        if stopAirport {
                             Image(systemName: "airplane")
                                 .font(.system(size: 10, weight: .semibold))
                         }

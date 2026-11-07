@@ -282,10 +282,6 @@ struct LinesView: View {
                                 .font(.system(size: 30, weight: .black, design: .monospaced))
                                 .tracking(0.8)
                                 .lineLimit(1)
-                            if line.isAirport {
-                                Image(systemName: "airplane")
-                                    .font(.system(size: 22, weight: .bold))
-                            }
                         }
                         .frame(minWidth: 64, alignment: .leading)
                         VStack(alignment: .leading, spacing: 1) {
@@ -294,8 +290,9 @@ struct LinesView: View {
                                 Text("—")
                             } else {
                                 ForEach(Array(endpoints.enumerated()), id: \.offset) { _, stop in
+                                    let showAirport = line.isAirport || LineColorsKt.isAirportStopName(name: stop)
                                     HStack(spacing: 4) {
-                                        if LineColorsKt.isAirportStopName(name: stop) {
+                                        if showAirport {
                                             Image(systemName: "airplane")
                                                 .font(.system(size: 10, weight: .semibold))
                                         }
@@ -324,8 +321,9 @@ struct LinesView: View {
                            let start = line.startStopName,
                            let end = line.endStopName {
                             VStack(alignment: .leading, spacing: 2) {
+                                let showStartAirport = line.isAirport || LineColorsKt.isAirportStopName(name: start)
                                 HStack(spacing: 4) {
-                                    if LineColorsKt.isAirportStopName(name: start) {
+                                    if showStartAirport {
                                         Image(systemName: "airplane")
                                             .font(.caption2.weight(.medium))
                                             .foregroundStyle(.secondary)
@@ -335,8 +333,9 @@ struct LinesView: View {
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
                                 }
+                                let showEndAirport = line.isAirport || LineColorsKt.isAirportStopName(name: end)
                                 HStack(spacing: 4) {
-                                    if LineColorsKt.isAirportStopName(name: end) {
+                                    if showEndAirport {
                                         Image(systemName: "airplane")
                                             .font(.caption2.weight(.medium))
                                             .foregroundStyle(.secondary)

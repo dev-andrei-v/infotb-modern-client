@@ -3,7 +3,7 @@ import Shared
 import UIKit
 
 enum AppTab: Hashable {
-    case dashboard, lines, map, settings
+    case dashboard, lines, map, planner, settings
 }
 
 enum Route: Hashable {
@@ -36,6 +36,7 @@ final class AppModel {
     var dashboardPath: [Route] = []
     var linesPath: [Route] = []
     var mapPath: [Route] = []
+    var plannerPath: [Route] = []
     var settingsPath: [Route] = []
 
     /// Short confirmation shown at the top of the screen.
@@ -93,6 +94,7 @@ final class AppModel {
         case .dashboard: dashboardPath.append(route)
         case .lines: linesPath.append(route)
         case .map: mapPath.append(route)
+        case .planner: plannerPath.append(route)
         case .settings: settingsPath.append(route)
         }
     }

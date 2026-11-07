@@ -136,6 +136,18 @@ private struct StopMapMarker: View {
     }
 }
 
+private enum MapSheetLevel: CaseIterable {
+    case collapsed, medium, expanded
+
+    func height(in available: CGFloat) -> CGFloat {
+        switch self {
+        case .collapsed: min(190, available * 0.30)
+        case .medium: min(max(330, available * 0.50), available * 0.62)
+        case .expanded: available * 0.84
+        }
+    }
+}
+
 @Observable
 @MainActor
 private final class NearbyMapModel {
@@ -302,12 +314,10 @@ struct NearbyMapView: View {
     @State private var lanes = RouteLaneLayout(paths: [])
     @State private var metersPerPoint = 6.0
     @State private var mapWidth = 400.0
-    @State private var sheetDetent: PresentationDetent = .height(165)
-    @State private var sheetPresented = true
+    @State private var sheetLevel: MapSheetLevel = .collapsed
     @State private var nearbySearch = ""
     @State private var displayedRouteIds: [Int64] = []
     @State private var routeColors: [Int64: String] = [:]
-    @State private var pendingMapNavigation: Route?
     @State private var clockNow = Date()
 
     private static let bucharest = MKCoordinateRegion(
@@ -359,7 +369,7 @@ struct NearbyMapView: View {
 
     private var visibleGroups: [NearbyStopGroup] { NearbyStopGroup.groups(visibleStops) }
 
-    private var isCompactSheet: Bool { sheetDetent == .height(165) }
+    private var isCompactSheet: Bool { sheetLevel == .collapsed }
 
     private var sheetGroups: [NearbyStopGroup] {
         let source: [CachedStop]
@@ -435,28 +445,21 @@ struct NearbyMapView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            map
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onAppear { mapWidth = max(1, geometry.size.width) }
-                .onChange(of: geometry.size.width) { _, width in mapWidth = max(1, width) }
+            ZStack(alignment: .bottom) {
+                map
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onAppear { mapWidth = max(1, geometry.size.width) }
+                    .onChange(of: geometry.size.width) { _, width in mapWidth = max(1, width) }
+
+                nearbySheet(in: geometry.size.height)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: sheetLevel.height(in: geometry.size.height))
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+            }
         }
         .navigationTitle(tr("nav.map"))
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $sheetPresented, onDismiss: performPendingMapNavigation) {
-            nearbySheet
-                .presentationDetents([.height(165), .medium, .large], selection: $sheetDetent)
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.regularMaterial)
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationContentInteraction(.scrolls)
-                .presentationCornerRadius(28)
-                .interactiveDismissDisabled()
-        }
-        .onAppear {
-            // A full stop or line page can be opened from the glass sheet.
-            // Restore the map controls when returning to the map.
-            if !sheetPresented { sheetPresented = true }
-        }
         .foregroundLocation(location)
         .task(id: location.location) {
             guard let fix = location.location else { return }
@@ -554,7 +557,7 @@ struct NearbyMapView: View {
                         withAnimation(.snappy) {
                             selectedGroupId = group.id
                             selectedStop = group.nearest
-                            sheetDetent = .large
+                            sheetLevel = .expanded
                         }
                     } label: {
                         StopMapMarker(
@@ -589,8 +592,9 @@ struct NearbyMapView: View {
         }
     }
 
-    private var nearbySheet: some View {
+    private func nearbySheet(in available: CGFloat) -> some View {
         VStack(spacing: 0) {
+            sheetHandle(in: available)
             if !isCompactSheet { filters }
             searchField
             if mapCenter != nil {
@@ -602,7 +606,82 @@ struct NearbyMapView: View {
             else { Spacer(minLength: 0) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(.regularMaterial)
+        .background(.regularMaterial, in: UnevenRoundedRectangle(
+            cornerRadii: .init(topLeading: 26, bottomLeading: 20, bottomTrailing: 20, topTrailing: 26),
+            style: .continuous
+        ))
+        .overlay {
+            UnevenRoundedRectangle(
+                cornerRadii: .init(topLeading: 26, bottomLeading: 20, bottomTrailing: 20, topTrailing: 26),
+                style: .continuous
+            ).stroke(.white.opacity(0.24), lineWidth: 1)
+        }
+        .clipShape(UnevenRoundedRectangle(
+            cornerRadii: .init(topLeading: 26, bottomLeading: 20, bottomTrailing: 20, topTrailing: 26),
+            style: .continuous
+        ))
+        .shadow(color: .black.opacity(0.14), radius: 14, y: -4)
+    }
+
+    private func sheetHandle(in available: CGFloat) -> some View {
+        HStack {
+            Spacer(minLength: 0)
+            Capsule()
+                .fill(.secondary.opacity(0.42))
+                .frame(width: 38, height: 5)
+                .frame(width: 80, height: 30)
+                .contentShape(Rectangle())
+                .onTapGesture { toggleSheetLevel() }
+                .gesture(DragGesture(minimumDistance: 8).onEnded { value in
+                    resizeSheet(predictedTranslation: value.predictedEndTranslation.height, available: available)
+                })
+                .accessibilityElement()
+                .accessibilityLabel(tr("map.adjustSheet"))
+                .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : sheetLevel == .expanded ? "map.sheetExpanded" : "map.sheetMedium"))
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: stepSheetLevel(up: true)
+                    case .decrement: stepSheetLevel(up: false)
+                    @unknown default: break
+                    }
+                }
+            Spacer(minLength: 0)
+            Button(action: toggleSheetLevel) {
+                Image(systemName: isCompactSheet ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    .frame(width: 32, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(tr(isCompactSheet ? "map.expandSheet" : "map.collapseSheet"))
+            .padding(.trailing, 10)
+        }
+        .padding(.top, 3)
+    }
+
+    private func toggleSheetLevel() {
+        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.88)) {
+            sheetLevel = isCompactSheet ? .medium : .collapsed
+        }
+    }
+
+    private func stepSheetLevel(up: Bool) {
+        let levels = MapSheetLevel.allCases
+        guard let current = levels.firstIndex(of: sheetLevel) else { return }
+        let target = min(levels.count - 1, max(0, current + (up ? 1 : -1)))
+        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.88)) {
+            sheetLevel = levels[target]
+        }
+    }
+
+    private func resizeSheet(predictedTranslation: CGFloat, available: CGFloat) {
+        let projectedHeight = sheetLevel.height(in: available) - predictedTranslation
+        let target = MapSheetLevel.allCases.min {
+            abs($0.height(in: available) - projectedHeight) < abs($1.height(in: available) - projectedHeight)
+        } ?? .medium
+        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.88)) {
+            sheetLevel = target
+        }
     }
 
     private var searchField: some View {
@@ -615,7 +694,7 @@ struct NearbyMapView: View {
                 .focused($nearbySearchFocused)
                 .onChange(of: nearbySearchFocused) { _, focused in
                     if focused && isCompactSheet {
-                        withAnimation(.snappy) { sheetDetent = .medium }
+                        withAnimation(.snappy) { sheetLevel = .medium }
                     }
                 }
             if !nearbySearch.isEmpty {
@@ -716,6 +795,8 @@ struct NearbyMapView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
     }
 
     private var lineStrip: some View {
@@ -725,7 +806,7 @@ struct NearbyMapView: View {
             HStack {
                 Button {
                     withAnimation(.snappy) {
-                        sheetDetent = isCompactSheet ? .medium : .height(165)
+                        sheetLevel = isCompactSheet ? .medium : .collapsed
                     }
                 } label: {
                     HStack(spacing: 6) {
@@ -845,22 +926,12 @@ struct NearbyMapView: View {
             selectedStop = stop
             selectedGroupId = NearbyStopGroup.groups(nearestStops)
                 .first(where: { $0.stops.contains(where: { $0.id == stop.id }) })?.id
-            sheetDetent = .large
+            sheetLevel = .expanded
         }
     }
 
     private func openMapRoute(_ route: Route) {
-        pendingMapNavigation = route
-        sheetPresented = false
-    }
-
-    private func performPendingMapNavigation() {
-        guard let route = pendingMapNavigation else { return }
-        pendingMapNavigation = nil
-        Task { @MainActor in
-            await Task.yield()
-            AppModel.shared.push(route)
-        }
+        AppModel.shared.push(route)
     }
 
     private var nearestRoutesChip: some View {

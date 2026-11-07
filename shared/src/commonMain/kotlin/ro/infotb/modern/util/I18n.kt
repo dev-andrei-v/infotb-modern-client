@@ -77,6 +77,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "nav.dashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
     "nav.lines" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),
     "nav.settings" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),
+    "nav.planner" to mapOf(Locale.RO to "Planifica", Locale.EN to "Plan"),
 
     // Transport types
     "transport.BUS" to mapOf(Locale.RO to "Autobuz", Locale.EN to "Bus"),

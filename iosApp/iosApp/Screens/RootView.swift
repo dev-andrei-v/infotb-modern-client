@@ -27,6 +27,13 @@ struct RootView: View {
             .tabItem { Label(tr("nav.map"), systemImage: "map.fill") }
             .tag(AppTab.map)
 
+            NavigationStack(path: $app.plannerPath) {
+                PlannerView()
+                    .routeDestinations()
+            }
+            .tabItem { Label(tr("nav.planner"), systemImage: "point.topleft.down.to.point.bottomright.curvepath") }
+            .tag(AppTab.planner)
+
             NavigationStack(path: $app.settingsPath) {
                 SettingsView()
                     .routeDestinations()

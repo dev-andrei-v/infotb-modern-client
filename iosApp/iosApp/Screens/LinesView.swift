@@ -41,6 +41,21 @@ final class LinesModel {
 
     var favorites: [Line] { lines.filter { favoriteIds.contains($0.id) } }
 
+    var expandableTypes: [TransportType] {
+        TransportType.ordered.filter { !dayLines(of: $0).isEmpty }
+    }
+
+    var allSectionsExpanded: Bool {
+        !expandableTypes.isEmpty && expandableTypes.allSatisfy { !collapsedTypes.contains($0.name) }
+    }
+
+    func toggleAllSections() {
+        let types = expandableTypes.map(\.name)
+        guard !types.isEmpty else { return }
+        if allSectionsExpanded { collapsedTypes.formUnion(types) }
+        else { types.forEach { collapsedTypes.remove($0) } }
+    }
+
     var nightLines: [Line] { Self.sorted(lines.filter(Self.isNight)) }
 
     func dayLines(of type: TransportType) -> [Line] {
@@ -65,6 +80,16 @@ struct LinesView: View {
     var body: some View {
         content
             .navigationTitle(tr("lines.title"))
+            .toolbar {
+                if !model.nightOnly && !model.expandableTypes.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: model.toggleAllSections) {
+                            Image(systemName: model.allSectionsExpanded ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
+                        }
+                        .accessibilityLabel(tr(model.allSectionsExpanded ? "lines.collapseAll" : "lines.expandAll"))
+                    }
+                }
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             .scrollDismissesKeyboard(.interactively)
             .refreshable { model.reload() }

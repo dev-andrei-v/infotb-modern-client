@@ -197,7 +197,10 @@ struct PlannerView: View {
                     Button {
                         if isOn { modes.remove(type.name) } else { modes.insert(type.name) }
                     } label: {
-                        Label(type.label, systemImage: modeIcon(type.name))
+                        HStack(spacing: 8) {
+                            VehicleGlyph(type: type.name, size: 16)
+                            Text(type.label).lineLimit(1)
+                        }
                             .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
                             .foregroundStyle(isOn ? type.color : Color.secondary)
                             .background(isOn ? type.color.opacity(0.12) : Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -544,14 +547,6 @@ struct PlannerView: View {
         UserDefaults.standard.set(data, forKey: storageKey)
     }
 
-    private func modeIcon(_ type: String) -> String {
-        switch type {
-        case TransportType.bus.name: "bus.fill"
-        case TransportType.tram.name: "tram.fill"
-        case TransportType.cableCar.name: "trolleybus"
-        default: "tram.tunnel.fill"
-        }
-    }
 }
 
 private struct PlaceFieldSheet: Identifiable {

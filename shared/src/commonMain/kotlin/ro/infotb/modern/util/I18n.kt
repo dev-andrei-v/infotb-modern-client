@@ -27,6 +27,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "planner.accessibility" to mapOf(Locale.RO to "Accesibil pentru persoane cu mobilitate redusa", Locale.EN to "Mobility accessible"),
     "planner.walkDistance" to mapOf(Locale.RO to "Distanta maxima de mers pe jos", Locale.EN to "Maximum walking distance"),
     "planner.findRoutes" to mapOf(Locale.RO to "Cauta rute", Locale.EN to "Find routes"),
+    "lines.expandAll" to mapOf(Locale.RO to "Extinde toate liniile", Locale.EN to "Expand all lines"),
+    "lines.collapseAll" to mapOf(Locale.RO to "Restrange toate liniile", Locale.EN to "Collapse all lines"),
     "planner.searchPlaces" to mapOf(Locale.RO to "Cauta o adresa sau statie", Locale.EN to "Search an address or stop"),
     "planner.routes" to mapOf(Locale.RO to "Rute sugerate", Locale.EN to "Suggested routes"),
     "planner.option" to mapOf(Locale.RO to "Optiunea", Locale.EN to "Option"),

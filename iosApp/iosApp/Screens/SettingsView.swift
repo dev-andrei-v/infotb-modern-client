@@ -9,6 +9,12 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                NavigationLink(value: Route.news) {
+                    Label(tr("nav.announcements"), systemImage: "exclamationmark.bubble.fill")
+                }
+            }
+
             Section(tr("settings.theme")) {
                 Picker(tr("settings.theme"), selection: Binding(get: { app.theme }, set: { app.setTheme($0) })) {
                     Label(tr("theme.light"), systemImage: "sun.max.fill").tag("light")
@@ -48,12 +54,7 @@ struct SettingsView: View {
                 Text(tr("settings.stopCacheDescription"))
             }
 
-            trackingSection
-
             Section {
-                NavigationLink(value: Route.news) {
-                    Label(tr("nav.announcements"), systemImage: "exclamationmark.bubble.fill")
-                }
                 Toggle(tr("settings.noticeAlerts"), isOn: Binding(get: { app.noticeAlerts }, set: { app.setNoticeAlerts($0) }))
             } footer: {
                 Text(tr("settings.noticeAlertsDescription"))
@@ -80,42 +81,6 @@ struct SettingsView: View {
             }
         }
         .navigationTitle(tr("settings.title"))
-    }
-
-    private var trackingSection: some View {
-        Section {
-            if app.subscriptions.isEmpty {
-                Label(tr("notifications.emptyDescription"), systemImage: "bell.badge")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(app.subscriptions, id: \.id) { subscription in
-                Toggle(isOn: Binding(get: { subscription.enabled }, set: { _ in app.toggleSubscription(subscription) })) {
-                    HStack(spacing: 10) {
-                        LineBadge(name: subscription.lineName, color: subscription.lineColor, size: .small)
-                        VStack(alignment: .leading) {
-                            Text(subscription.stopName).font(.subheadline.weight(.medium))
-                            Text(subscription.direction == .tur ? tr("direction.tur") : tr("direction.retur"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .swipeActions {
-                    Button(role: .destructive) {
-                        app.removeSubscription(subscription)
-                    } label: {
-                        Label(tr("widget.delete"), systemImage: "trash")
-                    }
-                }
-            }
-        } header: {
-            Text(tr("settings.arrivalAlerts"))
-        } footer: {
-            if !app.subscriptions.isEmpty {
-                Text(tr("settings.arrivalAlertsActive"))
-            }
-        }
     }
 
     private static var version: String {

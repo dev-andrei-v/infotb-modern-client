@@ -116,12 +116,11 @@ private struct StopMapMarker: View {
 }
 
 private enum MapSheetLevel: CaseIterable {
-    case collapsed, medium, expanded
+    case collapsed, expanded
 
     func height(in available: CGFloat) -> CGFloat {
         switch self {
-        case .collapsed: min(190, available * 0.30)
-        case .medium: min(max(330, available * 0.50), available * 0.62)
+        case .collapsed: min(225, available * 0.34)
         case .expanded: available * 0.84
         }
     }
@@ -575,8 +574,12 @@ struct NearbyMapView: View {
     private func nearbySheet(in available: CGFloat) -> some View {
         VStack(spacing: 0) {
             sheetHandle(in: available)
-            if !isCompactSheet { filters }
-            if !isCompactSheet { searchField }
+            if isCompactSheet {
+                compactStopSummary
+            } else {
+                searchField
+                filters
+            }
             if mapCenter != nil {
                 lineStrip.fixedSize(horizontal: false, vertical: true)
             } else {
@@ -586,20 +589,11 @@ struct NearbyMapView: View {
             else { Spacer(minLength: 0) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(.regularMaterial, in: UnevenRoundedRectangle(
-            cornerRadii: .init(topLeading: 26, bottomLeading: 20, bottomTrailing: 20, topTrailing: 26),
-            style: .continuous
-        ))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            UnevenRoundedRectangle(
-                cornerRadii: .init(topLeading: 26, bottomLeading: 20, bottomTrailing: 20, topTrailing: 26),
-                style: .continuous
-            ).stroke(.white.opacity(0.24), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.2), lineWidth: 1)
         }
-        .clipShape(UnevenRoundedRectangle(
-            cornerRadii: .init(topLeading: 26, bottomLeading: 20, bottomTrailing: 20, topTrailing: 26),
-            style: .continuous
-        ))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.14), radius: 14, y: -4)
     }
 
@@ -617,40 +611,43 @@ struct NearbyMapView: View {
                 })
                 .accessibilityElement()
                 .accessibilityLabel(tr("map.adjustSheet"))
-                .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : sheetLevel == .expanded ? "map.sheetExpanded" : "map.sheetMedium"))
-                .accessibilityAdjustableAction { direction in
-                    switch direction {
-                    case .increment: stepSheetLevel(up: true)
-                    case .decrement: stepSheetLevel(up: false)
-                    @unknown default: break
-                    }
-                }
+                .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : "map.sheetExpanded"))
             Spacer(minLength: 0)
-            Button(action: toggleSheetLevel) {
-                Image(systemName: isCompactSheet ? "chevron.up" : "chevron.down")
-                    .font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(tr(isCompactSheet ? "map.expandSheet" : "map.collapseSheet"))
-            .padding(.trailing, 10)
         }
         .padding(.top, 3)
     }
 
-    private func toggleSheetLevel() {
-        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.88)) {
-            sheetLevel = isCompactSheet ? .medium : .collapsed
+    private var compactStopSummary: some View {
+        Group {
+            if let group = sheetGroups.first {
+                Button { select(group.nearest) } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundStyle(InfoTBDesign.accent)
+                            .frame(width: 32, height: 32)
+                            .background(InfoTBDesign.accent.opacity(0.1), in: Circle())
+                        Text(group.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Spacer(minLength: 4)
+                        if let center = mapCenter {
+                            Text(DashboardFormat.distance(group.nearest.distance(from: center)))
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(group.name)
+                .accessibilityHint(tr("map.stopDetails"))
+            }
         }
     }
 
-    private func stepSheetLevel(up: Bool) {
-        let levels = MapSheetLevel.allCases
-        guard let current = levels.firstIndex(of: sheetLevel) else { return }
-        let target = min(levels.count - 1, max(0, current + (up ? 1 : -1)))
+    private func toggleSheetLevel() {
         withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.88)) {
-            sheetLevel = levels[target]
+            sheetLevel = isCompactSheet ? .expanded : .collapsed
         }
     }
 
@@ -658,7 +655,7 @@ struct NearbyMapView: View {
         let projectedHeight = sheetLevel.height(in: available) - predictedTranslation
         let target = MapSheetLevel.allCases.min {
             abs($0.height(in: available) - projectedHeight) < abs($1.height(in: available) - projectedHeight)
-        } ?? .medium
+        } ?? .collapsed
         withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.88)) {
             sheetLevel = target
         }
@@ -674,7 +671,7 @@ struct NearbyMapView: View {
                 .focused($nearbySearchFocused)
                 .onChange(of: nearbySearchFocused) { _, focused in
                     if focused && isCompactSheet {
-                        withAnimation(.snappy) { sheetLevel = .medium }
+                        withAnimation(.snappy) { sheetLevel = .expanded }
                     }
                 }
             if !nearbySearch.isEmpty {
@@ -784,28 +781,25 @@ struct NearbyMapView: View {
         let shownLines = Array(sheetLines.prefix(visibleLineLimit))
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
-                Group {
-                    if model.linesLoading || model.routesLoading { ProgressView().controlSize(.mini) }
-                    else { Color.clear }
-                }
-                .frame(width: 12, height: 12)
-                Spacer()
-                Text("\(sheetLines.count)")
-                    .font(.caption.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Color(.tertiarySystemFill), in: Capsule())
-                if let line = sheetLines.first(where: { $0.id == selectedLineId }) {
-                    Button {
-                        openMapRoute(.line(line.id))
-                    } label: {
-                        Text("\(tr("map.viewStops")) \(line.name)")
-                            .font(.subheadline.weight(.medium))
+                Button(action: toggleSheetLevel) {
+                    HStack(spacing: 8) {
+                        Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
+                        Text("\(sheetLines.count)")
+                            .font(.caption.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Color(.tertiarySystemFill), in: Capsule())
+                        Spacer()
+                        Image(systemName: isCompactSheet ? "chevron.up" : "chevron.down")
+                            .font(.caption.weight(.bold)).foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr(isCompactSheet ? "map.expandSheet" : "map.collapseSheet"))
             }
-            .padding(.horizontal)
 
             Group {
                 if isCompactSheet {

@@ -83,11 +83,17 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         if (response.status.value == 401 || response.status.value == 412) {
             response = requestRoutes(body, authManager.reauthenticate(client, token))
         }
+        val bytes = response.readRawBytes()
+        val text = bytes.decodeToString(throwOnInvalidSequence = false).removePrefix("\uFEFF").trimStart()
+        val contentType = response.headers["Content-Type"] ?: "unknown"
         if (response.status.value !in 200..299) {
-            val details = response.bodyAsText().take(500)
-            throw RuntimeException("API error: ${response.status.value} ${response.status.description}: $details")
+            throw RuntimeException("API error: ${response.status.value} ${response.status.description} (Content-Type: $contentType): ${text.take(500)}")
         }
-        return response.bodyAsText()
+        if (!(text.startsWith("{") || text.startsWith("["))) {
+            val sample = bytes.take(12).joinToString(" ") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
+            throw RuntimeException("Planner API returned a non-JSON response (Content-Type: $contentType, ${bytes.size} bytes; prefix: $sample)")
+        }
+        return text
     }
 
     private suspend fun fetchProto(path: String): ByteArray = fetch(path).readRawBytes()

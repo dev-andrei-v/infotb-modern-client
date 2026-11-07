@@ -18,10 +18,14 @@ import io.github.vinceglb.filekit.core.FileKit
 import ro.infotb.modern.location.AndroidLocationPermission
 import ro.infotb.modern.ui.App
 import ro.infotb.modern.ui.PendingStopNav
+import ro.infotb.modern.ui.PendingQuickAction
+import ro.infotb.modern.ui.widget.TransitAppShortcuts
 
 class MainActivity : ComponentActivity() {
 
     private val pendingNav = mutableStateOf<PendingStopNav?>(null)
+    private val pendingQuickAction = mutableStateOf<PendingQuickAction?>(null)
+    private var quickActionRequestId = 0
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -49,14 +53,17 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermission()
         requestBatteryOptimizationExemption()
         handleNotificationIntent(intent)
+        handleQuickActionIntent(intent)
+        TransitAppShortcuts.refresh(this)
         setContent {
-            App(notificationNav = pendingNav)
+            App(notificationNav = pendingNav, quickActionNav = pendingQuickAction)
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleNotificationIntent(intent)
+        handleQuickActionIntent(intent)
     }
 
     private fun requestNotificationPermission() {
@@ -86,5 +93,18 @@ class MainActivity : ComponentActivity() {
             val direction = intent?.getIntExtra("navigate_direction", -1) ?: -1
             pendingNav.value = PendingStopNav(stopId, lineId, direction)
         }
+    }
+
+    private fun handleQuickActionIntent(intent: Intent?) {
+        val action = intent?.getStringExtra(TransitAppShortcuts.ACTION_KEY) ?: return
+        val destinationJson = intent.getStringExtra(TransitAppShortcuts.DESTINATION_KEY)
+        if (action == "plan_destination") {
+            TransitAppShortcuts.recordDestinationUse(
+                this,
+                intent.getStringExtra(TransitAppShortcuts.TRIP_ID_KEY).orEmpty()
+            )
+        }
+        quickActionRequestId += 1
+        pendingQuickAction.value = PendingQuickAction(action, destinationJson, quickActionRequestId)
     }
 }

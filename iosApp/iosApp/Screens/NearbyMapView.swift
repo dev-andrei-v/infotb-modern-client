@@ -15,12 +15,16 @@ private struct PreviewVehicle: Identifiable {
 private struct NearbyRoute: Identifiable {
     let id: String
     let lineId: Int64
+    let name: String
+    let type: String
     let color: String
     let coordinates: [CLLocationCoordinate2D]
 
     init(detail: LineDetail, direction: Direction) {
         id = "\(detail.id)-\(direction.name)"
         lineId = detail.id
+        name = detail.name
+        type = detail.type.name
         color = detail.color
         if let path = detail.segmentPath, !path.isEmpty {
             coordinates = PolylineKt.decodePolyline(encoded: path).compactMap {
@@ -328,10 +332,56 @@ struct NearbyMapView: View {
     }
 
     private var visibleStops: [CachedStop] {
-        // Transport filters affect route and line results, not the physical
-        // stop markers. A stop can remain useful even when none of its lines
-        // match the current filter selection.
-        nearestStops
+        let bounds = mapViewport?.searchBounds
+        let span = mapViewport?.minimumSpanMeters ?? 2_000
+        let candidates: [CachedStop]
+        if let bounds, (mapViewport?.stopSearchRadius ?? 0) <= 4_500 {
+            candidates = cache.stops.values.filter {
+                $0.latitude >= bounds.south && $0.latitude <= bounds.north &&
+                    $0.longitude >= bounds.west && $0.longitude <= bounds.east
+            }
+        } else {
+            candidates = nearestStops
+        }
+        var matching = candidates.filter { stop in
+            selectedTypes.contains { type in
+                stop.lines.contains(where: { $0.type == type }) ||
+                    (type == TransportType.subway.name && stop.type == "SUBWAY_STATION")
+            }
+        }
+        if let center = mapCenter {
+            matching.sort { $0.distance(from: center) < $1.distance(from: center) }
+        }
+
+        // Limit stop markers when zooming out to avoid overcrowding the map
+        let limited: [CachedStop]
+        if span > 5_000 {
+            // Very zoomed out: only show Subway stations and at most 10 nearest surface stops
+            let metro = matching.filter { $0.type == "SUBWAY_STATION" }
+            let surface = matching.filter { $0.type != "SUBWAY_STATION" }.prefix(10)
+            limited = metro + Array(surface)
+        } else if span > 3_000 {
+            // Medium zoomed out: Subway stations and up to 25 surface stops
+            let metro = matching.filter { $0.type == "SUBWAY_STATION" }
+            let surface = matching.filter { $0.type != "SUBWAY_STATION" }.prefix(25)
+            limited = metro + Array(surface)
+        } else if span > 1_800 {
+            // Moderate zoom: Subway stations and up to 45 surface stops
+            let metro = matching.filter { $0.type == "SUBWAY_STATION" }
+            let surface = matching.filter { $0.type != "SUBWAY_STATION" }.prefix(45)
+            limited = metro + Array(surface)
+        } else {
+            // Zoomed in close (<1.8km span): show up to 60 stops
+            limited = Array(matching.prefix(60))
+        }
+
+        var result = limited
+        // Keep a rider's selected stop pinned while transport filters change
+        // or the map is panned to search another area.
+        if let selectedStop, !result.contains(where: { $0.id == selectedStop.id }) {
+            result.append(selectedStop)
+        }
+        return result
     }
 
     private var isNightTransitTime: Bool {
@@ -343,6 +393,10 @@ struct NearbyMapView: View {
         line.type == TransportType.bus.name && line.name.range(of: "^N\\d+$", options: .regularExpression) != nil
     }
 
+    private func isNightBus(_ route: NearbyRoute) -> Bool {
+        route.type == TransportType.bus.name && route.name.range(of: "^N\\d+$", options: .regularExpression) != nil
+    }
+
     private var visibleGroups: [NearbyStopGroup] { NearbyStopGroup.groups(visibleStops) }
 
     private var isCompactSheet: Bool { sheetLevel == .collapsed }
@@ -351,13 +405,8 @@ struct NearbyMapView: View {
         let source: [CachedStop]
         if nearbySearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             source = visibleStops
-        } else if let center = mapCenter {
-            source = cache.nearest(to: center, radius: mapViewport?.stopSearchRadius ?? 1_000)
-                .filter { stop in
-                    stop.lines.isEmpty || stop.lines.contains {
-                        selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0))
-                    }
-                }
+        } else if mapCenter != nil {
+            source = visibleStops
         } else {
             source = []
         }
@@ -386,7 +435,12 @@ struct NearbyMapView: View {
     }
 
     private var visibleRoutes: [NearbyRoute] {
-        displayedRouteIds.flatMap { model.routes[$0] ?? [] }.sorted {
+        let routes = displayedRouteIds.reduce(into: [NearbyRoute]()) { result, routeID in
+            result.append(contentsOf: model.routes[routeID] ?? [])
+        }
+        return routes
+            .filter { selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0)) }
+            .sorted {
             // Paint the focused route last so junctions remain legible.
             if ($0.lineId == selectedLineId) != ($1.lineId == selectedLineId) { return $1.lineId == selectedLineId }
             return $0.id < $1.id
@@ -483,7 +537,7 @@ struct NearbyMapView: View {
             // data is loading. Swap the displayed set only after all requested
             // routes have arrived, avoiding a blank/flickering map on pans.
             withAnimation(.easeInOut(duration: 0.2)) {
-                displayedRouteIds = requestedIds
+                displayedRouteIds = Array(Set(displayedRouteIds).union(requestedIds)).sorted()
             }
         }
         .task(id: selectedStop?.id) {
@@ -503,11 +557,6 @@ struct NearbyMapView: View {
             for line in nearbyLines where routeColors[line.id] == nil {
                 routeColors[line.id] = Color(hex: line.color) == nil ? stableFallbackColor(for: line.id) : line.color
             }
-        }
-        .onChange(of: selectedTypes) { _, _ in
-            selectedLineId = nil
-            selectedGroupId = nil
-            selectedStop = nil
         }
     }
 

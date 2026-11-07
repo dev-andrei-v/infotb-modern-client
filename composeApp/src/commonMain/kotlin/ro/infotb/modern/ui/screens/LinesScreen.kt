@@ -237,7 +237,8 @@ fun LinesScreen(
                                     line = line,
                                     isFavorite = true,
                                     onToggleFavorite = { viewModel.toggleFavorite(line.id) },
-                                    onClick = { onNavigateToLine(line.id) }
+                                    onClick = { onNavigateToLine(line.id) },
+                                    onLoadSummary = { viewModel.loadLineSummary(line.id) }
                                 )
                                 Spacer(Modifier.height(6.dp))
                             }
@@ -283,7 +284,8 @@ fun LinesScreen(
                                     line = line,
                                     isFavorite = line.id in favoriteIds,
                                     onToggleFavorite = { viewModel.toggleFavorite(line.id) },
-                                    onClick = { onNavigateToLine(line.id) }
+                                    onClick = { onNavigateToLine(line.id) },
+                                    onLoadSummary = { viewModel.loadLineSummary(line.id) }
                                 )
                                 Spacer(Modifier.height(6.dp))
                             }
@@ -350,7 +352,8 @@ fun LinesScreen(
                                         line = line,
                                         isFavorite = line.id in favoriteIds,
                                         onToggleFavorite = { viewModel.toggleFavorite(line.id) },
-                                        onClick = { onNavigateToLine(line.id) }
+                                        onClick = { onNavigateToLine(line.id) },
+                                        onLoadSummary = { viewModel.loadLineSummary(line.id) }
                                     )
                                     Spacer(Modifier.height(6.dp))
                                 }
@@ -460,8 +463,10 @@ private fun LineRow(
     line: Line,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLoadSummary: () -> Unit
 ) {
+    LaunchedEffect(line.id) { onLoadSummary() }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -478,7 +483,31 @@ private fun LineRow(
                 color = line.color,
                 size = BadgeSize.MEDIUM
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(12.dp))
+            if (line.startStopName != null || line.endStopName != null) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF18212B))
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    listOfNotNull(line.startStopName, line.endStopName).forEach { endpoint ->
+                        Text(
+                            text = endpoint.uppercase(),
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontSize = 9.sp,
+                            letterSpacing = 0.7.sp,
+                            color = Color(0xFFFFC857),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
             IconButton(
                 onClick = onToggleFavorite,
                 modifier = Modifier.size(36.dp)

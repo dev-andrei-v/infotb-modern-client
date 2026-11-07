@@ -87,6 +87,7 @@ private struct PlannerRouteLeg: Identifiable {
 private enum PlannerPlaceField: Equatable { case origin, destination }
 
 struct PlannerView: View {
+    @State private var app = AppModel.shared
     @State private var origin: PlannerPlace?
     @State private var destination: PlannerPlace?
     @State private var departure = Date()
@@ -148,7 +149,13 @@ struct PlannerView: View {
         .navigationTitle(tr("planner.title"))
         .navigationBarTitleDisplayMode(.inline)
         .foregroundLocation(plannerLocation)
-        .task { loadSavedTrips() }
+        .task {
+            loadSavedTrips()
+            handlePendingPlannerDestination()
+        }
+        .onChange(of: app.pendingPlannerDestinationID) { _, destinationID in
+            if destinationID != nil { handlePendingPlannerDestination() }
+        }
         .sheet(item: Binding(get: { field.map(PlaceFieldSheet.init) }, set: { field = $0?.field })) { item in
             placePicker(item.field)
                 .presentationDetents([.medium, .large])
@@ -783,6 +790,7 @@ struct PlannerView: View {
         }
         savedDestinations.insert(saved, at: 0)
         persistSavedDestinations()
+        AppQuickActions.refresh(localeCode: app.localeCode)
     }
 
     private func samePlace(_ lhs: SavedTrip.SavedPlace, _ rhs: SavedTrip.SavedPlace) -> Bool {
@@ -791,26 +799,60 @@ struct PlannerView: View {
     }
 
     private func open(_ saved: SavedDestination) {
+        AppQuickActions.recordUse(destinationID: saved.id, localeCode: app.localeCode)
         destination = saved.place.place
-        if let fix = plannerLocation.location {
-            origin = PlannerPlace(name: tr("planner.currentLocation"), lat: fix.coordinate.latitude,
-                                  lng: fix.coordinate.longitude, type: "CURRENT_LOCATION", description: nil, stop_id: nil)
-        }
+        origin = nil
         response = nil
         selectedRouteIndex = nil
         error = nil
-        if origin != nil { findRoutes() }
+        if let fix = plannerLocation.location {
+            setCurrentOrigin(fix.coordinate)
+            findRoutes()
+        } else {
+            loading = true
+            error = tr("planner.waitingLocation")
+            plannerLocation.retry()
+            Task { @MainActor in
+                for _ in 0..<48 {
+                    if let fix = plannerLocation.location {
+                        setCurrentOrigin(fix.coordinate)
+                        error = nil
+                        findRoutes()
+                        return
+                    }
+                    if plannerLocation.unavailable { break }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+                loading = false
+                error = tr("planner.locationUnavailable")
+            }
+        }
+    }
+
+    private func setCurrentOrigin(_ coordinate: CLLocationCoordinate2D) {
+        origin = PlannerPlace(name: tr("planner.currentLocation"), lat: coordinate.latitude,
+                              lng: coordinate.longitude, type: "CURRENT_LOCATION", description: nil, stop_id: nil)
+    }
+
+    private func handlePendingPlannerDestination() {
+        guard let id = app.pendingPlannerDestinationID,
+              let uuid = UUID(uuidString: id),
+              let saved = savedDestinations.first(where: { $0.id == uuid }) else { return }
+        _ = app.consumePendingPlannerDestination()
+        open(saved)
     }
 
     private func delete(_ saved: SavedDestination) {
         savedDestinations.removeAll { $0.id == saved.id }
         persistSavedDestinations()
+        AppQuickActions.refresh(localeCode: app.localeCode)
     }
 
     private func loadSavedTrips() {
         if let data = UserDefaults.standard.data(forKey: destinationsStorageKey),
            let destinations = try? JSONDecoder().decode([SavedDestination].self, from: data) {
             savedDestinations = destinations
+            AppQuickActions.refresh(localeCode: app.localeCode)
             return
         }
         guard let data = UserDefaults.standard.data(forKey: legacyTripsStorageKey),

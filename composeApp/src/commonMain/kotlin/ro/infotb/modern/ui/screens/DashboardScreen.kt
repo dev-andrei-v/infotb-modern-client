@@ -121,7 +121,9 @@ import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.viewmodel.DashboardViewModel
+import ro.infotb.modern.ui.widget.publishDashboardWidgetSnapshot
 import ro.infotb.modern.util.Locale
+import kotlinx.serialization.encodeToString
 import ro.infotb.modern.util.t
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,6 +158,32 @@ fun DashboardScreen(
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
     var showGroupsDialog by remember { mutableStateOf(false) }
+
+    // Keep Android home-screen widgets aligned with the dashboard's locally
+    // cached groups and latest arrival snapshots.
+    LaunchedEffect(groups, widgets, cardStates, hiddenGroups) {
+        val widgetGroups = (groups + "").distinct().map { groupName ->
+            HomeWidgetGroupSnapshot(
+                name = groupName,
+                stops = widgets.asSequence()
+                    .filter { it.group == groupName && !it.hidden && groupName !in hiddenGroups }
+                    .map { widget ->
+                        val arrivals = cardStates[widget.stopId]?.info?.lines.orEmpty()
+                            .asSequence()
+                            .filter { it.arrivingTimes.isNotEmpty() || it.arrivingTime >= 0 }
+                            .sortedBy { it.arrivingTime }
+                            .take(3)
+                            .map { HomeWidgetArrivalSnapshot(it.name, it.arrivingTime) }
+                            .toList()
+                        HomeWidgetStopSnapshot(widget.stopId, widget.stopName, arrivals)
+                    }
+                    .toList()
+            )
+        }
+        publishDashboardWidgetSnapshot(
+            kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups))
+        )
+    }
 
     // Only poll while this screen is on screen
     DisposableEffect(viewModel) {
@@ -520,6 +548,22 @@ fun DashboardScreen(
         )
     }
 }
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetSnapshot(val groups: List<HomeWidgetGroupSnapshot>)
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetGroupSnapshot(val name: String, val stops: List<HomeWidgetStopSnapshot>)
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetStopSnapshot(
+    val id: Long,
+    val name: String,
+    val arrivals: List<HomeWidgetArrivalSnapshot>
+)
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetArrivalSnapshot(val line: String, val seconds: Long)
 
 @Composable
 private fun DashboardHeader(

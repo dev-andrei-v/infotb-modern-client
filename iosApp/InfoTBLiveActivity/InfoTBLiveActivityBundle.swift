@@ -5,5 +5,6 @@ import WidgetKit
 struct InfoTBLiveActivityBundle: WidgetBundle {
     var body: some Widget {
         InfoTBLiveActivity()
+        TransitGroupHomeWidget()
     }
 }

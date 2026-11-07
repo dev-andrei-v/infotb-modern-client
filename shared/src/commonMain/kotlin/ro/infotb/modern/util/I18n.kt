@@ -199,8 +199,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "lines.title" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),
     "lines.description" to mapOf(Locale.RO to "Toate liniile de transport", Locale.EN to "All transit lines"),
     "lines.searchPlaceholder" to mapOf(
-        Locale.RO to "Cauta linia (ex: 41, 61, 100, M2)...",
-        Locale.EN to "Search line (e.g. 41, 61, 100, M2)..."
+        Locale.RO to "Cauta linii sau statii (ex: 41, Unirii)...",
+        Locale.EN to "Search lines or stops (e.g. 41, Unirii)..."
     ),
     "lines.errorTitle" to mapOf(Locale.RO to "Eroare la incarcarea liniilor", Locale.EN to "Error loading lines"),
     "lines.errorDescription" to mapOf(

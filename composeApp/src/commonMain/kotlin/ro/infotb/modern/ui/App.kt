@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -56,6 +57,7 @@ import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.ui.viewmodel.LinesViewModel
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
 
@@ -65,8 +67,13 @@ data class PendingStopNav(
     val direction: Int
 )
 
+data class PendingQuickAction(val action: String, val destinationJson: String? = null, val requestId: Int = 0)
+
 @Composable
-fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableStateOf(null) }) {
+fun App(
+    notificationNav: MutableState<PendingStopNav?> = remember { mutableStateOf(null) },
+    quickActionNav: MutableState<PendingQuickAction?> = remember { mutableStateOf(null) }
+) {
     val preferencesStore: PreferencesStore = koinInject()
     val repository: TransitRepository = koinInject()
     val dashboardStore: DashboardStore = koinInject()
@@ -98,6 +105,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val activeSubscriptions by notificationStore.subscriptions.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val plannerShortcutDestination = remember { mutableStateOf<ro.infotb.modern.data.model.PlannerPlace?>(null) }
 
     fun handleTrackedStationSelection(
         stopId: Long,
@@ -140,6 +148,25 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     launchSingleTop = true
                 }
                 notificationNav.value = null
+            }
+        }
+
+        val quickAction = quickActionNav.value
+        LaunchedEffect(quickAction) {
+            if (quickAction != null) {
+                when (quickAction.action) {
+                    "lines" -> navController.navigate(Screen.Lines.route) { launchSingleTop = true }
+                    "map" -> navController.navigate(Screen.NearbyMap.route) { launchSingleTop = true }
+                    "plan_destination" -> {
+                        plannerShortcutDestination.value = quickAction.destinationJson?.let { raw ->
+                            runCatching {
+                                kotlinx.serialization.json.Json.decodeFromString<ro.infotb.modern.data.model.PlannerPlace>(raw)
+                            }.getOrNull()
+                        }
+                        navController.navigate(Screen.Planner.route) { launchSingleTop = true }
+                    }
+                }
+                quickActionNav.value = null
             }
         }
 
@@ -327,6 +354,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         platformLocation = platformLocation,
                         preferencesStore = preferencesStore,
                         locale = locale,
+                        initialDestination = plannerShortcutDestination.value,
+                        onInitialDestinationConsumed = { plannerShortcutDestination.value = null },
                         onNavigateToStop = { stopId ->
                             navController.navigate(Screen.StopDetail(stopId).route)
                         },
@@ -349,7 +378,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         notificationStore = notificationStore,
                         backupManager = backupManager,
                         locale = locale,
-                        onNotificationChanged = { notificationEngine.refreshNow() }
+                        onNotificationChanged = { notificationEngine.refreshNow() },
+                        onNavigateToNews = { navController.navigate(Screen.Announcements.route) }
                     )
                 }
             }

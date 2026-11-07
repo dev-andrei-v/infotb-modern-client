@@ -38,6 +38,8 @@ final class AppModel {
     var mapPath: [Route] = []
     var plannerPath: [Route] = []
     var settingsPath: [Route] = []
+    var pendingPlannerDestinationID: String?
+    var pendingDashboardGroupName: String?
 
     /// Short confirmation shown at the top of the screen.
     private(set) var toast: String?
@@ -55,7 +57,11 @@ final class AppModel {
             self?.theme = $0 as? String ?? "system"
             self?.applyTheme()
         }
-        scope.watch(prefs.locale) { [weak self] in self?.localeCode = $0 as? String ?? "ro" }
+        scope.watch(prefs.locale) { [weak self] in
+            guard let self else { return }
+            self.localeCode = $0 as? String ?? "ro"
+            AppQuickActions.refresh(localeCode: self.localeCode)
+        }
         scope.watch(prefs.noticeAlerts) { [weak self] in self?.noticeAlerts = Unbox.bool($0) }
         scope.watch(services.notificationStore.subscriptions) { [weak self] in
             self?.subscriptions = Unbox.list($0)
@@ -102,6 +108,43 @@ final class AppModel {
     func openNews() {
         selectedTab = .settings
         settingsPath = [.news]
+    }
+
+    func openQuickAction(_ shortcut: UIApplicationShortcutItem) -> Bool {
+        switch shortcut.type {
+        case AppQuickActions.linesType:
+            selectedTab = .lines
+            linesPath = []
+            return true
+        case AppQuickActions.mapType:
+            selectedTab = .map
+            mapPath = []
+            return true
+        case AppQuickActions.savedDestinationType:
+            guard let destinationID = shortcut.userInfo?[AppQuickActions.destinationIDKey] as? String else { return false }
+            selectedTab = .planner
+            plannerPath = []
+            pendingPlannerDestinationID = destinationID
+            return true
+        default:
+            return false
+        }
+    }
+
+    func consumePendingPlannerDestination() -> String? {
+        defer { pendingPlannerDestinationID = nil }
+        return pendingPlannerDestinationID
+    }
+
+    func openDashboardGroup(_ name: String) {
+        selectedTab = .dashboard
+        dashboardPath = []
+        pendingDashboardGroupName = name
+    }
+
+    func consumePendingDashboardGroup() -> String? {
+        defer { pendingDashboardGroupName = nil }
+        return pendingDashboardGroupName
     }
 
     func addToDashboard(stopId: Int64, stopName: String) {

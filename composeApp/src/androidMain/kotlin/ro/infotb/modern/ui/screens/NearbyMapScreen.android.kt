@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -75,6 +77,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlin.math.hypot
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -87,8 +90,10 @@ import org.maplibre.android.annotations.PolylineOptions
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.StopInfo
@@ -124,13 +129,21 @@ actual fun NearbyMapScreen(
     var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
     var loadedStops by remember { mutableStateOf<List<Stop>>(emptyList()) }
     var isLoadingStops by remember { mutableStateOf(false) }
+    var currentZoom by remember { mutableStateOf(13.5) }
+    var currentCenter by remember { mutableStateOf(LatLng(BUCHAREST_LAT, BUCHAREST_LNG)) }
 
     var selectedStop by remember { mutableStateOf<Stop?>(null) }
     var selectedStopPreview by remember { mutableStateOf<StopInfo?>(null) }
     var isLoadingPreview by remember { mutableStateOf(false) }
 
     var selectedLineId by remember { mutableStateOf<Long?>(null) }
-    var activePolyline by remember { mutableStateOf<Polyline?>(null) }
+    val renderedPolylines = remember { mutableListOf<Polyline>() }
+
+    // Stop lines & routes cache
+    val stopLinesCache = remember { mutableMapOf<Long, List<Line>>() }
+    var nearbyLines by remember { mutableStateOf<List<Line>>(emptyList()) }
+    var isLoadingNearbyLines by remember { mutableStateOf(false) }
+    var routePolylines by remember { mutableStateOf<Map<Long, List<List<LatLng>>>>(emptyMap()) }
 
     var selectedTypes by remember {
         mutableStateOf(TransportType.entries.toSet())
@@ -151,18 +164,161 @@ actual fun NearbyMapScreen(
     // Init MapLibre once
     remember { MapLibre.getInstance(context) }
 
+    fun loadNearbyLinesAndRoutes(stops: List<Stop>, center: LatLng) {
+        if (stops.isEmpty()) return
+        coroutineScope.launch {
+            isLoadingNearbyLines = true
+            try {
+                val nearest = stops
+                    .sortedBy { hypot(it.lat - center.latitude, it.lng - center.longitude) }
+                    .take(10)
+
+                val linesFound = mutableListOf<Line>()
+                for (stop in nearest) {
+                    val cached = stopLinesCache[stop.id]
+                    if (cached != null) {
+                        linesFound.addAll(cached)
+                    } else {
+                        try {
+                            val fetched = repository.getStopLines(stop.id)
+                            stopLinesCache[stop.id] = fetched
+                            linesFound.addAll(fetched)
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                val unique = linesFound
+                    .distinctBy { it.id }
+                    .filter { line -> line.type in selectedTypes }
+                    .sortedWith(compareBy<Line> {
+                        it.name.filter { c -> c.isDigit() }.toLongOrNull() ?: Long.MAX_VALUE
+                    }.thenBy { it.name })
+
+                nearbyLines = unique
+
+                val linesToFetch = if (selectedLineId != null) {
+                    unique.filter { it.id == selectedLineId }
+                } else {
+                    unique.take(5)
+                }
+
+                val newRouteMap = routePolylines.toMutableMap()
+                for (line in linesToFetch) {
+                    if (!newRouteMap.containsKey(line.id)) {
+                        val segments = mutableListOf<List<LatLng>>()
+                        try {
+                            val tur = repository.getLineDirection(line.id, Direction.TUR)
+                            val path = tur.segmentPath
+                            if (!path.isNullOrBlank()) {
+                                val pts = decodePolyline(path).map { LatLng(it.first, it.second) }
+                                if (pts.size >= 2) segments.add(pts)
+                            } else if (tur.stops.size >= 2) {
+                                segments.add(tur.stops.map { LatLng(it.lat, it.lng) })
+                            }
+                        } catch (_: Exception) {}
+
+                        try {
+                            val retur = repository.getLineDirection(line.id, Direction.RETUR)
+                            val path = retur.segmentPath
+                            if (!path.isNullOrBlank()) {
+                                val pts = decodePolyline(path).map { LatLng(it.first, it.second) }
+                                if (pts.size >= 2) segments.add(pts)
+                            } else if (retur.stops.size >= 2) {
+                                segments.add(retur.stops.map { LatLng(it.lat, it.lng) })
+                            }
+                        } catch (_: Exception) {}
+
+                        if (segments.isNotEmpty()) {
+                            newRouteMap[line.id] = segments
+                        }
+                    }
+                }
+                routePolylines = newRouteMap
+            } catch (_: Exception) {
+            } finally {
+                isLoadingNearbyLines = false
+            }
+        }
+    }
+
+    fun selectLine(line: Line) {
+        if (selectedLineId == line.id) {
+            selectedLineId = null
+        } else {
+            selectedLineId = line.id
+            coroutineScope.launch {
+                var segments = routePolylines[line.id]
+                if (segments == null) {
+                    val loaded = mutableListOf<List<LatLng>>()
+                    try {
+                        val tur = repository.getLineDirection(line.id, Direction.TUR)
+                        val path = tur.segmentPath
+                        if (!path.isNullOrBlank()) {
+                            val pts = decodePolyline(path).map { LatLng(it.first, it.second) }
+                            if (pts.size >= 2) loaded.add(pts)
+                        } else if (tur.stops.size >= 2) {
+                            loaded.add(tur.stops.map { LatLng(it.lat, it.lng) })
+                        }
+                    } catch (_: Exception) {}
+
+                    try {
+                        val retur = repository.getLineDirection(line.id, Direction.RETUR)
+                        val path = retur.segmentPath
+                        if (!path.isNullOrBlank()) {
+                            val pts = decodePolyline(path).map { LatLng(it.first, it.second) }
+                            if (pts.size >= 2) loaded.add(pts)
+                        } else if (retur.stops.size >= 2) {
+                            loaded.add(retur.stops.map { LatLng(it.lat, it.lng) })
+                        }
+                    } catch (_: Exception) {}
+
+                    if (loaded.isNotEmpty()) {
+                        routePolylines = routePolylines + (line.id to loaded)
+                        segments = loaded
+                    }
+                }
+
+                val map = mapInstance
+                if (map != null && !segments.isNullOrEmpty()) {
+                    val allPts = segments.flatten()
+                    if (allPts.isNotEmpty()) {
+                        val boundsBuilder = LatLngBounds.Builder()
+                        allPts.forEach { boundsBuilder.include(it) }
+                        try {
+                            map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 120))
+                        } catch (_: Exception) {
+                            map.animateCamera(CameraUpdateFactory.newLatLngZoom(allPts.first(), 14.5))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fun refreshStopsInViewport(map: MapLibreMap) {
         val bounds = map.projection.visibleRegion.latLngBounds
+        val center = map.cameraPosition.target ?: LatLng(BUCHAREST_LAT, BUCHAREST_LNG)
+        currentZoom = map.cameraPosition.zoom
+        currentCenter = center
+
+        val maxSpanLat = 0.08
+        val maxSpanLng = 0.10
+        val south = maxOf(bounds.latitudeSouth, center.latitude - maxSpanLat)
+        val north = minOf(bounds.latitudeNorth, center.latitude + maxSpanLat)
+        val west = maxOf(bounds.longitudeWest, center.longitude - maxSpanLng)
+        val east = minOf(bounds.longitudeEast, center.longitude + maxSpanLng)
+
         isLoadingStops = true
         coroutineScope.launch {
             try {
                 val stops = repository.getStopsInBounds(
-                    south = bounds.latitudeSouth,
-                    west = bounds.longitudeWest,
-                    north = bounds.latitudeNorth,
-                    east = bounds.longitudeEast
+                    south = south,
+                    west = west,
+                    north = north,
+                    east = east
                 )
                 loadedStops = stops
+                loadNearbyLinesAndRoutes(stops, center)
             } catch (_: Exception) {
             } finally {
                 isLoadingStops = false
@@ -190,12 +346,47 @@ actual fun NearbyMapScreen(
         }
     }
 
-    // Filtered stops
-    val filteredStops = remember(loadedStops, selectedTypes, searchQuery) {
-        loadedStops.filter { stop ->
+    // Filtered stops with zoom density limiter
+    val filteredStops = remember(loadedStops, selectedTypes, searchQuery, currentZoom, currentCenter, selectedStop) {
+        val matching = loadedStops.filter { stop ->
             val matchesSearch = searchQuery.isBlank() ||
                 stop.name.contains(searchQuery, ignoreCase = true)
             matchesSearch
+        }.sortedBy { stop ->
+            val dLat = stop.lat - currentCenter.latitude
+            val dLng = stop.lng - currentCenter.longitude
+            dLat * dLat + dLng * dLng
+        }
+
+        val limited = when {
+            currentZoom < 12.0 -> {
+                // Far zoomed out: only show Subway stations and at most 10 nearest surface stops
+                val metro = matching.filter { it.type == "SUBWAY_STATION" }
+                val surface = matching.filter { it.type != "SUBWAY_STATION" }.take(10)
+                metro + surface
+            }
+            currentZoom < 13.5 -> {
+                // Medium zoom: Subway stations + 25 nearest surface stops
+                val metro = matching.filter { it.type == "SUBWAY_STATION" }
+                val surface = matching.filter { it.type != "SUBWAY_STATION" }.take(25)
+                metro + surface
+            }
+            currentZoom < 14.5 -> {
+                // Moderate zoom: Subway stations + 45 nearest surface stops
+                val metro = matching.filter { it.type == "SUBWAY_STATION" }
+                val surface = matching.filter { it.type != "SUBWAY_STATION" }.take(45)
+                metro + surface
+            }
+            else -> {
+                // Close zoom (< 14.5): up to 60 nearest stops
+                matching.take(60)
+            }
+        }
+
+        if (selectedStop != null && limited.none { it.id == selectedStop?.id }) {
+            limited + selectedStop!!
+        } else {
+            limited
         }
     }
 
@@ -208,6 +399,65 @@ actual fun NearbyMapScreen(
                 isMetro = stops.any { it.type == "SUBWAY_STATION" }
             )
         }.sortedBy { it.name }
+    }
+
+    // Update polylines on MapLibre map (dual-stroke outline + color, matching iOS)
+    LaunchedEffect(routePolylines, selectedLineId, mapInstance) {
+        val map = mapInstance ?: return@LaunchedEffect
+        renderedPolylines.forEach { map.removePolyline(it) }
+        renderedPolylines.clear()
+
+        val linesToRender = if (selectedLineId != null) {
+            nearbyLines.filter { it.id == selectedLineId }
+        } else {
+            nearbyLines.filter { routePolylines.containsKey(it.id) }
+        }
+
+        linesToRender.forEach { line ->
+            val segments = routePolylines[line.id] ?: return@forEach
+            val isFocused = selectedLineId == line.id
+            val parsedColor = parseLineColor(line.color)
+
+            segments.forEach { points ->
+                if (points.size >= 2) {
+                    // White outline casing for crisp contrast
+                    val outlineWidth = if (isFocused) 9f else 6.5f
+                    val outlineColor = if (isFocused) {
+                        android.graphics.Color.WHITE
+                    } else if (selectedLineId != null) {
+                        android.graphics.Color.argb(70, 255, 255, 255)
+                    } else {
+                        android.graphics.Color.argb(220, 255, 255, 255)
+                    }
+
+                    val outline = map.addPolyline(
+                        PolylineOptions()
+                            .addAll(points)
+                            .color(outlineColor)
+                            .width(outlineWidth)
+                    )
+                    renderedPolylines.add(outline)
+
+                    // Core line stroke with transit color
+                    val coreWidth = if (isFocused) 6f else 4f
+                    val coreColor = if (isFocused) {
+                        parsedColor
+                    } else if (selectedLineId != null) {
+                        adjustAlpha(parsedColor, 0.3f)
+                    } else {
+                        parsedColor
+                    }
+
+                    val core = map.addPolyline(
+                        PolylineOptions()
+                            .addAll(points)
+                            .color(coreColor)
+                            .width(coreWidth)
+                    )
+                    renderedPolylines.add(core)
+                }
+            }
+        }
     }
 
     // Update markers on MapLibre map when stops change
@@ -283,6 +533,133 @@ actual fun NearbyMapScreen(
                                 selectedLabelColor = color
                             )
                         )
+                    }
+                }
+
+                // Nearby Lines Strip (matching iOS lineStrip)
+                if (nearbyLines.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = t("map.nearbyLines", locale),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${nearbyLines.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            if (isLoadingNearbyLines) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            item(key = "all_routes") {
+                                FilterChip(
+                                    selected = selectedLineId == null,
+                                    onClick = { selectedLineId = null },
+                                    label = { Text(t("map.nearestRoutes", locale), fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                            }
+
+                            items(nearbyLines, key = { it.id }) { line ->
+                                val isSelected = selectedLineId == line.id
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                                    modifier = Modifier.clickable { selectLine(line) }
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        LineBadge(
+                                            name = line.name,
+                                            color = line.color,
+                                            size = BadgeSize.SMALL
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // If a specific line is selected: Route Highlight Banner
+                val currentLine = nearbyLines.firstOrNull { it.id == selectedLineId }
+                if (currentLine != null && selectedStop == null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(10.dp)
+                        ) {
+                            LineBadge(
+                                name = currentLine.name,
+                                color = currentLine.color,
+                                size = BadgeSize.MEDIUM
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = t("map.routeSelected", locale),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = t("map.routeHint", locale),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = LocalMuted.current,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(onClick = { selectedLineId = null }) {
+                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        }
                     }
                 }
 
@@ -479,7 +856,31 @@ actual fun NearbyMapScreen(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
-                                        if (station.stops.size > 1) {
+                                        val stationLines = station.stops
+                                            .flatMap { stopLinesCache[it.id] ?: emptyList() }
+                                            .distinctBy { it.id }
+                                        if (stationLines.isNotEmpty()) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            ) {
+                                                stationLines.take(5).forEach { line ->
+                                                    LineBadge(
+                                                        name = line.name,
+                                                        color = line.color,
+                                                        size = BadgeSize.SMALL
+                                                    )
+                                                }
+                                                if (stationLines.size > 5) {
+                                                    Text(
+                                                        text = "+${stationLines.size - 5}",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = LocalMuted.current,
+                                                        modifier = Modifier.align(Alignment.CenterVertically)
+                                                    )
+                                                }
+                                            }
+                                        } else if (station.stops.size > 1) {
                                             Text(
                                                 text = t("map.platformCount", locale).replace("{n}", "${station.stops.size}"),
                                                 style = MaterialTheme.typography.bodySmall,
@@ -526,6 +927,8 @@ actual fun NearbyMapScreen(
                             }
 
                             map.addOnCameraIdleListener {
+                                currentZoom = map.cameraPosition.zoom
+                                currentCenter = map.cameraPosition.target ?: LatLng(BUCHAREST_LAT, BUCHAREST_LNG)
                                 refreshStopsInViewport(map)
                             }
 
@@ -697,4 +1100,24 @@ private fun createSurfaceMarkerBitmap(): Bitmap {
     canvas.drawCircle(canvas.width / 2f, canvas.height / 2f, 10f, innerPaint)
 
     return bitmap
+}
+
+private fun parseLineColor(hex: String?, fallback: Int = android.graphics.Color.parseColor("#1565C0")): Int {
+    if (hex.isNullOrBlank()) return fallback
+    return try {
+        val clean = if (hex.startsWith("#")) hex else "#$hex"
+        android.graphics.Color.parseColor(clean)
+    } catch (_: Exception) {
+        fallback
+    }
+}
+
+private fun adjustAlpha(color: Int, factor: Float): Int {
+    val alpha = (android.graphics.Color.alpha(color) * factor).toInt().coerceIn(0, 255)
+    return android.graphics.Color.argb(
+        alpha,
+        android.graphics.Color.red(color),
+        android.graphics.Color.green(color),
+        android.graphics.Color.blue(color)
+    )
 }

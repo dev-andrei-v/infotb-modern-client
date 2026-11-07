@@ -6,9 +6,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.repository.TransitRepository
@@ -34,16 +39,23 @@ class LinesViewModel(
     private val _selectedTypes = MutableStateFlow<Set<TransportType>>(emptySet())
     val selectedTypes: StateFlow<Set<TransportType>> = _selectedTypes.asStateFlow()
 
+    private val stopSearchLineIds = MutableStateFlow<Set<Long>>(emptySet())
+    private val lineSummaries = MutableStateFlow<Map<Long, LineSummary>>(emptyMap())
+    private val requestedSummaryIds = mutableSetOf<Long>()
+    private var stopSearchJob: Job? = null
+
+    private data class LineSummary(val start: String?, val end: String?)
+
     val favoriteIds: StateFlow<List<Long>> = favoritesStore.favoriteLineIds
 
-    val filteredLines: StateFlow<List<Line>> = combine(
-        _lines, _searchQuery, _selectedTypes, favoriteIds
-    ) { allLines, query, types, favIds ->
+    private val baseFilteredLines = combine(
+        _lines, _searchQuery, _selectedTypes, favoriteIds, stopSearchLineIds
+    ) { allLines, query, types, favIds, stopLineIds ->
         var result = allLines
 
         if (query.isNotBlank()) {
             val q = query.trim().lowercase()
-            result = result.filter { it.name.lowercase().contains(q) }
+            result = result.filter { it.name.lowercase().contains(q) || it.id in stopLineIds }
         }
 
         if (types.isNotEmpty()) {
@@ -61,12 +73,59 @@ class LinesViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val filteredLines: StateFlow<List<Line>> = combine(baseFilteredLines, lineSummaries) { lines, summaries ->
+        lines.map { line ->
+            val summary = summaries[line.id]
+            if (summary == null) line else line.copy(startStopName = summary.start, endStopName = summary.end)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         loadLines()
     }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+        stopSearchJob?.cancel()
+        stopSearchLineIds.value = emptySet()
+        val normalized = query.trim()
+        if (normalized.length < 2) return
+        stopSearchJob = viewModelScope.launch {
+            delay(300)
+            val stopIds = runCatching { repository.searchPlannerPlaces(normalized) }
+                .getOrDefault(emptyList())
+                .mapNotNull { it.stop_id }
+                .distinct()
+                .take(4)
+            val matchingIds = mutableSetOf<Long>()
+            for (stopId in stopIds) {
+                if (!coroutineContext.isActive) return@launch
+                runCatching { repository.getStopLines(stopId) }
+                    .getOrDefault(emptyList())
+                    .mapTo(matchingIds) { it.id }
+            }
+            if (_searchQuery.value.trim() == normalized) stopSearchLineIds.value = matchingIds
+        }
+    }
+
+    fun loadLineSummary(lineId: Long) {
+        if (lineId in lineSummaries.value || !requestedSummaryIds.add(lineId)) return
+        viewModelScope.launch {
+            try {
+                val detail = repository.getLineDetail(lineId)
+                val start = detail.directionNameTur?.takeIf { it.isNotBlank() }
+                    ?: detail.stops.firstOrNull()?.name?.takeIf { it.isNotBlank() }
+                val end = detail.directionNameRetur?.takeIf { it.isNotBlank() }
+                    ?: detail.stops.lastOrNull()?.name?.takeIf { it.isNotBlank() }
+                if (start != null || end != null) {
+                    lineSummaries.update { it + (lineId to LineSummary(start, end)) }
+                } else {
+                    requestedSummaryIds.remove(lineId)
+                }
+            } catch (_: Exception) {
+                requestedSummaryIds.remove(lineId)
+            }
+        }
     }
 
     fun toggleTypeFilter(type: TransportType) {

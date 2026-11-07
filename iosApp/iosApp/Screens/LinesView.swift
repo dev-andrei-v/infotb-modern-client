@@ -184,18 +184,41 @@ struct LinesView: View {
     private func row(_ line: Line, showsType: Bool = false) -> some View {
         let isFavorite = model.favoriteIds.contains(line.id)
         return NavigationLink(value: Route.line(line.id)) {
-            HStack(spacing: 12) {
-                LineBadge(name: line.name, color: line.color)
-                if showsType {
-                    Text(line.type.label)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    LineBadge(name: line.name, color: line.color)
+                    if showsType {
+                        Text(line.type.label)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if isFavorite {
+                        Image(systemName: "star.fill").foregroundStyle(Color.favorite)
+                    }
                 }
-                Spacer()
-                if isFavorite {
-                    Image(systemName: "star.fill").foregroundStyle(Color.favorite)
+                if let start = line.startStopName, let end = line.endStopName {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(start.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(0.6)
+                            .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Text(end.uppercased())
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .tracking(0.6)
+                            .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color(red: 0.09, green: 0.12, blue: 0.16), in: RoundedRectangle(cornerRadius: 6))
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .task(id: line.id) { model.viewModel.loadLineSummary(lineId: line.id) }
         .swipeActions(edge: .trailing) {
             Button {
                 model.toggleFavorite(line)

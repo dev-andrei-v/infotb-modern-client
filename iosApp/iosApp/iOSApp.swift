@@ -20,6 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ = LiveActivityManager.shared
 
         IosAppKt.doInitKoin()
+        AppQuickActions.refresh(localeCode: AppModel.shared.localeCode)
 
         // The window itself is created by SceneDelegate.
 

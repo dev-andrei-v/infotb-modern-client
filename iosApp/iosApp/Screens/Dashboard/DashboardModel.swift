@@ -1,5 +1,26 @@
 import Shared
 import SwiftUI
+import WidgetKit
+
+private struct HomeScreenGroupSnapshot: Codable {
+    let name: String
+    let stops: [HomeScreenStopSnapshot]
+}
+
+private struct HomeScreenStopSnapshot: Codable {
+    let id: Int64
+    let name: String
+    let observedAtMs: Int64
+    let arrivals: [HomeScreenArrivalSnapshot]
+}
+
+private struct HomeScreenArrivalSnapshot: Codable {
+    let lineName: String
+    let color: String
+    let transportType: String
+    let seconds: Int64
+    let isTimetable: Bool
+}
 
 /// A titled run of cards on the dashboard; "" is the ungrouped section.
 struct DashboardSection: Identifiable {
@@ -46,11 +67,24 @@ final class DashboardModel {
     init() {
         scope.own(viewModel)
         let vm = viewModel
-        scope.watch(vm.widgets) { [weak self] in self?.widgets = Unbox.list($0); self?.updateDistances() }
-        scope.watch(vm.groups) { [weak self] in self?.groups = Unbox.list($0) }
+        scope.watch(vm.widgets) { [weak self] in
+            guard let self else { return }
+            self.widgets = Unbox.list($0)
+            self.updateDistances()
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.groups) { [weak self] in
+            guard let self else { return }
+            self.groups = Unbox.list($0)
+            self.publishHomeScreenWidgetData()
+        }
         scope.watch(vm.hiddenGroups) { [weak self] in self?.hiddenGroups = Set(Unbox.list($0) as [String]) }
         scope.watch(vm.groupSchedules) { [weak self] in self?.schedules = Unbox.stringKeyed($0) }
-        scope.watch(vm.cardStates) { [weak self] in self?.cardStates = Unbox.longKeyed($0) }
+        scope.watch(vm.cardStates) { [weak self] in
+            guard let self else { return }
+            self.cardStates = Unbox.longKeyed($0)
+            self.publishHomeScreenWidgetData()
+        }
         scope.watch(vm.announcements) { [weak self] in self?.announcements = Unbox.list($0) }
         scope.watch(vm.isRefreshing) { [weak self] in self?.isRefreshing = Unbox.bool($0) }
         scope.watch(vm.isEditing) { [weak self] in self?.isEditing = Unbox.bool($0) }
@@ -72,6 +106,40 @@ final class DashboardModel {
             }
         }
         distances = result
+    }
+
+    private func publishHomeScreenWidgetData() {
+        let suite = UserDefaults(suiteName: "group.ro.infotb.modern")
+        let groupNames = groups + (widgets.contains(where: { $0.group.isEmpty }) ? [""] : [])
+        let snapshots = groupNames.map { group in
+            let stops = widgets.filter { !$0.hidden && $0.group == group }.map { widget in
+                let state = cardStates[widget.stopId]
+                let arrivals = (state?.info?.lines ?? [])
+                    .filter { widget.visibleLines.isEmpty || widget.visibleLines.contains($0.lineKey) }
+                    .sorted { $0.arrivingTime < $1.arrivingTime }
+                    .prefix(3)
+                    .map {
+                        HomeScreenArrivalSnapshot(
+                            lineName: $0.name,
+                            color: $0.color,
+                            transportType: $0.type.name,
+                            seconds: $0.arrivingTime,
+                            isTimetable: $0.isTimetable
+                        )
+                    }
+                return HomeScreenStopSnapshot(
+                    id: widget.stopId,
+                    name: widget.stopName,
+                    observedAtMs: state?.lastUpdatedMs ?? 0,
+                    arrivals: arrivals
+                )
+            }
+            return HomeScreenGroupSnapshot(name: group, stops: stops)
+        }
+        guard let data = try? JSONEncoder().encode(snapshots) else { return }
+        suite?.set(data, forKey: "dashboard.homeWidgetGroups.v1")
+        suite?.set(AppModel.shared.localeCode, forKey: "dashboard.homeWidgetLocale.v1")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TransitGroupWidget")
     }
 
     // MARK: Layout

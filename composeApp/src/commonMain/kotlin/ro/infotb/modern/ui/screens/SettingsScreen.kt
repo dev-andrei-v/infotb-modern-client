@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -77,7 +78,8 @@ fun SettingsScreen(
     notificationStore: NotificationStore,
     backupManager: BackupManager,
     locale: Locale,
-    onNotificationChanged: (() -> Unit)? = null
+    onNotificationChanged: (() -> Unit)? = null,
+    onNavigateToNews: (() -> Unit)? = null
 ) {
     val theme by preferencesStore.theme.collectAsState()
     val noticeAlerts by preferencesStore.noticeAlerts.collectAsState()
@@ -106,6 +108,68 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = LocalMuted.current
             )
+        }
+
+        // News / Announcements section (matching iOS Settings)
+        if (onNavigateToNews != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onNavigateToNews() },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = t("nav.announcements", locale),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = t("announcements.description", locale),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = LocalMuted.current
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = LocalMuted.current
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         // Theme section

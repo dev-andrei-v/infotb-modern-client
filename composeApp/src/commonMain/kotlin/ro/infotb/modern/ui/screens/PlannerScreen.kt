@@ -94,6 +94,7 @@ import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
+import ro.infotb.modern.ui.widget.publishPlannerQuickShortcutSnapshot
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -103,7 +104,9 @@ fun PlannerScreen(
     preferencesStore: PreferencesStore,
     locale: Locale,
     onNavigateToLine: ((Long) -> Unit)? = null,
-    onNavigateToStop: ((Long) -> Unit)? = null
+    onNavigateToStop: ((Long) -> Unit)? = null,
+    initialDestination: PlannerPlace? = null,
+    onInitialDestinationConsumed: () -> Unit = {}
 ) {
     var origin by remember { mutableStateOf<PlannerPlace?>(null) }
     var destination by remember { mutableStateOf<PlannerPlace?>(null) }
@@ -136,6 +139,10 @@ fun PlannerScreen(
         )
     }
 
+    LaunchedEffect(savedTrips) {
+        publishPlannerQuickShortcutSnapshot(json.encodeToString(savedTrips))
+    }
+
     fun persistSavedTrips(trips: List<SavedTripRecord>) {
         savedTrips = trips
         try {
@@ -144,6 +151,20 @@ fun PlannerScreen(
     }
 
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(initialDestination) {
+        val place = initialDestination ?: return@LaunchedEffect
+        destination = place
+        runCatching { platformLocation.current() }.getOrNull()?.let { location ->
+            origin = PlannerPlace(
+                name = t("planner.currentLocation", locale),
+                lat = location.lat,
+                lng = location.lng,
+                type = "CURRENT_LOCATION"
+            )
+        }
+        onInitialDestinationConsumed()
+    }
 
     fun findRoutes() {
         val start = origin ?: return

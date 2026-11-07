@@ -1,29 +1,38 @@
 package ro.infotb.modern.ui.components.shared
 
-import android.annotation.SuppressLint
-import android.view.ViewGroup
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import org.maplibre.android.annotations.IconFactory
+import org.maplibre.android.annotations.Marker
+import org.maplibre.android.annotations.MarkerOptions
+import org.maplibre.android.annotations.Polyline
+import org.maplibre.android.annotations.PolylineOptions
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.VehiclePosition
+import ro.infotb.modern.util.decodePolyline
 
-@SuppressLint("SetJavaScriptEnabled")
+private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/bright"
+
 @Composable
 actual fun LeafletRouteMap(
     stops: List<Stop>,
@@ -32,228 +41,221 @@ actual fun LeafletRouteMap(
     segmentPath: String?,
     modifier: Modifier
 ) {
-    val color = if (lineColor.startsWith("#")) lineColor else "#$lineColor"
+    val context = LocalContext.current
+    var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var isMapStyleLoaded by remember { mutableStateOf(false) }
 
-    // Build the static HTML once (route + stops don't change)
-    val html = remember(stops, lineColor, segmentPath) {
-        buildRouteMapHtml(stops, color, segmentPath)
-    }
-
-    val webViewRef = remember { arrayOfNulls<WebView>(1) }
-    val currentVehicles = rememberUpdatedState(vehicles)
-    var pageReady by remember { mutableStateOf(false) }
-    var vehiclesInjected by remember { mutableStateOf(false) }
-
-    // Update vehicles via JS only after page has loaded
-    LaunchedEffect(vehicles, pageReady) {
-        if (!pageReady) return@LaunchedEffect
-        val webView = webViewRef[0] ?: return@LaunchedEffect
-        val vehiclesJs = vehicles.joinToString(",") { v ->
-            "{lat:${v.lat},lng:${v.lng},id:${v.id}}"
-        }
-        webView.evaluateJavascript("updateVehicles([$vehiclesJs])") {
-            vehiclesInjected = true
+    val parsedColor = remember(lineColor) { parseLineColor(lineColor) }
+    val routeCoords = remember(segmentPath, stops) {
+        if (!segmentPath.isNullOrBlank()) {
+            decodePolyline(segmentPath).map { LatLng(it.first, it.second) }
+        } else {
+            stops.map { LatLng(it.lat, it.lng) }
         }
     }
 
-    Box(modifier = modifier) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                WebView(context).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            super.onPageFinished(view, url)
-                            pageReady = true
-                        }
-                    }
-                    loadDataWithBaseURL("https://localhost", html, "text/html", "UTF-8", null)
-                    webViewRef[0] = this
+    val polylinesRef = remember { mutableListOf<Polyline>() }
+    val stopMarkersRef = remember { mutableListOf<Marker>() }
+    val vehicleMarkersRef = remember { mutableListOf<Marker>() }
+
+    val mapView = remember {
+        MapView(context).apply {
+            onCreate(null)
+            getMapAsync { map ->
+                mapInstance = map
+                map.setStyle(OPENFREEMAP_STYLE) {
+                    map.uiSettings.isAttributionEnabled = false
+                    map.uiSettings.isLogoEnabled = false
+                    map.uiSettings.isRotateGesturesEnabled = false
+                    map.uiSettings.isTiltGesturesEnabled = false
+                    isMapStyleLoaded = true
                 }
             }
-        )
+        }
+    }
 
-        // Show loading overlay until vehicles are rendered on the map
-        AnimatedVisibility(
-            visible = !vehiclesInjected,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+    // Render route polylines and stop markers when route/stops change
+    LaunchedEffect(isMapStyleLoaded, routeCoords, stops, parsedColor) {
+        if (!isMapStyleLoaded) return@LaunchedEffect
+        val map = mapInstance ?: return@LaunchedEffect
+        val iconFactory = IconFactory.getInstance(context)
+
+        // Clear previous polylines & stop markers
+        polylinesRef.forEach { map.removePolyline(it) }
+        polylinesRef.clear()
+        stopMarkersRef.forEach { map.removeMarker(it) }
+        stopMarkersRef.clear()
+
+        // 1. Dual-stroke polyline (white casing + colored core)
+        if (routeCoords.size >= 2) {
+            val casing = map.addPolyline(
+                PolylineOptions()
+                    .addAll(routeCoords)
+                    .color(Color.WHITE)
+                    .width(7f)
+            )
+            val core = map.addPolyline(
+                PolylineOptions()
+                    .addAll(routeCoords)
+                    .color(parsedColor)
+                    .width(4.5f)
+            )
+            polylinesRef.add(casing)
+            polylinesRef.add(core)
+        }
+
+        // 2. Stop markers
+        val terminalIcon = iconFactory.fromBitmap(createRouteStopMarkerBitmap(isTerminal = true, lineColor = parsedColor))
+        val regularIcon = iconFactory.fromBitmap(createRouteStopMarkerBitmap(isTerminal = false, lineColor = parsedColor))
+
+        stops.forEachIndexed { index, stop ->
+            val isTerminal = index == 0 || index == stops.size - 1
+            val marker = map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(stop.lat, stop.lng))
+                    .title(stop.name)
+                    .icon(if (isTerminal) terminalIcon else regularIcon)
+            )
+            stopMarkersRef.add(marker)
+        }
+
+        // 3. Fit bounds to route / stops
+        val allPoints = if (routeCoords.isNotEmpty()) routeCoords else stops.map { LatLng(it.lat, it.lng) }
+        if (allPoints.isNotEmpty()) {
+            val boundsBuilder = LatLngBounds.Builder()
+            allPoints.forEach { boundsBuilder.include(it) }
+            try {
+                map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 90))
+            } catch (_: Exception) {
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(allPoints.first(), 13.5))
             }
         }
+    }
 
-        // Fade in the map content once ready
-        AnimatedVisibility(
-            visible = vehiclesInjected,
-            enter = fadeIn(),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Transparent overlay just to trigger the fade-in animation
-            Box(Modifier.fillMaxSize())
+    // Realtime vehicle markers update
+    LaunchedEffect(isMapStyleLoaded, vehicles) {
+        if (!isMapStyleLoaded) return@LaunchedEffect
+        val map = mapInstance ?: return@LaunchedEffect
+        val iconFactory = IconFactory.getInstance(context)
+
+        // Clear previous vehicle markers
+        vehicleMarkersRef.forEach { map.removeMarker(it) }
+        vehicleMarkersRef.clear()
+
+        if (vehicles.isEmpty()) return@LaunchedEffect
+
+        val vehicleIcon = iconFactory.fromBitmap(createVehicleMarkerBitmap())
+        vehicles.forEach { vehicle ->
+            val marker = map.addMarker(
+                MarkerOptions()
+                    .position(LatLng(vehicle.lat, vehicle.lng))
+                    .title("Vehicle ${vehicle.code ?: vehicle.id}")
+                    .icon(vehicleIcon)
+            )
+            vehicleMarkersRef.add(marker)
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { webViewRef[0] = null }
+    // Forward Android lifecycle
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, mapView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onDestroy()
+        }
     }
+
+    AndroidView(
+        factory = { mapView },
+        modifier = modifier
+    )
 }
 
-private fun buildRouteMapHtml(
-    stops: List<Stop>,
-    color: String,
-    segmentPath: String?
-): String {
-    val stopsJs = stops.joinToString(",") { stop ->
-        val name = stop.name.replace("'", "\\'").replace("\"", "&quot;")
-        "{lat:${stop.lat},lng:${stop.lng},name:'$name'}"
+private fun createRouteStopMarkerBitmap(isTerminal: Boolean, lineColor: Int): Bitmap {
+    val size = if (isTerminal) 42 else 28
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#33000000")
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(size / 2f, size / 2f + 1.5f, size / 2f - 2f, shadowPaint)
+
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = lineColor
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3f, fillPaint)
+
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = if (isTerminal) 3.5f else 2.5f
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3f, strokePaint)
+
+    if (isTerminal) {
+        val innerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(size / 2f, size / 2f, 4.5f, innerDotPaint)
     }
 
-    val encodedPath = segmentPath?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+    return bitmap
+}
 
-    return """
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>
-html,body,#map{margin:0;padding:0;width:100%;height:100%;}
-</style>
-</head>
-<body>
-<div id="map"></div>
-<script>
-var map = L.map('map', {zoomControl: false});
-L.control.zoom({position: 'bottomright'}).addTo(map);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OSM',
-    maxZoom: 19
-}).addTo(map);
+private fun createVehicleMarkerBitmap(): Bitmap {
+    val size = 52
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
 
-function decodePoly(str) {
-    var coords = [], index = 0, lat = 0, lng = 0;
-    while (index < str.length) {
-        var b, shift = 0, result = 0;
-        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-        lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-        shift = 0; result = 0;
-        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-        lng += (result & 1) ? ~(result >> 1) : (result >> 1);
-        coords.push([lat / 1e5, lng / 1e5]);
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#40000000")
+        style = Paint.Style.FILL
     }
-    return coords;
-}
+    canvas.drawCircle(size / 2f, size / 2f + 2f, size / 2f - 4f, shadowPaint)
 
-function bearingBetween(a, b) {
-    var toRad = function(d) { return d * Math.PI / 180; };
-    var toDeg = function(r) { return r * 180 / Math.PI; };
-    var dLng = toRad(b[1] - a[1]);
-    var y = Math.sin(dLng) * Math.cos(toRad(b[0]));
-    var x = Math.cos(toRad(a[0])) * Math.sin(toRad(b[0])) -
-        Math.sin(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.cos(dLng);
-    return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-var stops = [$stopsJs];
-var encodedPath = '$encodedPath';
-var lineColor = '$color';
-
-// Decode route
-var routeCoords;
-if (encodedPath.length > 0) {
-    routeCoords = decodePoly(encodedPath);
-} else {
-    routeCoords = stops.map(function(s) { return [s.lat, s.lng]; });
-}
-
-// Draw route polyline
-if (routeCoords.length > 0) {
-    L.polyline(routeCoords, {color: lineColor, weight: 4, opacity: 0.8}).addTo(map);
-}
-
-// Draw direction arrows along route
-if (routeCoords.length > 1) {
-    var step = Math.max(1, Math.floor(routeCoords.length / 15));
-    for (var i = 0; i < routeCoords.length - 1; i += step) {
-        var next = Math.min(i + 1, routeCoords.length - 1);
-        var mid = [(routeCoords[i][0] + routeCoords[next][0]) / 2,
-                   (routeCoords[i][1] + routeCoords[next][1]) / 2];
-        var bearing = bearingBetween(routeCoords[i], routeCoords[next]);
-        var arrowHtml = '<div style="width:24px;height:24px;transform:rotate(' + bearing + 'deg);pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">' +
-            '<polygon points="12,2 20,16 12,11 4,16" fill="white" stroke="' + lineColor + '" stroke-width="2" stroke-linejoin="round"/>' +
-            '</svg></div>';
-        var arrowIcon = L.divIcon({className: '', html: arrowHtml, iconSize: [24, 24], iconAnchor: [12, 12]});
-        L.marker(mid, {icon: arrowIcon, interactive: false}).addTo(map);
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#10B981") // Realtime green
+        style = Paint.Style.FILL
     }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5f, fillPaint)
+
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+    canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5f, strokePaint)
+
+    val innerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(size / 2f, size / 2f, 6.5f, innerPaint)
+
+    return bitmap
 }
 
-// Draw stops
-var stopIcon = L.divIcon({
-    className: '',
-    html: '<div style="width:10px;height:10px;background:#fff;border:2px solid #1e293b;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>',
-    iconSize: [10, 10], iconAnchor: [5, 5]
-});
-var terminalIcon = L.divIcon({
-    className: '',
-    html: '<div style="width:14px;height:14px;background:' + lineColor + ';border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>',
-    iconSize: [14, 14], iconAnchor: [7, 7]
-});
-
-stops.forEach(function(stop, i) {
-    var isTerminal = (i === 0 || i === stops.length - 1);
-    L.marker([stop.lat, stop.lng], {icon: isTerminal ? terminalIcon : stopIcon})
-        .addTo(map)
-        .bindPopup('<b>' + (i+1) + '.</b> ' + stop.name);
-});
-
-// Vehicle layer — updated dynamically without page reload
-var vehicleMarkers = [];
-
-function vehicleIconHtml(color) {
-    return '<div style="width:36px;height:36px;position:relative">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">' +
-        '<circle cx="18" cy="18" r="17" fill="' + color + '" stroke="white" stroke-width="2"/>' +
-        '</svg>' +
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" style="position:absolute;top:9px;left:9px">' +
-        '<path d="M8 6v6m8-6v6M2 12h20M2 8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>' +
-        '<circle cx="7" cy="20" r="1" fill="white"/><circle cx="17" cy="20" r="1" fill="white"/>' +
-        '</svg></div>';
-}
-
-function updateVehicles(newVehicles) {
-    // Remove old markers
-    vehicleMarkers.forEach(function(m) { map.removeLayer(m); });
-    vehicleMarkers = [];
-    // Add new markers
-    var vIcon = L.divIcon({className: '', html: vehicleIconHtml(lineColor), iconSize: [36, 36], iconAnchor: [18, 18]});
-    newVehicles.forEach(function(v) {
-        var m = L.marker([v.lat, v.lng], {icon: vIcon, zIndexOffset: 500})
-            .addTo(map)
-            .bindPopup('#' + v.id);
-        vehicleMarkers.push(m);
-    });
-}
-
-// Fit bounds
-var allPoints = stops.map(function(s) { return [s.lat, s.lng]; });
-if (routeCoords.length > 0) allPoints = allPoints.concat(routeCoords);
-if (allPoints.length > 0) {
-    map.fitBounds(L.latLngBounds(allPoints).pad(0.05));
-}
-</script>
-</body>
-</html>
-""".trimIndent()
+private fun parseLineColor(hex: String?, fallback: Int = Color.parseColor("#1565C0")): Int {
+    if (hex.isNullOrBlank()) return fallback
+    return try {
+        val clean = if (hex.startsWith("#")) hex else "#$hex"
+        Color.parseColor(clean)
+    } catch (_: Exception) {
+        fallback
+    }
 }

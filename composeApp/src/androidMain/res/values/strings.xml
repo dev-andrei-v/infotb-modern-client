@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Info TB Modern</string>
+    <string name="widget_choose_group">Choose dashboard group</string>
+    <string name="widget_default_group">Ungrouped stops</string>
+    <string name="widget_no_stops">No stops in this group</string>
+    <string name="widget_all_stops">All stops</string>
+    <string name="widget_open_dashboard">Open dashboard for arrivals</string>
 </resources>

@@ -9,7 +9,9 @@ data class Line(
     val type: TransportType,
     val color: String,
     val hasNotifications: Boolean = false,
-    val organization: Organization? = null
+    val organization: Organization? = null,
+    val startStopName: String? = null,
+    val endStopName: String? = null
 )
 
 @Serializable

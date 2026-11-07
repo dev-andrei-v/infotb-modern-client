@@ -149,7 +149,14 @@ private struct LineDetailContent: View {
                             HStack(spacing: 12) {
                                 Image(systemName: "location.fill").foregroundStyle(InfoTBDesign.accent)
                                 VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 4) {
+                                    if LineColorsKt.isAirportStopName(name: stop.name) {
+                                        Image(systemName: "airplane")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                    }
                                     Text(stop.name).font(.body.weight(.medium))
+                                }
                                     Text(tr("lineDetail.stopOf")
                                         .replacingOccurrences(of: "{n}", with: "\(index + 1)")
                                         .replacingOccurrences(of: "{total}", with: "\(detail.stops.count)"))
@@ -202,24 +209,30 @@ private struct LineDetailContent: View {
         let labelColor = colorScheme == .dark
             ? Color(red: 1, green: 0.78, blue: 0.34)
             : Color(red: 0.60, green: 0.36, blue: 0.02)
-        let showAirport = isAirport || LineColorsKt.isAirportLine(name: lineName, routeOrDestination: route)
+        let showAirport = isAirport || LineColorsKt.isAirportLineName(name: lineName)
         return HStack(spacing: 14) {
             HStack(spacing: 6) {
-                if showAirport {
-                    Image(systemName: "airplane")
-                        .font(.system(size: 22, weight: .bold))
-                }
                 Text(lineName)
                     .font(.system(size: 30, weight: .black, design: .monospaced))
                     .tracking(0.8)
                     .lineLimit(1)
+                if showAirport {
+                    Image(systemName: "airplane")
+                        .font(.system(size: 22, weight: .bold))
+                }
             }
             .frame(minWidth: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 1) {
                 ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
-                    Text(stop.uppercased())
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    HStack(spacing: 4) {
+                        if LineColorsKt.isAirportStopName(name: stop) {
+                            Image(systemName: "airplane")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        Text(stop.uppercased())
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
                 }
             }
             .font(.system(size: 13, weight: .heavy, design: .monospaced))
@@ -262,9 +275,16 @@ private struct StopTimelineRow: View {
             .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(stop.name)
-                    .font(.body.weight(.medium))
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    if LineColorsKt.isAirportStopName(name: stop.name) {
+                        Image(systemName: "airplane")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(stop.name)
+                        .font(.body.weight(.medium))
+                        .lineLimit(1)
+                }
                 if let description = stop.description_, !description.isEmpty {
                     Text(description)
                         .font(.caption)
@@ -470,8 +490,15 @@ private struct MapStopCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(stop.name)
-                        .font(.headline)
+                    HStack(spacing: 4) {
+                        if LineColorsKt.isAirportStopName(name: stop.name) {
+                            Image(systemName: "airplane")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(stop.name)
+                            .font(.headline)
+                    }
                     Text(tr("lineDetail.stopOf")
                         .replacingOccurrences(of: "{n}", with: "\(index + 1)")
                         .replacingOccurrences(of: "{total}", with: "\(detail.stops.count)"))

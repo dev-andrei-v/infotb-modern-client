@@ -278,25 +278,38 @@ struct LinesView: View {
                 if model.lineDisplayStyle == "bus_display" {
                     HStack(spacing: 14) {
                         HStack(spacing: 6) {
-                            if line.isAirport {
-                                Image(systemName: "airplane")
-                                    .font(.system(size: 22, weight: .bold))
-                            }
                             Text(displayLineName)
                                 .font(.system(size: 30, weight: .black, design: .monospaced))
                                 .tracking(0.8)
                                 .lineLimit(1)
+                            if line.isAirport {
+                                Image(systemName: "airplane")
+                                    .font(.system(size: 22, weight: .bold))
+                            }
                         }
                         .frame(minWidth: 64, alignment: .leading)
-                        Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n").isEmpty
-                             ? "—"
-                             : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: "\n"))
-                            .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                            .tracking(0.6)
-                            .foregroundStyle(colorScheme == .dark ? Color(red: 1, green: 0.78, blue: 0.34) : Color(red: 0.60, green: 0.36, blue: 0.02))
-                            .lineLimit(2)
-                            .lineSpacing(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 1) {
+                            let endpoints = [line.startStopName, line.endStopName].compactMap { $0 }
+                            if endpoints.isEmpty {
+                                Text("—")
+                            } else {
+                                ForEach(Array(endpoints.enumerated()), id: \.offset) { _, stop in
+                                    HStack(spacing: 4) {
+                                        if LineColorsKt.isAirportStopName(name: stop) {
+                                            Image(systemName: "airplane")
+                                                .font(.system(size: 10, weight: .semibold))
+                                        }
+                                        Text(stop.uppercased())
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
+                                    }
+                                }
+                            }
+                        }
+                        .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .tracking(0.6)
+                        .foregroundStyle(colorScheme == .dark ? Color(red: 1, green: 0.78, blue: 0.34) : Color(red: 0.60, green: 0.36, blue: 0.02))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .foregroundStyle(colorScheme == .dark ? Color(red: 1, green: 0.78, blue: 0.34) : Color(red: 0.60, green: 0.36, blue: 0.02))
                     .padding(.horizontal, 12)
@@ -310,12 +323,31 @@ struct LinesView: View {
                         if model.lineDisplayStyle == "normal",
                            let start = line.startStopName,
                            let end = line.endStopName {
-                            Text("\(start)\n\(end)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .truncationMode(.tail)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 4) {
+                                    if LineColorsKt.isAirportStopName(name: start) {
+                                        Image(systemName: "airplane")
+                                            .font(.caption2.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Text(start)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                HStack(spacing: 4) {
+                                    if LineColorsKt.isAirportStopName(name: end) {
+                                        Image(systemName: "airplane")
+                                            .font(.caption2.weight(.medium))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Text(end)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         if showsType {
                             Text(line.type.label)

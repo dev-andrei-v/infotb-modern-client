@@ -24,27 +24,45 @@ struct ArrivalRow<Expanded: View>: View {
     private var destinationText: String {
         LineColorsKt.formatDestination(directionName: line.directionName, direction: line.direction)
     }
-    private var isAirport: Bool {
-        LineColorsKt.isAirportLine(name: line.name, routeOrDestination: line.directionName)
+    private var isAirportDest: Bool {
+        LineColorsKt.isAirportStopName(name: destinationText) || LineColorsKt.isAirportStopName(name: line.directionName)
     }
 
     var body: some View {
+        let followUps = inService ? Array(line.arrivingTimes.dropFirst().prefix(followUpCount)) : []
+        let showFollowUps = !followUps.isEmpty
+
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 10) {
-                Button(action: onLineTap) {
-                    LineBadge(name: line.name, color: line.color, isAirport: isAirport)
-                        .frame(minWidth: 44)
+                VStack(alignment: .center, spacing: 4) {
+                    Button(action: onLineTap) {
+                        LineBadge(name: line.name, color: line.color, isAirport: LineColorsKt.isAirportLineName(name: line.name))
+                            .frame(minWidth: 44)
+                    }
+                    .buttonStyle(.plain)
+
+                    if showFollowUps {
+                        Text(tr("dashboard.nextArrivals"))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(destinationText)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.85)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(alignment: .firstTextBaseline, spacing: 5) {
+                            if isAirportDest {
+                                Image(systemName: "airplane")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(destinationText)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.80)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
 
                         if inService {
                             ArrivalBadge(
@@ -53,14 +71,14 @@ struct ArrivalRow<Expanded: View>: View {
                                 size: detailed ? .large : .medium,
                                 imminent: liveSeconds < 120
                             )
+                            .fixedSize()
                         } else {
                             OutOfServicePill()
+                                .fixedSize()
                         }
                     }
 
                     // Secondary row: follow-ups and action buttons
-                    let followUps = inService ? Array(line.arrivingTimes.dropFirst().prefix(followUpCount)) : []
-                    let showFollowUps = !followUps.isEmpty
                     let showSecondary = showFollowUps || detailed || destinationOnly
                     if showSecondary {
                         HStack(spacing: 6) {

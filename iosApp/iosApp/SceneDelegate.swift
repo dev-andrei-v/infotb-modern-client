@@ -119,9 +119,19 @@ enum DeepLinkHandler {
             AppModel.shared.openDashboardGroup(name)
             return true
         }
+        let items = components.queryItems ?? []
+        if url.host == "line" {
+            var lineId = items.first(where: { $0.name == "lineId" })?.value.flatMap(Int64.init)
+            if lineId == nil, let pathId = url.pathComponents.dropFirst().first.flatMap(Int64.init) {
+                lineId = pathId
+            }
+            if let lineId {
+                AppModel.shared.push(.line(lineId))
+                return true
+            }
+        }
         guard url.host == "stop" else { return false }
 
-        let items = components.queryItems ?? []
         var stopId = items.first(where: { $0.name == "stopId" })?.value.flatMap(Int64.init)
         if stopId == nil, let pathId = url.pathComponents.dropFirst().first.flatMap(Int64.init) {
             stopId = pathId

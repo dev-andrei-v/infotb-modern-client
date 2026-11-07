@@ -38,16 +38,29 @@ fun isLightColor(hex: String): Boolean {
 }
 
 /**
- * Returns true if the line is an airport express route or destination
- * (e.g. line 100 or when the name or destination contains "Aeroport").
+ * Returns true if the line itself is an airport express route
+ * (e.g. line 100 or when the line name contains "Aeroport" or "Airport").
  */
-fun isAirportLine(name: String?, routeOrDestination: String? = null): Boolean {
+fun isAirportLineName(name: String?): Boolean {
     val n = name?.trim().orEmpty()
     if (n == "100") return true
-    if (n.contains("aeroport", ignoreCase = true) || n.contains("airport", ignoreCase = true)) return true
-    val r = routeOrDestination.orEmpty()
-    if (r.contains("aeroport", ignoreCase = true) || r.contains("airport", ignoreCase = true)) return true
-    return false
+    return n.contains("aeroport", ignoreCase = true) || n.contains("airport", ignoreCase = true)
+}
+
+/**
+ * Returns true if a stop or destination name refers to an airport
+ * (e.g. "Aeroport Baneasa", "Aeroport Henri Coanda").
+ */
+fun isAirportStopName(name: String?): Boolean {
+    val n = name?.trim().orEmpty()
+    return n.contains("aeroport", ignoreCase = true) || n.contains("airport", ignoreCase = true)
+}
+
+/**
+ * Deprecated compatibility helper for lines: checks line name only.
+ */
+fun isAirportLine(name: String?, routeOrDestination: String? = null): Boolean {
+    return isAirportLineName(name)
 }
 
 /**

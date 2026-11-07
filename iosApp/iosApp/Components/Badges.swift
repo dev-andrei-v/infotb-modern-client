@@ -37,7 +37,7 @@ struct LineBadge: View {
     var isAirport: Bool? = nil
 
     private var showAirport: Bool {
-        isAirport ?? LineColorsKt.isAirportLine(name: name, routeOrDestination: nil)
+        isAirport ?? LineColorsKt.isAirportLineName(name: name)
     }
 
     private var airportIconSize: CGFloat {
@@ -54,13 +54,13 @@ struct LineBadge: View {
             ? String(name.split(separator: "-", maxSplits: 1).first ?? Substring(name)).trimmingCharacters(in: .whitespacesAndNewlines)
             : name
         HStack(spacing: 3) {
+            Text(badgeName)
+                .font(size.font.monospacedDigit())
+                .lineLimit(1)
             if showAirport {
                 Image(systemName: "airplane")
                     .font(.system(size: airportIconSize, weight: .bold))
             }
-            Text(badgeName)
-                .font(size.font.monospacedDigit())
-                .lineLimit(1)
         }
         .foregroundStyle(background.contrastingText)
         .padding(size.padding)

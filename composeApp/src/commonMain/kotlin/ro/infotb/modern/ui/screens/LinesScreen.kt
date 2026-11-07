@@ -80,6 +80,8 @@ import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.ui.viewmodel.LinesViewModel
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.util.t
 
 @Composable
@@ -632,7 +634,7 @@ private fun LineRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val endpoints = listOfNotNull(line.startStopName, line.endStopName)
-            val isAirport = line.isAirport || isAirportLine(line.name, endpoints.joinToString(" "))
+            val isAirport = isAirportLineName(line.name)
             if (!busDisplay) {
                 LineBadge(
                     name = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
@@ -654,14 +656,6 @@ private fun LineRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.widthIn(min = 64.dp)
                     ) {
-                        if (isAirport) {
-                            Icon(
-                                imageVector = AirplaneIcon,
-                                contentDescription = "Airport",
-                                tint = lcdText,
-                                modifier = Modifier.size(24.dp).rotate(45f)
-                            )
-                        }
                         Text(
                             text = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
@@ -672,29 +666,65 @@ private fun LineRow(
                             color = lcdText,
                             maxLines = 1
                         )
+                        if (isAirport) {
+                            Icon(
+                                imageVector = AirplaneIcon,
+                                contentDescription = "Airport",
+                                tint = lcdText,
+                                modifier = Modifier.size(24.dp).rotate(45f)
+                            )
+                        }
                     }
-                    Text(
-                        text = endpoints.joinToString("\n") { it.uppercase() }.ifBlank { "—" },
-                        modifier = Modifier.weight(1f),
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 13.sp,
-                        lineHeight = 16.sp,
-                        letterSpacing = 0.6.sp,
-                        color = lcdText,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        endpoints.ifEmpty { listOf("—") }.forEach { endpoint ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isAirportStopName(endpoint)) {
+                                    Icon(
+                                        imageVector = AirplaneIcon,
+                                        contentDescription = "Airport",
+                                        tint = lcdText,
+                                        modifier = Modifier.size(12.dp).rotate(45f)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = endpoint.uppercase(),
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp,
+                                    lineHeight = 16.sp,
+                                    letterSpacing = 0.6.sp,
+                                    color = lcdText,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
             } else if (endpoints.isNotEmpty()) {
-                Text(
-                    text = endpoints.joinToString("\n"),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    endpoints.forEach { endpoint ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isAirportStopName(endpoint)) {
+                                Icon(
+                                    imageVector = AirplaneIcon,
+                                    contentDescription = "Airport",
+                                    tint = LocalMuted.current,
+                                    modifier = Modifier.size(11.dp).rotate(45f)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = endpoint,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             } else {
                 Spacer(Modifier.weight(1f))
             }

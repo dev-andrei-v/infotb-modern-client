@@ -60,6 +60,10 @@ class StopDetailViewModel(
             try {
                 val info = repository.getStopInfo(stopId, currentLineId, currentDirection)
                 _stopInfo.value = info
+                if (_stopCoordinates.value == null) {
+                    val candidates = (listOfNotNull(currentLineId) + info.lines.map { it.id }).distinct()
+                    resolveStopCoordinates(stopId, candidates)
+                }
             } catch (_: Exception) { }
             _isRefreshing.value = false
             startRefresh()
@@ -68,28 +72,41 @@ class StopDetailViewModel(
 
     private fun fetchStopCoordinates(stopId: Long) {
         viewModelScope.launch {
-            try {
-                val stops = repository.getHomeStops(stopId)
-                val found = stops.firstOrNull { it.id == stopId } ?: stops.firstOrNull()
-                if (found != null) {
-                    _stopCoordinates.value = found
-                    return@launch
-                }
-            } catch (_: Exception) {
-                // coordinates are non-critical
-            }
-
-            // Fallback: if navigating from a line, look up stop coordinates from that line's stops
             val lineId = currentLineId
             if (lineId != null && _stopCoordinates.value == null) {
-                try {
-                    val detail = repository.getLineDetail(lineId)
+                resolveStopCoordinates(stopId, listOf(lineId))
+            }
+        }
+    }
+
+    private suspend fun resolveStopCoordinates(stopId: Long, candidateLineIds: List<Long>) {
+        if (_stopCoordinates.value != null) return
+        for (lineId in candidateLineIds) {
+            try {
+                val detail = repository.getLineDetail(lineId)
+                val stopFromLine = detail.stops.firstOrNull { it.id == stopId }
+                if (stopFromLine != null) {
+                    _stopCoordinates.value = stopFromLine
+                    return
+                }
+            } catch (_: Exception) {
+                // coordinates are non-critical, try next candidate
+            }
+        }
+
+        // Secondary fallback: query stop lines
+        if (_stopCoordinates.value == null) {
+            try {
+                val stopLines = repository.getStopLines(stopId)
+                for (line in stopLines) {
+                    val detail = repository.getLineDetail(line.id)
                     val stopFromLine = detail.stops.firstOrNull { it.id == stopId }
                     if (stopFromLine != null) {
                         _stopCoordinates.value = stopFromLine
+                        return
                     }
-                } catch (_: Exception) { }
-            }
+                }
+            } catch (_: Exception) { }
         }
     }
 
@@ -125,6 +142,10 @@ class StopDetailViewModel(
             try {
                 val info = repository.getStopInfo(stopId, lineId, direction)
                 _stopInfo.value = info
+                if (_stopCoordinates.value == null) {
+                    val candidates = (listOfNotNull(lineId) + info.lines.map { it.id }).distinct()
+                    resolveStopCoordinates(stopId, candidates)
+                }
             } catch (_: Exception) {
                 if (showLoading) _stopInfo.value = null
             } finally {

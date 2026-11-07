@@ -65,6 +65,8 @@ import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.util.t
 import ro.infotb.modern.util.isLightColor
 
@@ -192,7 +194,7 @@ fun LineDetailScreen(
                     val directionName = if (direction == Direction.TUR) detail.directionNameTur else detail.directionNameRetur
                     val routeStops = directionName.orEmpty().split(" - ").map { it.trim() }.filter { it.isNotEmpty() }.take(2)
                     val lcdColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
-                    val isAirport = detail.isAirport || isAirportLine(detail.name, directionName)
+                    val isAirport = isAirportLineName(detail.name)
                     Row(
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 10.dp),
@@ -204,14 +206,6 @@ fun LineDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.widthIn(min = 64.dp)
                         ) {
-                            if (isAirport) {
-                                Icon(
-                                    imageVector = AirplaneIcon,
-                                    contentDescription = "Airport",
-                                    tint = lcdColor,
-                                    modifier = Modifier.size(24.dp).rotate(45f)
-                                )
-                            }
                             Text(
                                 text = if (detail.type == TransportType.SUBWAY) detail.name.substringBefore('-').trim() else detail.name,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
@@ -222,20 +216,39 @@ fun LineDetailScreen(
                                 color = lcdColor,
                                 maxLines = 1
                             )
+                            if (isAirport) {
+                                Icon(
+                                    imageVector = AirplaneIcon,
+                                    contentDescription = "Airport",
+                                    tint = lcdColor,
+                                    modifier = Modifier.size(24.dp).rotate(45f)
+                                )
+                            }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
-                                Text(
-                                    stopName.uppercase(),
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 13.sp,
-                                    lineHeight = 16.sp,
-                                    letterSpacing = 0.6.sp,
-                                    color = lcdColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isAirportStopName(stopName)) {
+                                        Icon(
+                                            imageVector = AirplaneIcon,
+                                            contentDescription = "Airport",
+                                            tint = lcdColor,
+                                            modifier = Modifier.size(12.dp).rotate(45f)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                    }
+                                    Text(
+                                        stopName.uppercase(),
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp,
+                                        lineHeight = 16.sp,
+                                        letterSpacing = 0.6.sp,
+                                        color = lcdColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -426,6 +439,15 @@ private fun StopRow(
                 .padding(vertical = 6.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isAirportStopName(stop.name)) {
+                    Icon(
+                        imageVector = AirplaneIcon,
+                        contentDescription = "Airport",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(13.dp).rotate(45f)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
                     text = stop.name,
                     style = MaterialTheme.typography.bodyMedium,

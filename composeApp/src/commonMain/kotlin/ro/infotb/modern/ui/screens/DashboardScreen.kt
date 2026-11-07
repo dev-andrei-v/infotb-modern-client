@@ -112,6 +112,8 @@ import ro.infotb.modern.data.model.LineArrivalDetail
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.data.store.WidgetConfig
+import androidx.compose.ui.draw.rotate
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
@@ -122,6 +124,8 @@ import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
 import ro.infotb.modern.util.formatDestination
 import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.viewmodel.DashboardViewModel
 import ro.infotb.modern.ui.widget.publishDashboardWidgetSnapshot
@@ -1170,13 +1174,32 @@ private fun WidgetLineRow(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Box(modifier = Modifier.clickable(onClick = onLineClick)) {
-                LineBadge(
-                    name = line.name,
-                    color = line.color,
-                    size = BadgeSize.MEDIUM,
-                    isAirport = isAirportLine(line.name, line.directionName)
-                )
+            val destination = formatDestination(line.directionName, line.direction)
+            val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.widthIn(min = 36.dp)
+            ) {
+                Box(modifier = Modifier.clickable(onClick = onLineClick)) {
+                    LineBadge(
+                        name = line.name,
+                        color = line.color,
+                        size = BadgeSize.MEDIUM,
+                        isAirport = isAirportLineName(line.name)
+                    )
+                }
+                if (followUps.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = t("dashboard.nextArrivals", locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LocalMuted.current,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -1184,14 +1207,27 @@ private fun WidgetLineRow(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = formatDestination(line.directionName, line.direction),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isAirportDest) {
+                            Icon(
+                                imageVector = AirplaneIcon,
+                                contentDescription = "Airport",
+                                tint = LocalMuted.current,
+                                modifier = Modifier.size(13.dp).rotate(45f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = destination,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     if (inService) {
                         Box(

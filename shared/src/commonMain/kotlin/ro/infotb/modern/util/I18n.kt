@@ -147,6 +147,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.updating" to mapOf(Locale.RO to "Se actualizeaza...", Locale.EN to "Updating..."),
     "dashboard.refresh" to mapOf(Locale.RO to "Reimprospateaza", Locale.EN to "Refresh"),
     "dashboard.stale" to mapOf(Locale.RO to "Date vechi", Locale.EN to "Stale"),
+    "dashboard.nextArrivals" to mapOf(Locale.RO to "Urm.", Locale.EN to "Next"),
     "time.justNow" to mapOf(Locale.RO to "chiar acum", Locale.EN to "just now"),
     "time.secondsAgo" to mapOf(Locale.RO to "acum {n}s", Locale.EN to "{n}s ago"),
     "time.minutesAgo" to mapOf(Locale.RO to "acum {n} min", Locale.EN to "{n} min ago"),

@@ -58,14 +58,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.LineArrivalDetail
 import ro.infotb.modern.data.model.TimetableHour
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
@@ -82,6 +85,8 @@ import ro.infotb.modern.data.store.NotificationSubscription
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.formatDestination
 import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.util.t
 import kotlinx.coroutines.launch
 
@@ -117,11 +122,23 @@ fun StopDetailScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = {
-                Text(
-                    text = stopInfo?.name ?: t("stopDetail.arrivals", locale),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val stopName = stopInfo?.name ?: t("stopDetail.arrivals", locale)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isAirportStopName(stopName)) {
+                        Icon(
+                            imageVector = AirplaneIcon,
+                            contentDescription = "Airport",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(16.dp).rotate(45f)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = stopName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
@@ -428,13 +445,32 @@ private fun StopLineRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {
-            Box(modifier = Modifier.clickable(onClick = onNavigateToLine)) {
-                LineBadge(
-                    name = line.name,
-                    color = line.color,
-                    size = BadgeSize.MEDIUM,
-                    isAirport = isAirportLine(line.name, line.directionName)
-                )
+            val destination = formatDestination(line.directionName, line.direction)
+            val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName)
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.widthIn(min = 36.dp)
+            ) {
+                Box(modifier = Modifier.clickable(onClick = onNavigateToLine)) {
+                    LineBadge(
+                        name = line.name,
+                        color = line.color,
+                        size = BadgeSize.MEDIUM,
+                        isAirport = isAirportLineName(line.name)
+                    )
+                }
+                if (followUps.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = t("dashboard.nextArrivals", locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LocalMuted.current,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -442,14 +478,27 @@ private fun StopLineRow(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = formatDestination(line.directionName, line.direction),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isAirportDest) {
+                            Icon(
+                                imageVector = AirplaneIcon,
+                                contentDescription = "Airport",
+                                tint = LocalMuted.current,
+                                modifier = Modifier.size(13.dp).rotate(45f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = destination,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     if (inService) {
                         Box(

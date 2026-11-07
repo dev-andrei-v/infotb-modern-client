@@ -1,7 +1,7 @@
 package ro.infotb.modern.data.model
 
 import kotlinx.serialization.Serializable
-import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
 
 @Serializable
 data class Line(
@@ -14,7 +14,7 @@ data class Line(
     val startStopName: String? = null,
     val endStopName: String? = null
 ) {
-    val isAirport: Boolean get() = isAirportLine(name, listOfNotNull(startStopName, endStopName).joinToString(" "))
+    val isAirport: Boolean get() = isAirportLineName(name)
 }
 
 @Serializable
@@ -28,5 +28,5 @@ data class LineDetail(
     val directionNameRetur: String? = null,
     val stops: List<Stop> = emptyList()
 ) {
-    val isAirport: Boolean get() = isAirportLine(name, listOfNotNull(directionNameTur, directionNameRetur).joinToString(" "))
+    val isAirport: Boolean get() = isAirportLineName(name)
 }

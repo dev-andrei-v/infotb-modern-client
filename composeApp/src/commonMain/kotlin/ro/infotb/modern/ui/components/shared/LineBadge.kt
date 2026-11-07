@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.ui.theme.parseColor
-import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
 import ro.infotb.modern.util.isLightColor
 
 enum class BadgeSize { SMALL, MEDIUM, LARGE }
@@ -36,7 +36,7 @@ fun LineBadge(
     color: String,
     size: BadgeSize = BadgeSize.MEDIUM,
     modifier: Modifier = Modifier,
-    isAirport: Boolean = isAirportLine(name)
+    isAirport: Boolean = isAirportLineName(name)
 ) {
     val displayName = if (name.matches(Regex("(?i)^M\\d+\\s*-.*"))) name.substringBefore('-').trim() else name
     val bgColor = try {
@@ -64,15 +64,6 @@ fun LineBadge(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            if (isAirport) {
-                Icon(
-                    imageVector = AirplaneIcon,
-                    contentDescription = "Airport",
-                    tint = contentColor,
-                    modifier = Modifier.size(Dp(iconSize)).rotate(45f)
-                )
-                Spacer(Modifier.width(3.dp))
-            }
             Text(
                 text = displayName,
                 color = contentColor,
@@ -81,6 +72,15 @@ fun LineBadge(
                 textAlign = TextAlign.Center,
                 maxLines = 1
             )
+            if (isAirport) {
+                Spacer(Modifier.width(3.dp))
+                Icon(
+                    imageVector = AirplaneIcon,
+                    contentDescription = "Airport",
+                    tint = contentColor,
+                    modifier = Modifier.size(Dp(iconSize)).rotate(45f)
+                )
+            }
         }
     }
 }

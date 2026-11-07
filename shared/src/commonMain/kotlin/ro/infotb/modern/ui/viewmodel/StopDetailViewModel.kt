@@ -70,10 +70,25 @@ class StopDetailViewModel(
         viewModelScope.launch {
             try {
                 val stops = repository.getHomeStops(stopId)
-                _stopCoordinates.value = stops.firstOrNull { it.id == stopId }
-                    ?: stops.firstOrNull()
+                val found = stops.firstOrNull { it.id == stopId } ?: stops.firstOrNull()
+                if (found != null) {
+                    _stopCoordinates.value = found
+                    return@launch
+                }
             } catch (_: Exception) {
                 // coordinates are non-critical
+            }
+
+            // Fallback: if navigating from a line, look up stop coordinates from that line's stops
+            val lineId = currentLineId
+            if (lineId != null && _stopCoordinates.value == null) {
+                try {
+                    val detail = repository.getLineDetail(lineId)
+                    val stopFromLine = detail.stops.firstOrNull { it.id == stopId }
+                    if (stopFromLine != null) {
+                        _stopCoordinates.value = stopFromLine
+                    }
+                } catch (_: Exception) { }
             }
         }
     }

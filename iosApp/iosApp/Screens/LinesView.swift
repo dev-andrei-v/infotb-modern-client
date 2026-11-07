@@ -11,6 +11,7 @@ final class LinesModel {
     private(set) var error: String?
     private(set) var selectedTypes: Set<String> = []
     private(set) var favoriteIds: Set<Int64> = []
+    private(set) var lineDisplayStyle = "normal"
 
     var searchQuery = "" {
         didSet {
@@ -41,6 +42,9 @@ final class LinesModel {
         scope.watch(viewModel.favoriteIds) { [weak self] value in
             self?.favoriteIds = Set((value as? [NSNumber] ?? []).map(\.int64Value))
         }
+        scope.watch(viewModel.lineDisplayStyle) { [weak self] value in
+            self?.lineDisplayStyle = value as? String ?? "normal"
+        }
     }
 
     func toggleType(_ type: TransportType) {
@@ -50,6 +54,7 @@ final class LinesModel {
 
     func toggleFavorite(_ line: Line) { viewModel.toggleFavorite(lineId: line.id) }
     func reload() { viewModel.loadLines() }
+    func setLineDisplayStyle(_ style: String) { viewModel.setLineDisplayStyle(style: style) }
 
     var favorites: [Line] { lines.filter { favoriteIds.contains($0.id) } }
 
@@ -93,6 +98,25 @@ struct LinesView: View {
         content
             .navigationTitle(tr("lines.title"))
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            model.setLineDisplayStyle("normal")
+                        } label: {
+                            if model.lineDisplayStyle == "normal" { Label(tr("lines.styleNormal"), systemImage: "checkmark") }
+                            else { Text(tr("lines.styleNormal")) }
+                        }
+                        Button {
+                            model.setLineDisplayStyle("bus_display")
+                        } label: {
+                            if model.lineDisplayStyle == "bus_display" { Label(tr("lines.styleBusDisplay"), systemImage: "checkmark") }
+                            else { Text(tr("lines.styleBusDisplay")) }
+                        }
+                    } label: {
+                        Image(systemName: "textformat")
+                    }
+                    .accessibilityLabel(tr("lines.displayStyle"))
+                }
                 if !model.nightOnly && !model.expandableTypes.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(action: model.toggleAllSections) {
@@ -183,37 +207,51 @@ struct LinesView: View {
 
     private func row(_ line: Line, showsType: Bool = false) -> some View {
         let isFavorite = model.favoriteIds.contains(line.id)
+        let displayLineName = line.type.name == "SUBWAY"
+            ? (line.name.split(separator: "-", maxSplits: 1).first.map(String.init)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? line.name)
+            : line.name
         return NavigationLink(value: Route.line(line.id)) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 12) {
-                    LineBadge(name: line.name, color: line.color)
-                    if showsType {
-                        Text(line.type.label)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if isFavorite {
-                        Image(systemName: "star.fill").foregroundStyle(Color.favorite)
-                    }
-                }
-                if let start = line.startStopName, let end = line.endStopName {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(start.uppercased())
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .tracking(0.6)
+                if model.lineDisplayStyle == "bus_display" {
+                    HStack(spacing: 9) {
+                        LineBadge(name: displayLineName, color: line.color)
+                            .scaleEffect(1.18, anchor: .leading)
+                        Text([line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: " - ").isEmpty
+                             ? "—"
+                             : [line.startStopName, line.endStopName].compactMap { $0?.uppercased() }.joined(separator: " - "))
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .tracking(0.5)
                             .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Text(end.uppercased())
-                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .tracking(0.6)
-                            .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 6)
                     .background(Color(red: 0.09, green: 0.12, blue: 0.16), in: RoundedRectangle(cornerRadius: 6))
+                } else {
+                    HStack(spacing: 12) {
+                        LineBadge(name: displayLineName, color: line.color)
+                        if showsType {
+                            Text(line.type.label)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if isFavorite {
+                            Image(systemName: "star.fill").foregroundStyle(Color.favorite)
+                        }
+                    }
+                }
+                if model.lineDisplayStyle == "normal", let start = line.startStopName, let end = line.endStopName {
+                    Text("\(start.uppercased())\n\(end.uppercased())")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .tracking(0.6)
+                        .lineSpacing(-1)
+                        .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color(red: 0.09, green: 0.12, blue: 0.16), in: RoundedRectangle(cornerRadius: 6))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

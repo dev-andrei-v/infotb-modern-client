@@ -145,6 +145,7 @@ fun DashboardScreen(
     val groups by viewModel.groups.collectAsState()
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
     val groupSchedules by viewModel.groupSchedules.collectAsState()
+    val homeWidgetStopId by viewModel.homeWidgetStopId.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
@@ -161,7 +162,7 @@ fun DashboardScreen(
 
     // Keep Android home-screen widgets aligned with the dashboard's locally
     // cached groups and latest arrival snapshots.
-    LaunchedEffect(groups, widgets, cardStates, hiddenGroups) {
+    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopId) {
         val widgetGroups = (groups + "").distinct().map { groupName ->
             HomeWidgetGroupSnapshot(
                 name = groupName,
@@ -170,10 +171,11 @@ fun DashboardScreen(
                     .map { widget ->
                         val arrivals = cardStates[widget.stopId]?.info?.lines.orEmpty()
                             .asSequence()
+                            .filter { widget.visibleLines.isEmpty() || widget.visibleLines.contains("${it.id}_${it.direction.value}") }
                             .filter { it.arrivingTimes.isNotEmpty() || it.arrivingTime >= 0 }
                             .sortedBy { it.arrivingTime }
                             .take(3)
-                            .map { HomeWidgetArrivalSnapshot(it.name, it.arrivingTime) }
+                            .map { HomeWidgetArrivalSnapshot(it.name, it.color, it.directionName, it.arrivingTime, it.isTimetable) }
                             .toList()
                         HomeWidgetStopSnapshot(widget.stopId, widget.stopName, arrivals)
                     }
@@ -181,7 +183,8 @@ fun DashboardScreen(
             )
         }
         publishDashboardWidgetSnapshot(
-            kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups))
+            kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups)),
+            homeWidgetStopId
         )
     }
 
@@ -448,6 +451,7 @@ fun DashboardScreen(
                                 groups = groups,
                                 lineTimetables = lineTimetables,
                                 timetableLoading = timetableLoading,
+                                homeWidgetStopId = homeWidgetStopId,
                                 locale = locale,
                                 onDelete = { viewModel.removeWidget(widget.id) },
                                 onToggleHidden = { viewModel.toggleWidgetHidden(widget.id) },
@@ -457,6 +461,9 @@ fun DashboardScreen(
                                 onSetGroup = { group -> viewModel.setWidgetGroup(widget.id, group) },
                                 onAddGroup = { name -> viewModel.addGroup(name) },
                                 onResize = { size -> viewModel.resizeWidget(widget.id, size) },
+                                onToggleHomeWidgetStop = {
+                                    viewModel.setHomeWidgetStop(if (homeWidgetStopId == widget.stopId) null else widget.stopId)
+                                },
                                 onMove = { delta -> viewModel.moveWidget(widget.id, delta) },
                                 onClick = { onNavigateToStop(widget.stopId) },
                                 onLineClick = { lineId -> onNavigateToLine(lineId) },
@@ -563,7 +570,13 @@ private data class HomeWidgetStopSnapshot(
 )
 
 @kotlinx.serialization.Serializable
-private data class HomeWidgetArrivalSnapshot(val line: String, val seconds: Long)
+private data class HomeWidgetArrivalSnapshot(
+    val line: String,
+    val color: String,
+    val direction: String,
+    val seconds: Long,
+    val isTimetable: Boolean
+)
 
 @Composable
 private fun DashboardHeader(
@@ -694,6 +707,7 @@ private fun StationWidgetCard(
     groups: List<String>,
     lineTimetables: Map<String, List<TimetableHour>>,
     timetableLoading: Set<String>,
+    homeWidgetStopId: Long?,
     locale: Locale,
     onDelete: () -> Unit,
     onToggleHidden: () -> Unit,
@@ -701,6 +715,7 @@ private fun StationWidgetCard(
     onSetGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onResize: (WidgetSize) -> Unit,
+    onToggleHomeWidgetStop: () -> Unit,
     onMove: (delta: Int) -> Unit,
     onClick: () -> Unit,
     onLineClick: (lineId: Long) -> Unit,
@@ -986,11 +1001,13 @@ private fun StationWidgetCard(
             widget = widget,
             allLines = allLines,
             groups = groups,
+            homeWidgetStopId = homeWidgetStopId,
             locale = locale,
             onToggleLineVisibility = onToggleLineVisibility,
             onSetGroup = onSetGroup,
             onAddGroup = onAddGroup,
             onResize = onResize,
+            onToggleHomeWidgetStop = onToggleHomeWidgetStop,
             onToggleHidden = onToggleHidden,
             onDelete = {
                 showOptions = false
@@ -1337,11 +1354,13 @@ private fun WidgetOptionsSheet(
     widget: WidgetConfig,
     allLines: List<LineArrivalDetail>,
     groups: List<String>,
+    homeWidgetStopId: Long?,
     locale: Locale,
     onToggleLineVisibility: (String) -> Unit,
     onSetGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onResize: (WidgetSize) -> Unit,
+    onToggleHomeWidgetStop: () -> Unit,
     onToggleHidden: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -1371,6 +1390,26 @@ private fun WidgetOptionsSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalMuted.current
                 )
+            }
+
+            SheetSection(title = t("widget.homeScreen", locale)) {
+                OutlinedButton(
+                    onClick = onToggleHomeWidgetStop,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = if (homeWidgetStopId == widget.stopId) Icons.Default.Check else Icons.Default.Home,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        t(
+                            if (homeWidgetStopId == widget.stopId) "widget.removeHomeScreenStop" else "widget.useHomeScreenStop",
+                            locale
+                        )
+                    )
+                }
             }
 
             // Lines: tap a chip to hide/show it on the card

@@ -12,6 +12,25 @@ enum class DashboardSort { GROUPS, NEAREST }
 
 class PreferencesStore(private val settings: Settings) {
 
+    private val lineDisplayStyleKey = "lines.display_style"
+    private val _lineDisplayStyle = MutableStateFlow(settings.getString(lineDisplayStyleKey, "normal"))
+    val lineDisplayStyle: StateFlow<String> = _lineDisplayStyle.asStateFlow()
+
+    fun setLineDisplayStyle(style: String) {
+        val normalized = if (style == "bus_display") "bus_display" else "normal"
+        settings.putString(lineDisplayStyleKey, normalized)
+        _lineDisplayStyle.value = normalized
+    }
+
+    private val homeWidgetStopKey = "dashboard.home_widget_stop_id"
+    private val _homeWidgetStopId = MutableStateFlow(settings.getStringOrNull(homeWidgetStopKey)?.toLongOrNull())
+    val homeWidgetStopId: StateFlow<Long?> = _homeWidgetStopId.asStateFlow()
+
+    fun setHomeWidgetStopId(stopId: Long?) {
+        if (stopId == null) settings.remove(homeWidgetStopKey) else settings.putString(homeWidgetStopKey, stopId.toString())
+        _homeWidgetStopId.value = stopId
+    }
+
     private val _dashboardSort = MutableStateFlow(
         settings.getStringOrNull(Constants.SETTINGS_KEY_DASHBOARD_SORT)
             ?.let { v -> DashboardSort.entries.firstOrNull { it.name == v } } ?: DashboardSort.GROUPS

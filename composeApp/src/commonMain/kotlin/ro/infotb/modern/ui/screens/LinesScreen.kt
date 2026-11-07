@@ -32,6 +32,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,6 +82,8 @@ fun LinesScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedTypes by viewModel.selectedTypes.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
+    val lineDisplayStyle by viewModel.lineDisplayStyle.collectAsState()
+    var showDisplayMenu by remember { mutableStateOf(false) }
 
     var showNightOnly by remember { mutableStateOf(false) }
     var collapsedTypes by remember { mutableStateOf(setOf<TransportType>()) }
@@ -152,6 +156,15 @@ fun LinesScreen(
                         contentDescription = t(if (allSectionsExpanded) "lines.collapseAll" else "lines.expandAll", locale),
                         tint = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+            Box {
+                TextButton(onClick = { showDisplayMenu = true }) {
+                    Text(t(if (lineDisplayStyle == "bus_display") "lines.styleBusDisplay" else "lines.styleNormal", locale), maxLines = 1)
+                }
+                DropdownMenu(expanded = showDisplayMenu, onDismissRequest = { showDisplayMenu = false }) {
+                    DropdownMenuItem(text = { Text(t("lines.styleNormal", locale)) }, onClick = { viewModel.setLineDisplayStyle("normal"); showDisplayMenu = false })
+                    DropdownMenuItem(text = { Text(t("lines.styleBusDisplay", locale)) }, onClick = { viewModel.setLineDisplayStyle("bus_display"); showDisplayMenu = false })
                 }
             }
         }
@@ -239,6 +252,7 @@ fun LinesScreen(
                                     onToggleFavorite = { viewModel.toggleFavorite(line.id) },
                                     onClick = { onNavigateToLine(line.id) },
                                     onLoadSummary = { viewModel.loadLineSummary(line.id) }
+                                    ,busDisplay = lineDisplayStyle == "bus_display"
                                 )
                                 Spacer(Modifier.height(6.dp))
                             }
@@ -286,6 +300,7 @@ fun LinesScreen(
                                     onToggleFavorite = { viewModel.toggleFavorite(line.id) },
                                     onClick = { onNavigateToLine(line.id) },
                                     onLoadSummary = { viewModel.loadLineSummary(line.id) }
+                                    ,busDisplay = lineDisplayStyle == "bus_display"
                                 )
                                 Spacer(Modifier.height(6.dp))
                             }
@@ -354,6 +369,7 @@ fun LinesScreen(
                                         onToggleFavorite = { viewModel.toggleFavorite(line.id) },
                                         onClick = { onNavigateToLine(line.id) },
                                         onLoadSummary = { viewModel.loadLineSummary(line.id) }
+                                        ,busDisplay = lineDisplayStyle == "bus_display"
                                     )
                                     Spacer(Modifier.height(6.dp))
                                 }
@@ -464,7 +480,8 @@ private fun LineRow(
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
-    onLoadSummary: () -> Unit
+    onLoadSummary: () -> Unit,
+    busDisplay: Boolean
 ) {
     LaunchedEffect(line.id) { onLoadSummary() }
     Card(
@@ -478,32 +495,56 @@ private fun LineRow(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LineBadge(
-                name = line.name,
-                color = line.color,
-                size = BadgeSize.MEDIUM
-            )
-            Spacer(Modifier.width(12.dp))
-            if (line.startStopName != null || line.endStopName != null) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF18212B))
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+            if (!busDisplay) {
+                LineBadge(
+                    name = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
+                    color = line.color,
+                    size = BadgeSize.MEDIUM
+                )
+                Spacer(Modifier.width(12.dp))
+            }
+            val endpoints = listOfNotNull(line.startStopName, line.endStopName)
+            if (busDisplay) {
+                Row(
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF18212B)).padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    listOfNotNull(line.startStopName, line.endStopName).forEach { endpoint ->
-                        Text(
-                            text = endpoint.uppercase(),
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            fontSize = 9.sp,
-                            letterSpacing = 0.7.sp,
-                            color = Color(0xFFFFC857),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    LineBadge(
+                        name = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
+                        color = line.color,
+                        size = BadgeSize.LARGE
+                    )
+                    Text(
+                        text = endpoints.joinToString(" - ") { it.uppercase() }.ifBlank { "—" },
+                        modifier = Modifier.weight(1f),
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        lineHeight = 10.sp,
+                        letterSpacing = 0.5.sp,
+                        color = Color(0xFFFFC857),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else if (endpoints.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF18212B)).padding(horizontal = 8.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = endpoints.joinToString("\n") { it.uppercase() },
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        lineHeight = 10.sp,
+                        letterSpacing = 0.7.sp,
+                        color = Color(0xFFFFC857),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             } else {
                 Spacer(Modifier.weight(1f))

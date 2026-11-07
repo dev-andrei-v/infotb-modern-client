@@ -13,11 +13,12 @@ import ro.infotb.modern.MainActivity
 import org.json.JSONArray
 import org.json.JSONObject
 
-actual fun publishDashboardWidgetSnapshot(snapshot: String) {
+actual fun publishDashboardWidgetSnapshot(snapshot: String, selectedStopId: Long?) {
     val context = AndroidContext.appContext
     context.getSharedPreferences(TransitGroupAppWidget.PREFERENCES, 0)
         .edit()
         .putString(TransitGroupAppWidget.SNAPSHOT_KEY, snapshot)
+        .putString(TransitGroupAppWidget.SELECTED_STOP_KEY, selectedStopId?.toString())
         .apply()
     runCatching {
         val manager = AppWidgetManager.getInstance(context)

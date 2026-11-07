@@ -18,11 +18,16 @@ import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.FavoritesStore
+import ro.infotb.modern.data.store.PreferencesStore
 
 class LinesViewModel(
     private val repository: TransitRepository,
-    private val favoritesStore: FavoritesStore
+    private val favoritesStore: FavoritesStore,
+    private val preferencesStore: PreferencesStore
 ) : ViewModel() {
+
+    val lineDisplayStyle: StateFlow<String> = preferencesStore.lineDisplayStyle
+    fun setLineDisplayStyle(style: String) = preferencesStore.setLineDisplayStyle(style)
 
     private val _lines = MutableStateFlow<List<Line>>(emptyList())
     val lines: StateFlow<List<Line>> = _lines.asStateFlow()

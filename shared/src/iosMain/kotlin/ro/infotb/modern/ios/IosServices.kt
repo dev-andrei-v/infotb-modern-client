@@ -48,7 +48,7 @@ object IosServices : KoinComponent {
     val arrivalTracker: ArrivalTracker get() = get()
 
     fun dashboardViewModel() = DashboardViewModel(get(), get(), get(), get(), get())
-    fun linesViewModel() = LinesViewModel(get(), get())
+    fun linesViewModel() = LinesViewModel(get(), get(), get())
     fun lineDetailViewModel() = LineDetailViewModel(get())
     fun stopDetailViewModel() = StopDetailViewModel(get())
     fun announcementsViewModel() = AnnouncementsViewModel(get(), get())

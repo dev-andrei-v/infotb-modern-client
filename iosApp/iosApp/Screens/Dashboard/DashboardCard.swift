@@ -138,6 +138,14 @@ struct DashboardCard: View {
             )
         }
         Button {
+            model.toggleHomeScreenStop(widget.stopId)
+        } label: {
+            Label(
+                model.homeWidgetStopID == widget.stopId ? tr("widget.removeHomeScreenStop") : tr("widget.useHomeScreenStop"),
+                systemImage: model.homeWidgetStopID == widget.stopId ? "checkmark.square.fill" : "square.on.square"
+            )
+        }
+        Button {
             model.toggleHidden(widget)
         } label: {
             Label(tr("widget.hide"), systemImage: "eye.slash")

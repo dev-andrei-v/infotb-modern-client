@@ -461,6 +461,7 @@ private struct HomeWidgetArrival: Codable, Hashable, Identifiable {
     let lineName: String
     let color: String
     let transportType: String
+    let direction: String
     let seconds: Int64
     let isTimetable: Bool
 }
@@ -488,6 +489,16 @@ private enum HomeWidgetStore {
         return (try? JSONDecoder().decode([HomeWidgetGroup].self, from: data)) ?? []
     }
 
+    static func dashboardSelection() -> (group: HomeWidgetGroup, stop: HomeWidgetStop)? {
+        guard let stopID = UserDefaults(suiteName: suiteName)?.object(forKey: "dashboard.homeWidgetSelectedStopID.v1") as? NSNumber else { return nil }
+        for group in groups() {
+            if let stop = group.stops.first(where: { $0.id == stopID.int64Value }) {
+                return (group, stop)
+            }
+        }
+        return nil
+    }
+
     static func selectedIndex(for groupID: String, count: Int) -> Int {
         guard count > 0 else { return 0 }
         let key = "dashboard.homeWidgetIndex.\(groupID)"
@@ -505,6 +516,8 @@ private enum HomeWidgetStore {
 }
 
 private struct DashboardGroupEntity: AppEntity, Identifiable {
+    static let rotatingGroupID = "__rotating_group__"
+    static let dashboardSelectionID = "__dashboard_selection__"
     static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Dashboard group")
     static var defaultQuery = DashboardGroupQuery()
 
@@ -512,7 +525,13 @@ private struct DashboardGroupEntity: AppEntity, Identifiable {
     let name: String
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: LocalizedStringResource(stringLiteral: name.isEmpty ? "Ungrouped" : name))
+        let displayName: String
+        switch id {
+        case Self.rotatingGroupID: displayName = "Rotating group"
+        case Self.dashboardSelectionID: displayName = "Dashboard selection"
+        default: displayName = name.isEmpty ? "Ungrouped" : name
+        }
+        return DisplayRepresentation(title: LocalizedStringResource(stringLiteral: displayName))
     }
 
     init(id: String, name: String) {
@@ -523,13 +542,24 @@ private struct DashboardGroupEntity: AppEntity, Identifiable {
 
 private struct DashboardGroupQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [DashboardGroupEntity] {
-        HomeWidgetStore.groups()
+        var entities = HomeWidgetStore.groups()
             .filter { identifiers.contains($0.name) }
             .map { DashboardGroupEntity(id: $0.name, name: $0.name) }
+        if identifiers.contains(DashboardGroupEntity.rotatingGroupID) {
+            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Rotating group"))
+        }
+        if identifiers.contains(DashboardGroupEntity.dashboardSelectionID), HomeWidgetStore.dashboardSelection() != nil {
+            entities.append(DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: "Dashboard selection"))
+        }
+        return entities
     }
 
     func suggestedEntities() async throws -> [DashboardGroupEntity] {
-        HomeWidgetStore.groups()
+        let modes = [DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Rotating group")]
+        let pinned = HomeWidgetStore.dashboardSelection().map { _ in
+            [DashboardGroupEntity(id: DashboardGroupEntity.dashboardSelectionID, name: "Dashboard selection")]
+        } ?? []
+        return modes + pinned + HomeWidgetStore.groups()
             .filter { !$0.stops.isEmpty }
             .map { DashboardGroupEntity(id: $0.name, name: $0.name) }
     }
@@ -540,6 +570,10 @@ private struct DashboardGroupWidgetConfiguration: WidgetConfigurationIntent {
     static var description = IntentDescription("Show and rotate through stops in a Dashboard group.")
 
     @Parameter(title: "Dashboard group") var group: DashboardGroupEntity?
+
+    init() {
+        group = DashboardGroupEntity(id: DashboardGroupEntity.rotatingGroupID, name: "Rotating group")
+    }
 }
 
 private struct RotateDashboardGroupStopIntent: AppIntent {
@@ -562,7 +596,7 @@ private struct GroupStopWidgetEntry: TimelineEntry {
     let groupID: String
     let groupName: String
     let stop: HomeWidgetStop?
-    let arrivals: [(name: String, color: String, seconds: Int, isTimetable: Bool)]
+    let arrivals: [(name: String, color: String, direction: String, seconds: Int, isTimetable: Bool)]
     let stopCount: Int
     let localeCode: String
 }
@@ -573,7 +607,7 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
 
     func placeholder(in context: Context) -> Entry {
         Entry(date: .now, groupID: "", groupName: "To work", stop: .init(id: 1, name: "Universitate", observedAtMs: 0, arrivals: []),
-              arrivals: [("61", "#008F4C", 240, false), ("N105", "#5162A8", 540, false)], stopCount: 3, localeCode: "en")
+              arrivals: [("61", "#008F4C", "Piața Unirii", 240, false), ("N105", "#5162A8", "Piața Sf. Vineri", 540, false)], stopCount: 3, localeCode: "en")
     }
 
     func snapshot(for configuration: Intent, in context: Context) async -> Entry {
@@ -591,19 +625,39 @@ private struct GroupStopWidgetProvider: AppIntentTimelineProvider {
     private func makeEntry(_ configuration: Intent, at date: Date) -> Entry {
         let groups = HomeWidgetStore.groups()
         let requestedGroup = configuration.group?.id
+        if requestedGroup == DashboardGroupEntity.dashboardSelectionID,
+           let selection = HomeWidgetStore.dashboardSelection() {
+            let selectedGroup = HomeWidgetGroup(name: selection.group.name, stops: [selection.stop])
+            return makeEntry(for: selectedGroup, at: date)
+        }
+        if requestedGroup == DashboardGroupEntity.rotatingGroupID || requestedGroup == nil {
+            let availableGroups = groups.filter { !$0.stops.isEmpty }
+            if !availableGroups.isEmpty {
+                let minuteBucket = Int(date.timeIntervalSince1970 / 60)
+                let group = availableGroups[minuteBucket % availableGroups.count]
+                return makeEntry(for: group, at: date)
+            }
+        }
         let group = groups.first { $0.name == requestedGroup } ?? groups.first
         guard let group, !group.stops.isEmpty else {
             let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
             return Entry(date: date, groupID: "", groupName: locale == "en" ? "Choose a group" : "Alege un grup",
                          stop: nil, arrivals: [], stopCount: 0, localeCode: locale)
         }
-        let index = HomeWidgetStore.selectedIndex(for: group.name, count: group.stops.count)
-        let stop = group.stops[index]
+        return makeEntry(for: group, at: date)
+    }
+
+    private func makeEntry(for group: HomeWidgetGroup, at date: Date) -> Entry {
+        guard !group.stops.isEmpty else {
+            let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
+            return Entry(date: date, groupID: group.name, groupName: group.name, stop: nil,
+                         arrivals: [], stopCount: 0, localeCode: locale)
+        }
+        let stop = group.stops[HomeWidgetStore.selectedIndex(for: group.name, count: group.stops.count)]
         let elapsed = max(0, Int64(date.timeIntervalSince1970 * 1000 - Double(stop.observedAtMs)) / 1000)
-        let arrivals = stop.arrivals.compactMap { arrival -> (name: String, color: String, seconds: Int, isTimetable: Bool)? in
-            let remaining = max(0, arrival.seconds - elapsed)
+        let arrivals = stop.arrivals.compactMap { arrival -> (name: String, color: String, direction: String, seconds: Int, isTimetable: Bool)? in
             guard arrival.seconds >= 0 else { return nil }
-            return (arrival.lineName, arrival.color, Int(remaining), arrival.isTimetable)
+            return (arrival.lineName, arrival.color, arrival.direction, Int(max(0, arrival.seconds - elapsed)), arrival.isTimetable)
         }
         let locale = UserDefaults(suiteName: "group.ro.infotb.modern")?.string(forKey: "dashboard.homeWidgetLocale.v1") ?? "ro"
         return Entry(date: date, groupID: group.name, groupName: group.name, stop: stop,
@@ -629,71 +683,88 @@ private struct TransitGroupWidgetView: View {
     let entry: GroupStopWidgetEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 5) {
-                Image(systemName: "tram.fill").foregroundStyle(Color(hex: "#C92335"))
-                Text(entry.groupName.isEmpty ? (entry.localeCode == "en" ? "Ungrouped" : "Fără grup") : entry.groupName)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                if entry.stopCount > 1 {
-                    Button(intent: RotateDashboardGroupStopIntent(groupID: entry.groupID)) {
-                        Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
-                            .font(.caption.weight(.semibold))
-                            .frame(width: 28, height: 28)
-                            .contentShape(Rectangle())
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color(hex: entry.arrivals.first?.color ?? "#C92335"))
+                .frame(width: 4)
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.stop?.name ?? (entry.localeCode == "en" ? "Dashboard stop" : "Stație din Panou"))
+                            .font(.headline.weight(.bold))
+                            .lineLimit(1)
+                        Text(entry.groupName.isEmpty ? (entry.localeCode == "en" ? "Ungrouped" : "Fără grup") : entry.groupName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(entry.localeCode == "en" ? "Next stop" : "Următoarea stație")
+                    Spacer(minLength: 0)
+                    if entry.stopCount > 1 {
+                        Button(intent: RotateDashboardGroupStopIntent(groupID: entry.groupID)) {
+                            Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
+                                .font(.caption.weight(.semibold))
+                                .frame(width: 30, height: 30)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(entry.localeCode == "en" ? "Next stop" : "Următoarea stație")
+                    }
                 }
-            }
-
-            if let stop = entry.stop {
-                Text(stop.name)
-                    .font(.headline.weight(.bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
 
                 if entry.arrivals.isEmpty {
                     Text(entry.localeCode == "en" ? "No arrival data" : "Fără date de sosire")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(Array(entry.arrivals.prefix(2).enumerated()), id: \.offset) { _, arrival in
-                            HStack(spacing: 6) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(entry.arrivals.prefix(2).enumerated()), id: \.offset) { index, arrival in
+                            if index > 0 { Divider().padding(.leading, 44) }
+                            HStack(spacing: 7) {
+                                let timeColor = arrival.isTimetable ? Color(hex: "#7E8CA0") : Color(hex: "#43A047")
                                 Text(arrival.name)
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Color(hex: arrival.color))
-                                    .frame(minWidth: 34, alignment: .leading)
-                                Text(arrival.seconds < 60 ? "<1 min" : "\(max(1, arrival.seconds / 60)) min")
-                                    .font(.caption.monospacedDigit().weight(.semibold))
-                                    .foregroundStyle(arrival.isTimetable ? .secondary : .primary)
-                                if arrival.isTimetable {
-                                    Image(systemName: "calendar").font(.system(size: 9)).foregroundStyle(.secondary)
+                                    .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                                    .foregroundStyle(Color(hex: arrival.color).contrastingText)
+                                    .lineLimit(1)
+                                    .frame(minWidth: 36)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
+                                    .background(Color(hex: arrival.color) ?? .gray, in: RoundedRectangle(cornerRadius: 6))
+                                Text(arrival.direction)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack(spacing: 4) {
+                                    Image(systemName: arrival.isTimetable ? "calendar" : "dot.radiowaves.left.and.right")
+                                        .font(.system(size: 9, weight: .semibold))
+                                    Text(arrival.seconds < 60 ? "<1 min" : "\(max(1, arrival.seconds / 60)) min")
+                                        .font(.caption.monospacedDigit().weight(.bold))
                                 }
+                                .foregroundStyle(timeColor)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 5)
+                                .background(timeColor.opacity(0.13), in: RoundedRectangle(cornerRadius: 8))
                             }
+                            .padding(.vertical, 4)
                         }
                     }
                 }
 
-                Spacer(minLength: 0)
-                Link(destination: groupURL(entry.groupName)) {
-                    Label(entry.localeCode == "en" ? "Other stops" : "Alte stații", systemImage: "arrow.up.right")
-                        .font(.caption2.weight(.semibold))
+                HStack {
+                    Link(destination: groupURL(entry.groupName)) {
+                        Label(entry.localeCode == "en" ? "Other stops" : "Alte stații", systemImage: "arrow.up.right")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    Spacer()
                 }
                 .accessibilityLabel(entry.localeCode == "en" ? "Open this group in InfoTB" : "Deschide grupul în InfoTB")
-            } else {
-                Spacer(minLength: 0)
-                Text(entry.localeCode == "en" ? "Add stops to a Dashboard group first." : "Adaugă mai întâi stații într-un grup din Panou.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
             }
+            .padding(.leading, 10)
+            .padding(.vertical, 10)
+            .padding(.trailing, 12)
         }
-        .padding()
-        .containerBackground(for: .widget) { Color(.systemBackground) }
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .containerBackground(for: .widget) { Color(.systemGroupedBackground) }
     }
 
     private func groupURL(_ group: String) -> URL {

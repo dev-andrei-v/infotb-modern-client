@@ -218,7 +218,7 @@ fun App(
                 }
 
                 composable(Screen.Lines.route) {
-                    val viewModel = remember { LinesViewModel(repository, favoritesStore) }
+                    val viewModel = remember { LinesViewModel(repository, favoritesStore, preferencesStore) }
                     LinesScreen(
                         viewModel = viewModel,
                         locale = locale,

@@ -99,7 +99,7 @@ fun LineDetailScreen(
                 onClick = { showFullMap = false },
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(8.dp)
+                    .padding(top = 48.dp, start = 16.dp)
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))

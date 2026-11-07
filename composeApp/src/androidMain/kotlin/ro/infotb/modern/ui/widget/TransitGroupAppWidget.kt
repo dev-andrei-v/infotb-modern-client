@@ -27,8 +27,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                 update(context, AppWidgetManager.getInstance(context), widgetId)
             }
             ACTION_OPEN_GROUP -> {
-                val group = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-                    .getString(groupKey(widgetId), "").orEmpty()
+                val group = resolveGroupName(context, widgetId)
                 context.startActivity(Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     putExtra(EXTRA_OPEN_GROUP, group)
@@ -40,6 +39,9 @@ class TransitGroupAppWidget : AppWidgetProvider() {
     companion object {
         const val PREFERENCES = "transit_group_home_widget"
         const val SNAPSHOT_KEY = "dashboard_snapshot"
+        const val SELECTED_STOP_KEY = "dashboard_selected_stop"
+        const val DASHBOARD_SELECTION_ID = "__dashboard_selection__"
+        const val ROTATING_GROUP_ID = "__rotating_group__"
         const val EXTRA_OPEN_GROUP = "open_dashboard_group"
         const val ACTION_ROTATE = "ro.infotb.modern.widget.ROTATE"
         const val ACTION_OPEN_GROUP = "ro.infotb.modern.widget.OPEN_GROUP"
@@ -47,21 +49,49 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         fun groupKey(id: Int) = "group_$id"
         private fun indexKey(id: Int) = "index_$id"
 
+        private fun resolveGroupName(context: Context, widgetId: Int): String {
+            val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            val selected = prefs.getString(groupKey(widgetId), "").orEmpty()
+            if (selected != ROTATING_GROUP_ID) return selected
+            val groups = runCatching {
+                JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}").optJSONArray("groups")
+            }.getOrNull()
+            val populated = (0 until (groups?.length() ?: 0)).mapNotNull { groups?.optJSONObject(it) }
+                .filter { (it.optJSONArray("stops")?.length() ?: 0) > 0 }
+            if (populated.isEmpty()) return ""
+            val rotationBucket = System.currentTimeMillis() / ROTATION_INTERVAL_MS
+            val index = Math.floorMod(rotationBucket, populated.size.toLong()).toInt()
+            return populated[index].optString("name")
+        }
+
         fun update(context: Context, manager: AppWidgetManager, widgetId: Int) {
             val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            val groupName = prefs.getString(groupKey(widgetId), "").orEmpty()
+            val storedGroup = prefs.getString(groupKey(widgetId), "").orEmpty()
+            val groupName = resolveGroupName(context, widgetId)
             val snapshot = runCatching { JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}") }.getOrNull()
             val groups = snapshot?.optJSONArray("groups")
+            val selectedStopId = prefs.getString(SELECTED_STOP_KEY, null)
+            val selectedStop = if (storedGroup == DASHBOARD_SELECTION_ID && selectedStopId != null) {
+                (0 until (groups?.length() ?: 0)).asSequence()
+                    .mapNotNull { groups?.optJSONObject(it)?.optJSONArray("stops") }
+                    .flatMap { stops -> (0 until stops.length()).asSequence().mapNotNull { stops.optJSONObject(it) } }
+                    .firstOrNull { it.optString("id") == selectedStopId }
+            } else null
             val group = (0 until (groups?.length() ?: 0))
                 .mapNotNull { groups?.optJSONObject(it) }
                 .firstOrNull { it.optString("name") == groupName }
-            val stops = group?.optJSONArray("stops")
+            val stops = if (selectedStop != null) org.json.JSONArray().put(selectedStop) else group?.optJSONArray("stops")
             val stopCount = stops?.length() ?: 0
             val empty = stopCount == 0
             val index = if (empty) 0 else Math.floorMod(prefs.getInt(indexKey(widgetId), 0), stopCount)
             val stop = if (empty) null else stops?.optJSONObject(index)
             val views = RemoteViews(context.packageName, R.layout.widget_transit_group).apply {
-                setTextViewText(R.id.widget_group_name, groupName.ifBlank { context.getString(R.string.widget_choose_group) })
+                val title = if (storedGroup == ROTATING_GROUP_ID && groupName.isNotBlank()) {
+                    context.getString(R.string.widget_rotating_group) + " · " + groupName
+                } else {
+                    groupName.ifBlank { context.getString(R.string.widget_choose_group) }
+                }
+                setTextViewText(R.id.widget_group_name, title)
                 setTextViewText(R.id.widget_stop_name, stop?.optString("name") ?: context.getString(R.string.widget_no_stops))
                 setTextViewText(R.id.widget_arrivals, stop?.optJSONArray("arrivals")?.let(::formatArrivals)
                     ?: context.getString(R.string.widget_open_dashboard))
@@ -82,6 +112,8 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                 "${item.optString("line")}  $time"
             }
         }
+
+        private const val ROTATION_INTERVAL_MS = 30 * 60 * 1000L
 
         private fun broadcast(context: Context, widgetId: Int, action: String, salt: Int): PendingIntent {
             val intent = Intent(context, TransitGroupAppWidget::class.java).apply {
@@ -124,8 +156,12 @@ class TransitGroupWidgetConfigureActivity : android.app.Activity() {
         val storedNames = (0 until (groups?.length() ?: 0))
             .mapNotNull { groups?.optJSONObject(it)?.optString("name") }
             .distinct()
-        val names = storedNames.ifEmpty { listOf("") }
-        val options = names.map { it.ifBlank { getString(R.string.widget_default_group) } }.toTypedArray()
+        val names = listOf(TransitGroupAppWidget.ROTATING_GROUP_ID, TransitGroupAppWidget.DASHBOARD_SELECTION_ID) + storedNames.ifEmpty { listOf("") }
+        val options = names.map { name ->
+            if (name == TransitGroupAppWidget.ROTATING_GROUP_ID) getString(R.string.widget_rotating_group)
+            else if (name == TransitGroupAppWidget.DASHBOARD_SELECTION_ID) getString(R.string.widget_dashboard_selection)
+            else name.ifBlank { getString(R.string.widget_default_group) }
+        }.toTypedArray()
         android.app.AlertDialog.Builder(this)
             .setTitle(R.string.widget_choose_group)
             .setItems(options) { _, which ->

@@ -60,6 +60,7 @@ final class AppModel {
         scope.watch(prefs.locale) { [weak self] in
             guard let self else { return }
             self.localeCode = $0 as? String ?? "ro"
+            self.dashboard.updateWidgetLocale(self.localeCode)
             AppQuickActions.refresh(localeCode: self.localeCode)
         }
         scope.watch(prefs.noticeAlerts) { [weak self] in self?.noticeAlerts = Unbox.bool($0) }

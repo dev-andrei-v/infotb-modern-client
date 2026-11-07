@@ -18,6 +18,7 @@ private struct HomeScreenArrivalSnapshot: Codable {
     let lineName: String
     let color: String
     let transportType: String
+    let direction: String
     let seconds: Int64
     let isTimetable: Bool
 }
@@ -54,6 +55,8 @@ final class DashboardModel {
     private(set) var distances: [Int64: Double] = [:]
     private(set) var timetables: [String: [TimetableHour]] = [:]
     private(set) var timetableLoading: Set<String> = []
+    private var widgetLocaleCode = "ro"
+    private(set) var homeWidgetStopID: Int64?
 
     /// Scheduled groups the user opened while they are outside their hours.
     var expandedInactive: Set<String> = []
@@ -83,6 +86,11 @@ final class DashboardModel {
         scope.watch(vm.cardStates) { [weak self] in
             guard let self else { return }
             self.cardStates = Unbox.longKeyed($0)
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.homeWidgetStopId) { [weak self] value in
+            guard let self else { return }
+            self.homeWidgetStopID = (value as? NSNumber)?.int64Value
             self.publishHomeScreenWidgetData()
         }
         scope.watch(vm.announcements) { [weak self] in self?.announcements = Unbox.list($0) }
@@ -123,6 +131,7 @@ final class DashboardModel {
                             lineName: $0.name,
                             color: $0.color,
                             transportType: $0.type.name,
+                            direction: $0.directionName,
                             seconds: $0.arrivingTime,
                             isTimetable: $0.isTimetable
                         )
@@ -138,8 +147,23 @@ final class DashboardModel {
         }
         guard let data = try? JSONEncoder().encode(snapshots) else { return }
         suite?.set(data, forKey: "dashboard.homeWidgetGroups.v1")
-        suite?.set(AppModel.shared.localeCode, forKey: "dashboard.homeWidgetLocale.v1")
+        suite?.set(widgetLocaleCode, forKey: "dashboard.homeWidgetLocale.v1")
+        if let homeWidgetStopID {
+            suite?.set(NSNumber(value: homeWidgetStopID), forKey: "dashboard.homeWidgetSelectedStopID.v1")
+        } else {
+            suite?.removeObject(forKey: "dashboard.homeWidgetSelectedStopID.v1")
+        }
         WidgetCenter.shared.reloadTimelines(ofKind: "TransitGroupWidget")
+    }
+
+    func updateWidgetLocale(_ localeCode: String) {
+        widgetLocaleCode = localeCode
+        publishHomeScreenWidgetData()
+    }
+
+    func toggleHomeScreenStop(_ stopId: Int64) {
+        let nextStopId: KotlinLong? = homeWidgetStopID == stopId ? nil : KotlinLong(value: stopId)
+        viewModel.setHomeWidgetStop(stopId: nextStopId)
     }
 
     // MARK: Layout

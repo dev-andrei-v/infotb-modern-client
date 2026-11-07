@@ -30,6 +30,9 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "planner.findRoutes" to mapOf(Locale.RO to "Cauta rute", Locale.EN to "Find routes"),
     "lines.expandAll" to mapOf(Locale.RO to "Extinde toate liniile", Locale.EN to "Expand all lines"),
     "lines.collapseAll" to mapOf(Locale.RO to "Restrange toate liniile", Locale.EN to "Collapse all lines"),
+    "lines.displayStyle" to mapOf(Locale.RO to "Stilul liniilor", Locale.EN to "Line display style"),
+    "lines.styleNormal" to mapOf(Locale.RO to "Normal", Locale.EN to "Normal"),
+    "lines.styleBusDisplay" to mapOf(Locale.RO to "Inspirat de afisajul autobuzului", Locale.EN to "Bus display inspired"),
     "planner.searchPlaces" to mapOf(Locale.RO to "Cauta o adresa sau statie", Locale.EN to "Search an address or stop"),
     "planner.routes" to mapOf(Locale.RO to "Rute sugerate", Locale.EN to "Suggested routes"),
     "planner.option" to mapOf(Locale.RO to "Optiunea", Locale.EN to "Option"),
@@ -333,6 +336,9 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.noScheduled" to mapOf(Locale.RO to "Nicio cursă programată în următoarele ore", Locale.EN to "No scheduled arrivals in the next hours"),
     "widget.addToDashboard" to mapOf(Locale.RO to "Adauga pe panou", Locale.EN to "Add to dashboard"),
     "widget.addedToDashboard" to mapOf(Locale.RO to "adaugat pe panou", Locale.EN to "added to dashboard"),
+    "widget.homeScreen" to mapOf(Locale.RO to "Widget pe ecranul principal", Locale.EN to "Home Screen widget"),
+    "widget.useHomeScreenStop" to mapOf(Locale.RO to "Afiseaza statia in widget", Locale.EN to "Show this stop in widget"),
+    "widget.removeHomeScreenStop" to mapOf(Locale.RO to "Elimina statia din widget", Locale.EN to "Remove stop from widget"),
     "widget.widgetAdded" to mapOf(Locale.RO to "Widget adaugat pe panou", Locale.EN to "Widget added to dashboard"),
 
     // Arrival time

@@ -1,5 +1,6 @@
 import Shared
 import SwiftUI
+import MapKit
 
 private struct SavedTrip: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
@@ -58,13 +59,25 @@ struct PlannerView: View {
     @State private var field: PlannerPlaceField?
     @State private var suggestions: [PlannerPlace] = []
     @State private var searching = false
+    @State private var placeSearchTask: Task<Void, Never>?
     @State private var loading = false
     @State private var error: String?
     @State private var response: String?
     @State private var savedTrips: [SavedTrip] = []
     @State private var showAdvanced = false
+    @State private var plannerLocation = ForegroundLocation()
+    @State private var mapPickingTarget: PlannerPlaceField?
+    @State private var mapPickPosition: MapCameraPosition = .region(Self.defaultMapRegion)
+    @State private var mapPickCoordinate = CLLocationCoordinate2D(latitude: 44.435, longitude: 26.10)
+    @State private var placePickerMessage: String?
 
     private let storageKey = "planner.savedTrips.v1"
+
+    private static let defaultMapRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 44.435, longitude: 26.10),
+        latitudinalMeters: 3_000,
+        longitudinalMeters: 3_000
+    )
 
     var body: some View {
         ScrollView {
@@ -89,6 +102,7 @@ struct PlannerView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(tr("planner.title"))
         .navigationBarTitleDisplayMode(.inline)
+        .foregroundLocation(plannerLocation)
         .task { loadSavedTrips() }
         .sheet(item: Binding(get: { field.map(PlaceFieldSheet.init) }, set: { field = $0?.field })) { item in
             placePicker(item.field)
@@ -217,9 +231,35 @@ struct PlannerView: View {
         .padding(16).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
     }
 
+    @ViewBuilder
     private func placePicker(_ target: PlannerPlaceField) -> some View {
+        if mapPickingTarget == target {
+            mapPlacePicker(target)
+        } else {
+            placeSearchPicker(target)
+        }
+    }
+
+    private func placeSearchPicker(_ target: PlannerPlaceField) -> some View {
         NavigationStack {
             VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Button { useCurrentLocation(for: target) } label: {
+                        Label(tr("planner.currentLocation"), systemImage: "location.fill")
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                    }
+                    .buttonStyle(.bordered)
+                    Button { beginMapPick(for: target) } label: {
+                        Label(tr("planner.pickOnMap"), systemImage: "map")
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.horizontal)
+                if let placePickerMessage {
+                    Text(placePickerMessage).font(.caption).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.top, 6)
+                }
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(tr("planner.searchPlaces"), text: $query)
@@ -245,6 +285,77 @@ struct PlannerView: View {
             .navigationTitle(tr(target == .origin ? "planner.chooseOrigin" : "planner.chooseDestination"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button(tr("planner.cancel")) { field = nil } } }
+        }
+    }
+
+    private func mapPlacePicker(_ target: PlannerPlaceField) -> some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Map(position: $mapPickPosition, interactionModes: [.pan, .zoom]) {
+                    UserAnnotation()
+                }
+                .overlay {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(Color.red)
+                        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                        .offset(y: -16)
+                        .allowsHitTesting(false)
+                }
+                .onMapCameraChange(frequency: .onEnd) { context in
+                    mapPickCoordinate = context.region.center
+                }
+                Text("\(mapPickCoordinate.latitude, format: .number.precision(.fractionLength(4))), \(mapPickCoordinate.longitude, format: .number.precision(.fractionLength(4)))")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary).padding(.vertical, 8)
+                Button {
+                    choose(PlannerPlace(name: tr("planner.mapPoint"), lat: mapPickCoordinate.latitude,
+                                        lng: mapPickCoordinate.longitude, type: "LOCATION", description: nil, stop_id: nil), for: target)
+                    mapPickingTarget = nil
+                } label: {
+                    Text(tr("planner.useMapPoint")).frame(maxWidth: .infinity).padding(.vertical, 5)
+                }
+                .buttonStyle(.borderedProminent).padding(.horizontal).padding(.bottom, 8)
+            }
+            .navigationTitle(tr("planner.pickOnMap"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(tr("planner.cancel")) { mapPickingTarget = nil }
+                }
+            }
+        }
+    }
+
+    private func beginMapPick(for target: PlannerPlaceField) {
+        let center = plannerLocation.location?.coordinate ?? CLLocationCoordinate2D(latitude: 44.435, longitude: 26.10)
+        mapPickCoordinate = center
+        mapPickPosition = .region(MKCoordinateRegion(center: center, latitudinalMeters: 2_500, longitudinalMeters: 2_500))
+        mapPickingTarget = target
+    }
+
+    private func useCurrentLocation(for target: PlannerPlaceField) {
+        placePickerMessage = nil
+        if let fix = plannerLocation.location {
+            choose(PlannerPlace(name: tr("planner.currentLocation"), lat: fix.coordinate.latitude,
+                                lng: fix.coordinate.longitude, type: "CURRENT_LOCATION", description: nil, stop_id: nil), for: target)
+            return
+        }
+        plannerLocation.retry()
+        placePickerMessage = tr("planner.waitingLocation")
+        Task { @MainActor in
+            for _ in 0..<48 {
+                if let fix = plannerLocation.location {
+                    choose(PlannerPlace(name: tr("planner.currentLocation"), lat: fix.coordinate.latitude,
+                                        lng: fix.coordinate.longitude, type: "CURRENT_LOCATION", description: nil, stop_id: nil), for: target)
+                    return
+                }
+                if plannerLocation.unavailable {
+                    placePickerMessage = tr("planner.locationUnavailable")
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            placePickerMessage = tr("planner.locationUnavailable")
         }
     }
 
@@ -317,18 +428,24 @@ struct PlannerView: View {
     }
 
     private func search(_ value: String) {
-        guard value.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else { suggestions = []; return }
+        placeSearchTask?.cancel()
+        guard value.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 else {
+            suggestions = []
+            searching = false
+            placePickerMessage = nil
+            return
+        }
         let requested = value
         searching = true
-        Task {
+        placePickerMessage = nil
+        placeSearchTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(250))
-            guard requested == query else { return }
+            guard !Task.isCancelled, requested == query else { return }
             let results = try? await IosServices.shared.searchPlannerPlaces(query: requested)
-            await MainActor.run {
-                guard requested == query else { return }
-                suggestions = results ?? []
-                searching = false
-            }
+            guard !Task.isCancelled, requested == query else { return }
+            suggestions = results ?? []
+            searching = false
+            if results == nil { placePickerMessage = tr("planner.searchFailed") }
         }
     }
 

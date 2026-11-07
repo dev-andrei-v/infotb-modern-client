@@ -167,9 +167,12 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
     }
 
     suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean): String {
+        // The client model calls this mode CABLE_CAR, while the web planner
+        // expects its public API name, TROLLEYBUS.
+        val apiVehicleTypes = vehicleTypes.map { if (it == "CABLE_CAR") "TROLLEYBUS" else it }
         val body = buildString {
             append("{\"start_lat\":${start.lat},\"start_lng\":${start.lng},\"stop_lat\":${destination.lat},\"stop_lng\":${destination.lng},\"max_walk_distance\":$maxWalkDistance,\"start_time\":$startTimeMs")
-            append(",\"vehicle_types\":${json.encodeToString(vehicleTypes)}")
+            append(",\"vehicle_types\":${json.encodeToString(apiVehicleTypes)}")
             append(",\"accessibility\":${if (accessible) "true" else "false"}}")
         }
         return fetchRoutes(body)

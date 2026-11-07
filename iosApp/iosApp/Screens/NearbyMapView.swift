@@ -154,6 +154,10 @@ private final class NearbyMapModel {
     private var routesRequestId = UUID()
     private var completedRoutes: Set<Int64> = []
 
+    func hasCompleteRoutes(for lineIds: [Int64]) -> Bool {
+        lineIds.allSatisfy { completedRoutes.contains($0) }
+    }
+
     func load(near location: CLLocation, force: Bool = false) async {
         if !force, StopLocationCache.shared.hasFreshCoverage(near: location) {
             failed = false
@@ -301,7 +305,9 @@ struct NearbyMapView: View {
     @State private var sheetDetent: PresentationDetent = .height(165)
     @State private var sheetPresented = true
     @State private var nearbySearch = ""
+    @State private var displayedRouteIds: [Int64] = []
     @State private var routeColors: [Int64: String] = [:]
+    @State private var pendingMapNavigation: Route?
     @State private var clockNow = Date()
 
     private static let bucharest = MKCoordinateRegion(
@@ -394,7 +400,7 @@ struct NearbyMapView: View {
     }
 
     private var visibleRoutes: [NearbyRoute] {
-        routeIds.flatMap { model.routes[$0] ?? [] }.sorted {
+        displayedRouteIds.flatMap { model.routes[$0] ?? [] }.sorted {
             // Paint the focused route last so junctions remain legible.
             if ($0.lineId == selectedLineId) != ($1.lineId == selectedLineId) { return $1.lineId == selectedLineId }
             return $0.id < $1.id
@@ -415,7 +421,16 @@ struct NearbyMapView: View {
     }
 
     private func routeColor(_ lineId: Int64) -> String {
-        routeColors[lineId] ?? "#1565C0"
+        if let saved = routeColors[lineId] { return saved }
+        if let color = nearestStops.lazy.flatMap(\.lines).first(where: { $0.id == lineId })?.color,
+           Color(hex: color) != nil { return color }
+        return stableFallbackColor(for: lineId)
+    }
+
+    private func stableFallbackColor(for lineId: Int64) -> String {
+        let colors = ["#1565C0", "#8E24AA", "#D84315", "#00838F", "#2E7D32", "#C62828", "#5E35B1", "#AD5700"]
+        let index = Int((lineId % Int64(colors.count) + Int64(colors.count)) % Int64(colors.count))
+        return colors[index]
     }
 
     var body: some View {
@@ -427,14 +442,20 @@ struct NearbyMapView: View {
         }
         .navigationTitle(tr("nav.map"))
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $sheetPresented) {
+        .sheet(isPresented: $sheetPresented, onDismiss: performPendingMapNavigation) {
             nearbySheet
                 .presentationDetents([.height(165), .medium, .large], selection: $sheetDetent)
                 .presentationDragIndicator(.visible)
+                .presentationBackground(.regularMaterial)
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                 .presentationContentInteraction(.scrolls)
                 .presentationCornerRadius(28)
                 .interactiveDismissDisabled()
+        }
+        .onAppear {
+            // A full stop or line page can be opened from the glass sheet.
+            // Restore the map controls when returning to the map.
+            if !sheetPresented { sheetPresented = true }
         }
         .foregroundLocation(location)
         .task(id: location.location) {
@@ -475,7 +496,16 @@ struct NearbyMapView: View {
         .task(id: routeIds) {
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
-            await model.loadRoutes(routeIds)
+            let requestedIds = routeIds
+            await model.loadRoutes(requestedIds)
+            guard !Task.isCancelled, requestedIds == routeIds,
+                  model.hasCompleteRoutes(for: requestedIds) else { return }
+            // Keep the previous viewport's polylines visible while new route
+            // data is loading. Swap the displayed set only after all requested
+            // routes have arrived, avoiding a blank/flickering map on pans.
+            withAnimation(.easeInOut(duration: 0.2)) {
+                displayedRouteIds = requestedIds
+            }
         }
         .task(id: selectedStop?.id) {
             guard let stop = selectedStop else { stopPreview = nil; previewLoading = false; return }
@@ -487,17 +517,13 @@ struct NearbyMapView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
-        .task(id: nearbyLines.map(\.id)) {
-            // Keep a line's map colour stable while memberships arrive and
-            // filters change, without repeating spatial queries for each badge.
-            let palette = ["#1565C0", "#8E24AA", "#D84315", "#00838F", "#2E7D32", "#C62828", "#5E35B1", "#AD5700"]
-            for (index, line) in nearbyLines.enumerated() where routeColors[line.id] == nil {
-                routeColors[line.id] = line.type == TransportType.subway.name ? line.color :
-                    (palette.first { !routeColors.values.contains($0) } ?? palette[index % palette.count])
-            }
-        }
         .task(id: visibleRoutes.map(\.id)) {
             lanes = RouteLaneLayout(paths: visibleRoutes.map { RouteLanePath(id: $0.id, lineId: $0.lineId, coordinates: $0.coordinates) })
+        }
+        .task(id: nearbyLines.map { "\($0.id):\($0.color)" }) {
+            for line in nearbyLines where routeColors[line.id] == nil {
+                routeColors[line.id] = Color(hex: line.color) == nil ? stableFallbackColor(for: line.id) : line.color
+            }
         }
         .onChange(of: selectedTypes) { _, _ in
             selectedLineId = nil
@@ -526,13 +552,9 @@ struct NearbyMapView: View {
                 Annotation(group.name, coordinate: stop.coordinate) {
                     Button {
                         withAnimation(.snappy) {
-                            selectedGroupId = selectedGroupId == group.id ? nil : group.id
-                            if selectedGroupId != nil {
-                                selectedStop = group.nearest
-                                sheetDetent = .medium
-                            } else {
-                                selectedStop = nil
-                            }
+                            selectedGroupId = group.id
+                            selectedStop = group.nearest
+                            sheetDetent = .large
                         }
                     } label: {
                         StopMapMarker(
@@ -723,7 +745,7 @@ struct NearbyMapView: View {
                 Spacer()
                 if let line = sheetLines.first(where: { $0.id == selectedLineId }) {
                     Button {
-                        AppModel.shared.push(.line(line.id))
+                        openMapRoute(.line(line.id))
                     } label: {
                         Text("\(tr("map.viewStops")) \(line.name)")
                             .font(.subheadline.weight(.medium))
@@ -827,6 +849,20 @@ struct NearbyMapView: View {
         }
     }
 
+    private func openMapRoute(_ route: Route) {
+        pendingMapNavigation = route
+        sheetPresented = false
+    }
+
+    private func performPendingMapNavigation() {
+        guard let route = pendingMapNavigation else { return }
+        pendingMapNavigation = nil
+        Task { @MainActor in
+            await Task.yield()
+            AppModel.shared.push(route)
+        }
+    }
+
     private var nearestRoutesChip: some View {
         Button {
             selectedLineId = nil
@@ -888,7 +924,7 @@ struct NearbyMapView: View {
             } else if let preview = stopPreview, !preview.lines.isEmpty {
                 ForEach(Array(preview.lines.enumerated()), id: \.offset) { _, line in
                     HStack(spacing: 9) {
-                        Button { AppModel.shared.push(.line(line.id)) } label: {
+                        Button { openMapRoute(.line(line.id)) } label: {
                             LineBadge(name: line.name, color: line.color)
                         }
                         .buttonStyle(.plain)
@@ -908,7 +944,7 @@ struct NearbyMapView: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { AppModel.shared.push(.line(line.id)) }
+                    .onTapGesture { openMapRoute(.line(line.id)) }
                 }
             } else if stopPreview != nil {
                 Text(tr("widget.noData")).font(.subheadline).foregroundStyle(.secondary)
@@ -917,13 +953,13 @@ struct NearbyMapView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Button { AppModel.shared.push(.stop(stop.id)) } label: {
+            Button { openMapRoute(.stop(stop.id)) } label: {
                 Label(tr("lineDetail.moreAboutStop"), systemImage: "arrow.right.circle")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
         } header: {
-            Label(tr("map.nearbyLines"), systemImage: "tram.fill")
+            Label(tr("map.stopDetails"), systemImage: "mappin.and.ellipse")
         }
     }
 }

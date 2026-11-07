@@ -11,6 +11,12 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "planner.to" to mapOf(Locale.RO to "Pana la", Locale.EN to "To"),
     "planner.chooseOrigin" to mapOf(Locale.RO to "Alege punctul de plecare", Locale.EN to "Choose starting point"),
     "planner.chooseDestination" to mapOf(Locale.RO to "Alege destinatia", Locale.EN to "Choose destination"),
+    "planner.currentLocation" to mapOf(Locale.RO to "Pozitia curenta", Locale.EN to "Current location"),
+    "planner.pickOnMap" to mapOf(Locale.RO to "Alege pe harta", Locale.EN to "Pick on map"),
+    "planner.mapPoint" to mapOf(Locale.RO to "Punct ales pe harta", Locale.EN to "Map point"),
+    "planner.useMapPoint" to mapOf(Locale.RO to "Foloseste acest punct", Locale.EN to "Use this point"),
+    "planner.waitingLocation" to mapOf(Locale.RO to "Se cauta pozitia curenta...", Locale.EN to "Finding your current location…"),
+    "planner.locationUnavailable" to mapOf(Locale.RO to "Pozitia curenta nu este disponibila.", Locale.EN to "Current location is unavailable."),
     "planner.cancel" to mapOf(Locale.RO to "Anuleaza", Locale.EN to "Cancel"),
     "planner.swap" to mapOf(Locale.RO to "Inverseaza", Locale.EN to "Swap"),
     "planner.departure" to mapOf(Locale.RO to "Plecare", Locale.EN to "Departure"),
@@ -26,6 +32,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "planner.option" to mapOf(Locale.RO to "Optiunea", Locale.EN to "Option"),
     "planner.arrives" to mapOf(Locale.RO to "Sosire:", Locale.EN to "Arrives:"),
     "planner.loadFailed" to mapOf(Locale.RO to "Rutele nu au putut fi incarcate. Incearca din nou.", Locale.EN to "Could not load routes. Try again."),
+    "planner.searchFailed" to mapOf(Locale.RO to "Locatiile nu au putut fi cautate. Incearca din nou.", Locale.EN to "Could not search places. Try again."),
     "planner.saveTrip" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
     "planner.savedTrips" to mapOf(Locale.RO to "Calatorii salvate", Locale.EN to "Saved trips"),
     "planner.noSavedTrips" to mapOf(Locale.RO to "Salveaza o calatorie pentru a o putea planifica din nou mai tarziu.", Locale.EN to "Save a trip to plan it again later."),
@@ -63,6 +70,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "map.nightBusesHidden" to mapOf(Locale.RO to "Liniile de noapte apar dupa ora 22:00.", Locale.EN to "Night buses appear after 10:00 PM."),
     "map.searchNearby" to mapOf(Locale.RO to "Cauta statii sau linii in zona hartii", Locale.EN to "Search stops or lines in this map area"),
     "map.noSearchResults" to mapOf(Locale.RO to "Nu s-au gasit statii sau linii potrivite.", Locale.EN to "No matching stops or lines found."),
+    "map.stopDetails" to mapOf(Locale.RO to "Detalii statie", Locale.EN to "Stop details"),
     "common.clear" to mapOf(Locale.RO to "Sterge", Locale.EN to "Clear"),
 
     // Navigation

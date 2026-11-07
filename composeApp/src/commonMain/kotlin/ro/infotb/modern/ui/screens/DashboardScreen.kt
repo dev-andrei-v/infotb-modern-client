@@ -145,7 +145,7 @@ fun DashboardScreen(
     val groups by viewModel.groups.collectAsState()
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
     val groupSchedules by viewModel.groupSchedules.collectAsState()
-    val homeWidgetStopId by viewModel.homeWidgetStopId.collectAsState()
+    val homeWidgetStopIds by viewModel.homeWidgetStopIds.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
@@ -162,10 +162,13 @@ fun DashboardScreen(
 
     // Keep Android home-screen widgets aligned with the dashboard's locally
     // cached groups and latest arrival snapshots.
-    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopId) {
+    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopIds, groupSchedules) {
         val widgetGroups = (groups + "").distinct().map { groupName ->
             HomeWidgetGroupSnapshot(
                 name = groupName,
+                selectedStopId = homeWidgetStopIds[groupName],
+                activeFrom = groupSchedules[groupName]?.fromMinutes,
+                activeTo = groupSchedules[groupName]?.toMinutes,
                 stops = widgets.asSequence()
                     .filter { it.group == groupName && !it.hidden && groupName !in hiddenGroups }
                     .map { widget ->
@@ -184,7 +187,7 @@ fun DashboardScreen(
         }
         publishDashboardWidgetSnapshot(
             kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups)),
-            homeWidgetStopId
+            homeWidgetStopIds.values.firstOrNull()
         )
     }
 
@@ -451,7 +454,7 @@ fun DashboardScreen(
                                 groups = groups,
                                 lineTimetables = lineTimetables,
                                 timetableLoading = timetableLoading,
-                                homeWidgetStopId = homeWidgetStopId,
+                                homeWidgetStopId = homeWidgetStopIds[widget.group],
                                 locale = locale,
                                 onDelete = { viewModel.removeWidget(widget.id) },
                                 onToggleHidden = { viewModel.toggleWidgetHidden(widget.id) },
@@ -462,7 +465,7 @@ fun DashboardScreen(
                                 onAddGroup = { name -> viewModel.addGroup(name) },
                                 onResize = { size -> viewModel.resizeWidget(widget.id, size) },
                                 onToggleHomeWidgetStop = {
-                                    viewModel.setHomeWidgetStop(if (homeWidgetStopId == widget.stopId) null else widget.stopId)
+                                    viewModel.setHomeWidgetStop(widget.group, if (homeWidgetStopIds[widget.group] == widget.stopId) null else widget.stopId)
                                 },
                                 onMove = { delta -> viewModel.moveWidget(widget.id, delta) },
                                 onClick = { onNavigateToStop(widget.stopId) },
@@ -560,7 +563,13 @@ fun DashboardScreen(
 private data class HomeWidgetSnapshot(val groups: List<HomeWidgetGroupSnapshot>)
 
 @kotlinx.serialization.Serializable
-private data class HomeWidgetGroupSnapshot(val name: String, val stops: List<HomeWidgetStopSnapshot>)
+private data class HomeWidgetGroupSnapshot(
+    val name: String,
+    val stops: List<HomeWidgetStopSnapshot>,
+    val selectedStopId: Long? = null,
+    val activeFrom: Int? = null,
+    val activeTo: Int? = null
+)
 
 @kotlinx.serialization.Serializable
 private data class HomeWidgetStopSnapshot(

@@ -3,10 +3,17 @@ package ro.infotb.modern.data.api
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import ro.infotb.modern.data.model.*
 import ro.infotb.modern.util.Constants
 import ro.infotb.modern.util.lineColor
@@ -41,6 +48,13 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         }
     }
 
+    private suspend fun requestRoutes(body: String, token: String): HttpResponse =
+        client.post("${Constants.API_BASE_URL}/routes") {
+            for ((key, value) in getHeaders(token)) header(key, value)
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+
     /**
      * Performs an authenticated GET. On 401/412 the token is refreshed once
      * (shared across concurrent callers) and the request is retried.
@@ -58,6 +72,18 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
             throw RuntimeException("API error: ${response.status.value} ${response.status.description}")
         }
         return response
+    }
+
+    private suspend fun fetchRoutes(body: String): String {
+        val token = authManager.ensureAuthenticated(client)
+        var response = requestRoutes(body, token)
+        if (response.status.value == 401 || response.status.value == 412) {
+            response = requestRoutes(body, authManager.reauthenticate(client, token))
+        }
+        if (response.status.value !in 200..299) {
+            throw RuntimeException("API error: ${response.status.value} ${response.status.description}")
+        }
+        return response.bodyAsText()
     }
 
     private suspend fun fetchProto(path: String): ByteArray = fetch(path).readRawBytes()
@@ -112,6 +138,48 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         return json.decodeFromString<List<Announcement>>(notificationsArray.toString()).map { notice ->
             notice.copy(lines = notice.lines.map { it.copy(color = lineColor(it.name, it.type, it.color)) })
         }
+    }
+
+    suspend fun searchPlannerPlaces(query: String): List<PlannerPlace> {
+        val root = json.parseToJsonElement(fetchJson("/places?query=${encodeQuery(query)}"))
+        val array = when (root) {
+            is JsonArray -> root
+            is JsonObject -> (root["places"] as? JsonArray)
+                ?: (root["data"] as? JsonArray)
+                ?: (root["results"] as? JsonArray)
+                ?: (root["items"] as? JsonArray)
+            else -> null
+        } ?: return emptyList()
+        return array.mapNotNull { element ->
+            val place = element as? JsonObject ?: return@mapNotNull null
+            val name = (place["name"] ?: place["label"])?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val lat = (place["lat"] ?: place["latitude"])?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
+            val lng = (place["lng"] ?: place["lon"] ?: place["longitude"])?.jsonPrimitive?.doubleOrNull ?: return@mapNotNull null
+            PlannerPlace(
+                name = name,
+                lat = lat,
+                lng = lng,
+                type = place["type"]?.jsonPrimitive?.contentOrNull,
+                description = place["description"]?.jsonPrimitive?.contentOrNull,
+                stop_id = (place["stop_id"] ?: place["id"])?.jsonPrimitive?.longOrNull
+            )
+        }
+    }
+
+    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean): String {
+        val body = buildString {
+            append("{\"start_lat\":${start.lat},\"start_lng\":${start.lng},\"stop_lat\":${destination.lat},\"stop_lng\":${destination.lng},\"max_walk_distance\":$maxWalkDistance,\"start_time\":$startTimeMs")
+            append(",\"vehicle_types\":${json.encodeToString(vehicleTypes)}")
+            append(",\"accessibility\":${if (accessible) "true" else "false"}}")
+        }
+        return fetchRoutes(body)
+    }
+
+    private fun encodeQuery(value: String): String = value.encodeToByteArray().joinToString("") { byte ->
+        val unsigned = byte.toInt() and 0xff
+        if ((unsigned in 48..57) || (unsigned in 65..90) || (unsigned in 97..122) || unsigned in listOf(45, 46, 95, 126)) {
+            unsigned.toChar().toString()
+        } else "%" + unsigned.toString(16).uppercase().padStart(2, '0')
     }
 
     private fun announcementArray(root: JsonElement): JsonArray? = when (root) {

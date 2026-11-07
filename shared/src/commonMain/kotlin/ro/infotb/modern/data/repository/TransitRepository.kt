@@ -109,6 +109,17 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
         }
     }
 
+    suspend fun searchPlannerPlaces(query: String): List<PlannerPlace> = api.searchPlannerPlaces(query)
+
+    suspend fun planRoutes(
+        start: PlannerPlace,
+        destination: PlannerPlace,
+        maxWalkDistance: Int,
+        startTimeMs: Long,
+        vehicleTypes: List<String>,
+        accessible: Boolean
+    ): String = api.planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible)
+
     fun getCachedAnnouncements(limit: Int = 50, offset: Int = 0): List<Announcement>? {
         val cached = settings.getStringOrNull(announcementsCacheKey(limit, offset)) ?: return null
         return runCatching { announcementsJson.decodeFromString<List<Announcement>>(cached) }.getOrNull()

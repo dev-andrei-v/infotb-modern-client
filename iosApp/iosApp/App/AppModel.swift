@@ -12,6 +12,7 @@ enum Route: Hashable {
     /// A line's route and live vehicles on a full-screen map.
     case lineMap(Int64, direction: Direction)
     case news
+    case planner
 }
 
 /// App-wide state: preferences, navigation, live-tracking subscriptions and

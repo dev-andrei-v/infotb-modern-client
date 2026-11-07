@@ -18,6 +18,7 @@ import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.LineDetail
+import ro.infotb.modern.data.model.PlannerPlace
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
 import ro.infotb.modern.data.store.FavoritesStore
@@ -49,6 +50,22 @@ object IosServices : KoinComponent {
     fun lineDetailViewModel() = LineDetailViewModel(get())
     fun stopDetailViewModel() = StopDetailViewModel(get())
     fun announcementsViewModel() = AnnouncementsViewModel(get(), get())
+
+    suspend fun searchPlannerPlaces(query: String): List<PlannerPlace>? = try {
+        get<TransitRepository>().searchPlannerPlaces(query)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean): String? = try {
+        get<TransitRepository>().planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
 
     /**
      * One line's arrivals at one stop, for the live map's stop card. Returns

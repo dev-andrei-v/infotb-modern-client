@@ -52,6 +52,8 @@ extension View {
                 LiveMapView(lineId: lineId, direction: direction)
             case .news:
                 AnnouncementsView(model: AppModel.shared.news)
+            case .planner:
+                PlannerView()
             }
         }
     }

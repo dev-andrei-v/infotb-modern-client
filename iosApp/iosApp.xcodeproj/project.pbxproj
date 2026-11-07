@@ -34,6 +34,7 @@
 		DB00000000000023 /* DashboardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000022 /* DashboardModel.swift */; };
 		DB00000000000025 /* DashboardSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000024 /* DashboardSheets.swift */; };
 		DB00000000000027 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000026 /* DashboardView.swift */; };
+		DB00000000000029 /* PlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000028 /* PlannerView.swift */; };
 		DB0000000000F002 /* StopDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000F001 /* StopDetailView.swift */; };
 		DC00000000000002 /* ForegroundLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000001 /* ForegroundLocation.swift */; };
 		DC00000000000004 /* NearbyStopSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000003 /* NearbyStopSelection.swift */; };
@@ -97,6 +98,7 @@
 		DB00000000000022 /* DashboardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardModel.swift; sourceTree = "<group>"; };
 		DB00000000000024 /* DashboardSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSheets.swift; sourceTree = "<group>"; };
 		DB00000000000026 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		DB00000000000028 /* PlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerView.swift; sourceTree = "<group>"; };
 		DB0000000000F001 /* StopDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopDetailView.swift; sourceTree = "<group>"; };
 		DC00000000000001 /* ForegroundLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundLocation.swift; sourceTree = "<group>"; };
 		DC00000000000003 /* NearbyStopSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyStopSelection.swift; sourceTree = "<group>"; };
@@ -213,6 +215,7 @@
 				DC00000000000007 /* NearbyMapView.swift */,
 				DB0000000000001A /* LinesView.swift */,
 				DB0000000000001C /* RootView.swift */,
+				DB00000000000028 /* PlannerView.swift */,
 				DB0000000000001E /* SettingsView.swift */,
 				DB0000000000F001 /* StopDetailView.swift */,
 			);
@@ -373,6 +376,7 @@
 				DB00000000000023 /* DashboardModel.swift in Sources */,
 				DB00000000000025 /* DashboardSheets.swift in Sources */,
 				DB00000000000027 /* DashboardView.swift in Sources */,
+				DB00000000000029 /* PlannerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

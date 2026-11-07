@@ -72,6 +72,12 @@ struct DashboardView: View {
                 Label(tr("widget.addStation"), systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
+            Button {
+                app.dashboardPath.append(.planner)
+            } label: {
+                Label(tr("planner.title"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            .buttonStyle(.bordered)
         }
     }
 
@@ -85,6 +91,7 @@ struct DashboardView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     statusHeader(now: now)
+                    plannerEntry
 
                     if model.visibleCount == 0 {
                         Text(tr("dashboard.allHidden"))
@@ -121,6 +128,29 @@ struct DashboardView: View {
             .background(Color(.systemGroupedBackground))
             .refreshable { await model.refresh() }
         }
+    }
+
+    private var plannerEntry: some View {
+        Button { app.dashboardPath.append(.planner) } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "arrow.triangle.swap")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(tr("planner.title")).font(.headline).foregroundStyle(.primary)
+                    Text(tr("planner.subtitle")).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+            .contentShape(RoundedRectangle(cornerRadius: 20))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(tr("planner.subtitle"))
     }
 
     @ViewBuilder

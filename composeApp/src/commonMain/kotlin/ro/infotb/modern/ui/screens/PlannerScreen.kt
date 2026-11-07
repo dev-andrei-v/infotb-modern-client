@@ -53,6 +53,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -204,88 +205,6 @@ fun PlannerScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Origin & Destination card
-            item(key = "places_card") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                PlaceInputRow(
-                                    label = t("planner.from", locale),
-                                    placeholder = t("planner.chooseOrigin", locale),
-                                    place = origin,
-                                    isOrigin = true,
-                                    onClick = { pickingTarget = PlannerTarget.ORIGIN }
-                                )
-
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                )
-
-                                PlaceInputRow(
-                                    label = t("planner.to", locale),
-                                    placeholder = t("planner.chooseDestination", locale),
-                                    place = destination,
-                                    isOrigin = false,
-                                    onClick = { pickingTarget = PlannerTarget.DESTINATION }
-                                )
-                            }
-
-                            Spacer(Modifier.width(8.dp))
-
-                            IconButton(
-                                onClick = {
-                                    val temp = origin
-                                    origin = destination
-                                    destination = temp
-                                },
-                                enabled = origin != null || destination != null,
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            ) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    contentDescription = t("planner.swap", locale),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(14.dp))
-
-                        Button(
-                            onClick = { findRoutes() },
-                            enabled = origin != null && destination != null && !isPlanning && selectedModes.isNotEmpty(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (isPlanning) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            Text(t("planner.findRoutes", locale), fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-
             // Transport Modes & Options
             item(key = "modes_card") {
                 Card(
@@ -574,6 +493,84 @@ fun PlannerScreen(
                 }
             }
         }
+
+        // Docked Trip Search Controls at the bottom (matching Swift tripControlsDock)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 3.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    PlaceDockButton(
+                        label = t("planner.from", locale),
+                        placeholder = t("planner.chooseOrigin", locale),
+                        place = origin,
+                        isOrigin = true,
+                        modifier = Modifier.weight(1f),
+                        onClick = { pickingTarget = PlannerTarget.ORIGIN }
+                    )
+
+                    IconButton(
+                        onClick = {
+                            val temp = origin
+                            origin = destination
+                            destination = temp
+                        },
+                        enabled = origin != null || destination != null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = t("planner.swap", locale),
+                            tint = if (origin != null || destination != null) MaterialTheme.colorScheme.primary else LocalMuted.current,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    PlaceDockButton(
+                        label = t("planner.to", locale),
+                        placeholder = t("planner.chooseDestination", locale),
+                        place = destination,
+                        isOrigin = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = { pickingTarget = PlannerTarget.DESTINATION }
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Button(
+                    onClick = { findRoutes() },
+                    enabled = origin != null && destination != null && !isPlanning && selectedModes.isNotEmpty(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isPlanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(t("planner.findRoutes", locale), fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
     }
 
     // Place picker dialog
@@ -596,49 +593,58 @@ fun PlannerScreen(
 private enum class PlannerTarget { ORIGIN, DESTINATION }
 
 @Composable
-private fun PlaceInputRow(
+private fun PlaceDockButton(
     label: String,
     placeholder: String,
     place: PlannerPlace?,
     isOrigin: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp)
+    Surface(
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        onClick = onClick
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(if (isOrigin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-        )
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = LocalMuted.current,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = place?.name ?: placeholder,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (place != null) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (place != null) MaterialTheme.colorScheme.onSurface else LocalMuted.current,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp)
+        ) {
+            if (isOrigin) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2196F3))
+                )
+            } else {
+                Icon(
+                    Icons.Default.Place,
+                    contentDescription = null,
+                    tint = Color(0xFFF44336),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalMuted.current,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+                Text(
+                    text = place?.name ?: placeholder,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (place != null) MaterialTheme.colorScheme.onSurface else LocalMuted.current
+                )
+            }
         }
-        Icon(
-            Icons.Default.KeyboardArrowRight,
-            contentDescription = null,
-            tint = LocalMuted.current
-        )
     }
 }
 

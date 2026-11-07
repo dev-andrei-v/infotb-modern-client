@@ -25,7 +25,7 @@ struct ArrivalRow<Expanded: View>: View {
             HStack(alignment: .top, spacing: 8) {
                 Button(action: onLineTap) {
                     LineBadge(name: line.name, color: line.color)
-                        .frame(minWidth: 44, minHeight: 44)
+                        .frame(width: 60, height: 44)
                 }
                 .buttonStyle(.plain)
 
@@ -80,10 +80,10 @@ struct ArrivalRow<Expanded: View>: View {
                         size: .large,
                         imminent: liveSeconds < 120
                     )
-                    .fixedSize()
+                    .frame(width: 100, height: 44, alignment: .trailing)
                 } else {
                     Color.clear.frame(width: 40, height: 44).accessibilityHidden(true)
-                    OutOfServicePill().fixedSize()
+                    OutOfServicePill().frame(width: 100, height: 44, alignment: .trailing)
                 }
             }
 

@@ -6,6 +6,9 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.os.Build
 import android.widget.RemoteViews
 import org.json.JSONObject
 import ro.infotb.modern.MainActivity
@@ -52,6 +55,15 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         private fun resolveGroupName(context: Context, widgetId: Int): String {
             val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             val selected = prefs.getString(groupKey(widgetId), "").orEmpty()
+            if (selected == DASHBOARD_SELECTION_ID) {
+                val stopId = prefs.getString(SELECTED_STOP_KEY, null) ?: return ""
+                val groups = runCatching { JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}").optJSONArray("groups") }.getOrNull()
+                return (0 until (groups?.length() ?: 0)).mapNotNull { groups?.optJSONObject(it) }
+                    .firstOrNull { group ->
+                        val stops = group.optJSONArray("stops")
+                        (0 until (stops?.length() ?: 0)).any { stops?.optJSONObject(it)?.optString("id") == stopId }
+                    }?.optString("name").orEmpty()
+            }
             if (selected != ROTATING_GROUP_ID) return selected
             val groups = runCatching {
                 JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}").optJSONArray("groups")
@@ -86,31 +98,72 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             val index = if (empty) 0 else Math.floorMod(prefs.getInt(indexKey(widgetId), 0), stopCount)
             val stop = if (empty) null else stops?.optJSONObject(index)
             val views = RemoteViews(context.packageName, R.layout.widget_transit_group).apply {
-                val title = if (storedGroup == ROTATING_GROUP_ID && groupName.isNotBlank()) {
-                    context.getString(R.string.widget_rotating_group) + " · " + groupName
-                } else {
-                    groupName.ifBlank { context.getString(R.string.widget_choose_group) }
+                val selectedGroupName = if (storedGroup == DASHBOARD_SELECTION_ID) {
+                    val stopId = selectedStop?.optString("id")
+                    (0 until (groups?.length() ?: 0)).mapNotNull { groups?.optJSONObject(it) }.firstOrNull { candidate ->
+                        val candidateStops = candidate.optJSONArray("stops")
+                        (0 until (candidateStops?.length() ?: 0)).any { candidateStops?.optJSONObject(it)?.optString("id") == stopId }
+                    }?.optString("name").orEmpty()
+                } else groupName
+                val title = when {
+                    storedGroup == DASHBOARD_SELECTION_ID && selectedGroupName.isNotBlank() ->
+                        context.getString(R.string.widget_dashboard_selection) + " · " + selectedGroupName
+                    storedGroup == DASHBOARD_SELECTION_ID -> context.getString(R.string.widget_dashboard_selection)
+                    storedGroup == ROTATING_GROUP_ID && groupName.isNotBlank() -> context.getString(R.string.widget_rotating_group) + " · " + groupName
+                    else -> groupName.ifBlank { context.getString(R.string.widget_choose_group) }
                 }
                 setTextViewText(R.id.widget_group_name, title)
                 setTextViewText(R.id.widget_stop_name, stop?.optString("name") ?: context.getString(R.string.widget_no_stops))
-                setTextViewText(R.id.widget_arrivals, stop?.optJSONArray("arrivals")?.let(::formatArrivals)
-                    ?: context.getString(R.string.widget_open_dashboard))
+                val arrivals = stop?.optJSONArray("arrivals")
+                removeAllViews(R.id.widget_line_rows)
+                val visibleCount = minOf(arrivals?.length() ?: 0, 2)
+                setViewVisibility(R.id.widget_line_rows, if (visibleCount > 0) android.view.View.VISIBLE else android.view.View.GONE)
+                setViewVisibility(R.id.widget_empty, if (visibleCount == 0) android.view.View.VISIBLE else android.view.View.GONE)
+                if (visibleCount == 0) {
+                    setTextViewText(R.id.widget_empty, context.getString(R.string.widget_open_dashboard))
+                }
+                var accent = Color.parseColor("#C92335")
+                repeat(visibleCount) { rowIndex ->
+                    val item = arrivals?.optJSONObject(rowIndex) ?: JSONObject()
+                    val lineColor = parseColor(item.optString("color")) ?: Color.parseColor("#1E88E5")
+                    if (rowIndex == 0) accent = lineColor
+                    val row = RemoteViews(context.packageName, R.layout.widget_transit_line_row)
+                    row.setTextViewText(R.id.widget_line_badge, item.optString("line"))
+                    row.setTextViewText(R.id.widget_line_direction, item.optString("direction"))
+                    val seconds = item.optLong("seconds", -1L)
+                    val isTimetable = item.optBoolean("isTimetable", false)
+                    row.setTextViewText(R.id.widget_arrival_badge, when {
+                        seconds < 0 -> context.getString(R.string.widget_no_arrival)
+                        seconds < 60 -> context.getString(R.string.widget_due)
+                        else -> context.getString(R.string.widget_minutes, ((seconds + 30) / 60).toInt())
+                    })
+                    val arrivalColor = if (isTimetable) context.getColor(R.color.widget_arrival_scheduled) else context.getColor(R.color.widget_arrival_live)
+                    row.setTextColor(R.id.widget_arrival_badge, arrivalColor)
+                    if (Build.VERSION.SDK_INT >= 31) {
+                        row.setColorStateList(R.id.widget_line_badge, "setBackgroundTintList", ColorStateList.valueOf(lineColor))
+                        row.setColorStateList(R.id.widget_arrival_badge, "setBackgroundTintList", ColorStateList.valueOf(withAlpha(arrivalColor, 0x28)))
+                    } else {
+                        row.setInt(R.id.widget_line_badge, "setBackgroundColor", lineColor)
+                    }
+                    row.setTextColor(R.id.widget_line_badge, if (isLight(lineColor)) Color.BLACK else Color.WHITE)
+                    addView(R.id.widget_line_rows, row)
+                }
+                setInt(R.id.widget_accent, "setBackgroundColor", accent)
                 setViewVisibility(R.id.widget_rotate, if (stopCount > 1) android.view.View.VISIBLE else android.view.View.GONE)
                 setOnClickPendingIntent(R.id.widget_rotate, broadcast(context, widgetId, ACTION_ROTATE, 1))
                 setOnClickPendingIntent(R.id.widget_open, broadcast(context, widgetId, ACTION_OPEN_GROUP, 2))
-                setOnClickPendingIntent(R.id.widget_root, activity(context, groupName, widgetId))
+                setOnClickPendingIntent(R.id.widget_root, activity(context, selectedGroupName, widgetId))
             }
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun formatArrivals(arrivals: org.json.JSONArray): String {
-            if (arrivals.length() == 0) return ""
-            return (0 until minOf(arrivals.length(), 3)).joinToString("  ·  ") { i ->
-                val item = arrivals.optJSONObject(i) ?: JSONObject()
-                val seconds = item.optLong("seconds", -1L)
-                val time = if (seconds <= 60L) "Due" else "${(seconds + 30) / 60} min"
-                "${item.optString("line")}  $time"
-            }
+        private fun parseColor(value: String): Int? = runCatching { Color.parseColor(value) }.getOrNull()
+        private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or ((alpha and 0xFF) shl 24)
+        private fun isLight(color: Int): Boolean {
+            val r = Color.red(color) / 255.0
+            val g = Color.green(color) / 255.0
+            val b = Color.blue(color) / 255.0
+            return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.6
         }
 
         private const val ROTATION_INTERVAL_MS = 30 * 60 * 1000L

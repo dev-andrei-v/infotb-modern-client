@@ -555,13 +555,9 @@ private fun LineRow(
                         .background(Color(0xFF18212B)).padding(horizontal = 8.dp, vertical = 5.dp)
                 ) {
                     Text(
-                        text = endpoints.joinToString(" - ") { it.uppercase() },
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 9.sp,
-                        lineHeight = 10.sp,
-                        letterSpacing = 0.7.sp,
-                        color = Color(0xFFFFC857),
+                        text = endpoints.joinToString(" - "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )

@@ -258,16 +258,11 @@ struct LinesView: View {
                     }
                 }
                 if model.lineDisplayStyle == "normal", let start = line.startStopName, let end = line.endStopName {
-                    Text("\(start.uppercased()) - \(end.uppercased())")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .tracking(0.6)
-                        .lineSpacing(-1)
-                        .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.34))
+                    Text("\(start) - \(end)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .truncationMode(.tail)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color(red: 0.09, green: 0.12, blue: 0.16), in: RoundedRectangle(cornerRadius: 6))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

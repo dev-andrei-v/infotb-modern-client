@@ -213,7 +213,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "lines.favorites" to mapOf(Locale.RO to "Favorite", Locale.EN to "Favorites"),
     "lines.night" to mapOf(Locale.RO to "Noapte", Locale.EN to "Night"),
     "lines.emptyTitle" to mapOf(Locale.RO to "Nicio linie gasita", Locale.EN to "No lines found"),
-    "lines.searchingStops" to mapOf(Locale.RO to "Se cauta statiile...", Locale.EN to "Searching stops..."),
+    "lines.searchingStops" to mapOf(Locale.RO to "Se cauta liniile...", Locale.EN to "Searching lines..."),
     "lines.emptyDescription" to mapOf(
         Locale.RO to "Incearca un alt termen de cautare sau modifica filtrele.",
         Locale.EN to "Try a different search term or change the filters."

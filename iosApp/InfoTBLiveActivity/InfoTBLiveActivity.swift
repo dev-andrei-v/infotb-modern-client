@@ -515,7 +515,7 @@ private enum HomeWidgetStore {
     }
 }
 
-private struct DashboardGroupEntity: AppEntity, Identifiable {
+struct DashboardGroupEntity: AppEntity, Identifiable {
     static let rotatingGroupID = "__rotating_group__"
     static let dashboardSelectionID = "__dashboard_selection__"
     static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Dashboard group")
@@ -540,7 +540,7 @@ private struct DashboardGroupEntity: AppEntity, Identifiable {
     }
 }
 
-private struct DashboardGroupQuery: EntityQuery {
+struct DashboardGroupQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [DashboardGroupEntity] {
         var entities = HomeWidgetStore.groups()
             .filter { identifiers.contains($0.name) }
@@ -565,7 +565,7 @@ private struct DashboardGroupQuery: EntityQuery {
     }
 }
 
-private struct DashboardGroupWidgetConfiguration: WidgetConfigurationIntent {
+struct DashboardGroupWidgetConfiguration: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Transit group"
     static var description = IntentDescription("Show and rotate through stops in a Dashboard group.")
 
@@ -576,7 +576,7 @@ private struct DashboardGroupWidgetConfiguration: WidgetConfigurationIntent {
     }
 }
 
-private struct RotateDashboardGroupStopIntent: AppIntent {
+struct RotateDashboardGroupStopIntent: AppIntent {
     static var title: LocalizedStringResource = "Next stop"
 
     @Parameter(title: "Group") var groupID: String

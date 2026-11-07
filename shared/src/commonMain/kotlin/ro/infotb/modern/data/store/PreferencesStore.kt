@@ -49,4 +49,7 @@ class PreferencesStore(private val settings: Settings) {
         settings.putBoolean(Constants.SETTINGS_KEY_NOTICE_ALERTS, enabled)
         _noticeAlerts.value = enabled
     }
+
+    fun getSavedTrips(): String? = settings.getStringOrNull("planner.saved_trips.json")
+    fun setSavedTrips(json: String) = settings.putString("planner.saved_trips.json", json)
 }

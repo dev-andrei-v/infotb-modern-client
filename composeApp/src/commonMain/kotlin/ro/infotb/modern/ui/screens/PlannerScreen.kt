@@ -71,7 +71,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.russhwolf.settings.Settings
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -81,6 +80,7 @@ import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.model.PlannerPlace
 import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.repository.TransitRepository
+import ro.infotb.modern.data.store.PreferencesStore
 import ro.infotb.modern.location.PlatformLocation
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.LineBadge
@@ -94,13 +94,12 @@ import ro.infotb.modern.ui.theme.transportColor
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
 
-private const val PREF_SAVED_TRIPS = "planner.saved_trips.json"
-
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerScreen(
     repository: TransitRepository,
     platformLocation: PlatformLocation,
+    preferencesStore: PreferencesStore,
     locale: Locale,
     onNavigateToLine: ((Long) -> Unit)? = null,
     onNavigateToStop: ((Long) -> Unit)? = null
@@ -123,12 +122,11 @@ fun PlannerScreen(
     var pickingTarget by remember { mutableStateOf<PlannerTarget?>(null) }
 
     // Saved trips state
-    val settings = remember { Settings() }
     val json = remember { Json { ignoreUnknownKeys = true } }
     var savedTrips by remember {
         mutableStateOf<List<SavedTripRecord>>(
             try {
-                settings.getStringOrNull(PREF_SAVED_TRIPS)?.let {
+                preferencesStore.getSavedTrips()?.let {
                     json.decodeFromString<List<SavedTripRecord>>(it)
                 } ?: emptyList()
             } catch (_: Exception) {
@@ -140,7 +138,7 @@ fun PlannerScreen(
     fun persistSavedTrips(trips: List<SavedTripRecord>) {
         savedTrips = trips
         try {
-            settings.putString(PREF_SAVED_TRIPS, json.encodeToString(trips))
+            preferencesStore.setSavedTrips(json.encodeToString(trips))
         } catch (_: Exception) {}
     }
 
@@ -163,7 +161,8 @@ fun PlannerScreen(
                     maxWalkDistance = maxWalkDistance,
                     startTimeMs = currentTimeMillis(),
                     vehicleTypes = apiVehicleTypes,
-                    accessible = accessible
+                    accessible = accessible,
+                    language = if (locale == Locale.RO) "ro" else "en"
                 )
                 val parsed = RouteJsonParser.parse(rawResponse)
                 if (parsed.isEmpty()) {

@@ -325,6 +325,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     PlannerScreen(
                         repository = repository,
                         platformLocation = platformLocation,
+                        preferencesStore = preferencesStore,
                         locale = locale,
                         onNavigateToStop = { stopId ->
                             navController.navigate(Screen.StopDetail(stopId).route)

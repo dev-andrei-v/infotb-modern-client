@@ -112,6 +112,17 @@ object RouteJsonParser {
         val lineObj = seg["line"] as? JsonObject
         val lineName = lineObj?.string("name", "short_name")
             ?: seg.string("line_name", "route_name", "line")
+        val rawColor = lineObj?.string("color") ?: seg.string("color") ?: "#1E88E5"
+
+        val fromStop = seg.string("from_stop", "from", "start_stop")
+        val toStop = seg.string("to_stop", "to", "end_stop")
+
+        val durationVal = seg.primitive("duration", "time")
+        val durationText = formatDuration(durationVal)
+
+        val distVal = seg.primitive("distance", "length")
+        val distanceText = distVal?.let { formatDistance(it) }
+
         val normalizedMode = when {
             isWalk -> "WALK"
             rawMode.contains("SUBWAY") || rawMode.contains("METRO") -> "SUBWAY"

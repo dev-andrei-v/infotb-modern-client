@@ -513,15 +513,17 @@ actual fun NearbyMapScreen(
                     getMapAsync { map ->
                         mapInstance = map
                         map.setStyle(MAP_STYLE_URL) {
-                            val userLoc = platformLocation.currentLocation()
-                            val initialLat = userLoc?.lat ?: BUCHAREST_LAT
-                            val initialLng = userLoc?.lng ?: BUCHAREST_LNG
-                            map.cameraPosition = CameraPosition.Builder()
-                                .target(LatLng(initialLat, initialLng))
-                                .zoom(13.5)
-                                .build()
+                            coroutineScope.launch {
+                                val userLoc = platformLocation.current()
+                                val initialLat = userLoc?.lat ?: BUCHAREST_LAT
+                                val initialLng = userLoc?.lng ?: BUCHAREST_LNG
+                                map.cameraPosition = CameraPosition.Builder()
+                                    .target(LatLng(initialLat, initialLng))
+                                    .zoom(13.5)
+                                    .build()
 
-                            refreshStopsInViewport(map)
+                                refreshStopsInViewport(map)
+                            }
 
                             map.addOnCameraIdleListener {
                                 refreshStopsInViewport(map)
@@ -568,13 +570,13 @@ actual fun NearbyMapScreen(
                 isLoading = isLoadingStops,
                 onMyLocation = {
                     val map = mapInstance ?: return@FloatingControls
-                    val loc = platformLocation.currentLocation()
-                    if (loc != null) {
-                        map.animateCamera(
-                            CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lng), 15.0)
-                        )
-                    } else {
-                        platformLocation.refresh()
+                    coroutineScope.launch {
+                        val loc = platformLocation.current()
+                        if (loc != null) {
+                            map.animateCamera(
+                                CameraUpdateFactory.newLatLngZoom(LatLng(loc.lat, loc.lng), 15.0)
+                            )
+                        }
                     }
                 },
                 modifier = Modifier

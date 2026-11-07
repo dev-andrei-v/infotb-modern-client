@@ -243,23 +243,6 @@ struct PlannerView: View {
     private func placeSearchPicker(_ target: PlannerPlaceField) -> some View {
         NavigationStack {
             VStack(spacing: 0) {
-                HStack(spacing: 10) {
-                    Button { useCurrentLocation(for: target) } label: {
-                        Label(tr("planner.currentLocation"), systemImage: "location.fill")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                    Button { beginMapPick(for: target) } label: {
-                        Label(tr("planner.pickOnMap"), systemImage: "map")
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(.horizontal)
-                if let placePickerMessage {
-                    Text(placePickerMessage).font(.caption).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.top, 6)
-                }
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField(tr("planner.searchPlaces"), text: $query)
@@ -280,7 +263,30 @@ struct PlannerView: View {
                         }
                     }.listStyle(.plain)
                 }
-                Spacer(minLength: 0)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 8) {
+                    if let placePickerMessage {
+                        Text(placePickerMessage).font(.caption).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    HStack(spacing: 10) {
+                        Button { useCurrentLocation(for: target) } label: {
+                            Label(tr("planner.currentLocation"), systemImage: "location.fill")
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.bordered)
+                        Button { beginMapPick(for: target) } label: {
+                            Label(tr("planner.pickOnMap"), systemImage: "map")
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                .background(.regularMaterial)
             }
             .navigationTitle(tr(target == .origin ? "planner.chooseOrigin" : "planner.chooseDestination"))
             .navigationBarTitleDisplayMode(.inline)
@@ -290,31 +296,35 @@ struct PlannerView: View {
 
     private func mapPlacePicker(_ target: PlannerPlaceField) -> some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Map(position: $mapPickPosition, interactionModes: [.pan, .zoom]) {
-                    UserAnnotation()
+            Map(position: $mapPickPosition, interactionModes: [.pan, .zoom]) {
+                UserAnnotation()
+            }
+            .overlay {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Color.red)
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                    .offset(y: -16)
+                    .allowsHitTesting(false)
+            }
+            .onMapCameraChange(frequency: .onEnd) { context in
+                mapPickCoordinate = context.region.center
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 8) {
+                    Text("\(mapPickCoordinate.latitude, format: .number.precision(.fractionLength(4))), \(mapPickCoordinate.longitude, format: .number.precision(.fractionLength(4)))")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Button {
+                        choose(PlannerPlace(name: tr("planner.mapPoint"), lat: mapPickCoordinate.latitude,
+                                            lng: mapPickCoordinate.longitude, type: "LOCATION", description: nil, stop_id: nil), for: target)
+                        mapPickingTarget = nil
+                    } label: {
+                        Text(tr("planner.useMapPoint")).frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .overlay {
-                    Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 34, weight: .semibold))
-                        .foregroundStyle(Color.red)
-                        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-                        .offset(y: -16)
-                        .allowsHitTesting(false)
-                }
-                .onMapCameraChange(frequency: .onEnd) { context in
-                    mapPickCoordinate = context.region.center
-                }
-                Text("\(mapPickCoordinate.latitude, format: .number.precision(.fractionLength(4))), \(mapPickCoordinate.longitude, format: .number.precision(.fractionLength(4)))")
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary).padding(.vertical, 8)
-                Button {
-                    choose(PlannerPlace(name: tr("planner.mapPoint"), lat: mapPickCoordinate.latitude,
-                                        lng: mapPickCoordinate.longitude, type: "LOCATION", description: nil, stop_id: nil), for: target)
-                    mapPickingTarget = nil
-                } label: {
-                    Text(tr("planner.useMapPoint")).frame(maxWidth: .infinity).padding(.vertical, 5)
-                }
-                .buttonStyle(.borderedProminent).padding(.horizontal).padding(.bottom, 8)
+                .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
+                .background(.regularMaterial)
             }
             .navigationTitle(tr("planner.pickOnMap"))
             .navigationBarTitleDisplayMode(.inline)

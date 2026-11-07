@@ -576,7 +576,7 @@ struct NearbyMapView: View {
         VStack(spacing: 0) {
             sheetHandle(in: available)
             if !isCompactSheet { filters }
-            searchField
+            if !isCompactSheet { searchField }
             if mapCenter != nil {
                 lineStrip.fixedSize(horizontal: false, vertical: true)
             } else {
@@ -784,26 +784,18 @@ struct NearbyMapView: View {
         let shownLines = Array(sheetLines.prefix(visibleLineLimit))
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button {
-                    withAnimation(.snappy) {
-                        sheetLevel = isCompactSheet ? .medium : .collapsed
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
-                        Image(systemName: isCompactSheet ? "chevron.up" : "chevron.down")
-                            .font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tr(isCompactSheet ? "map.expandSheet" : "map.collapseSheet"))
+                Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
                 Group {
                     if model.linesLoading || model.routesLoading { ProgressView().controlSize(.mini) }
                     else { Color.clear }
                 }
                 .frame(width: 12, height: 12)
                 Spacer()
+                Text("\(sheetLines.count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color(.tertiarySystemFill), in: Capsule())
                 if let line = sheetLines.first(where: { $0.id == selectedLineId }) {
                     Button {
                         openMapRoute(.line(line.id))
@@ -851,7 +843,6 @@ struct NearbyMapView: View {
             }
         }
         .padding(.vertical, 10)
-        .background(Color(.systemBackground))
     }
 
     private func groupLabel(_ group: NearbyStopGroup) -> some View {

@@ -63,7 +63,8 @@ object IosServices : KoinComponent {
         get<TransitRepository>().planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible)
     } catch (e: CancellationException) {
         throw e
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        println("Planner route request failed: ${e.message}")
         null
     }
 

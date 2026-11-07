@@ -192,7 +192,7 @@ fun LinesScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     TextButton(onClick = { viewModel.loadLines() }) {
-                        Text("Retry")
+                        Text(t("common.retry", locale))
                     }
                 }
             }

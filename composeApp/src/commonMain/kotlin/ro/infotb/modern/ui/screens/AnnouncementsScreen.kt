@@ -94,7 +94,7 @@ fun AnnouncementsScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     TextButton(onClick = { viewModel.loadAnnouncements() }) {
-                        Text("Retry")
+                        Text(t("common.retry", locale))
                     }
                 }
             }

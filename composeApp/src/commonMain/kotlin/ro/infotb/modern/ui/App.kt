@@ -44,7 +44,9 @@ import ro.infotb.modern.ui.screens.AnnouncementsScreen
 import ro.infotb.modern.ui.screens.DashboardScreen
 import ro.infotb.modern.ui.screens.LineDetailScreen
 import ro.infotb.modern.ui.screens.LinesScreen
+import ro.infotb.modern.ui.screens.NearbyMapScreen
 import ro.infotb.modern.ui.screens.NotificationsScreen
+import ro.infotb.modern.ui.screens.PlannerScreen
 import ro.infotb.modern.ui.screens.SettingsScreen
 import ro.infotb.modern.ui.screens.StopDetailScreen
 import ro.infotb.modern.ui.theme.StbTheme
@@ -302,6 +304,34 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     AnnouncementsScreen(
                         viewModel = viewModel,
                         locale = locale
+                    )
+                }
+
+                composable(Screen.NearbyMap.route) {
+                    NearbyMapScreen(
+                        repository = repository,
+                        platformLocation = platformLocation,
+                        locale = locale,
+                        onNavigateToStop = { stopId ->
+                            navController.navigate(Screen.StopDetail(stopId).route)
+                        },
+                        onNavigateToLine = { lineId ->
+                            navController.navigate(Screen.LineDetail(lineId).route)
+                        }
+                    )
+                }
+
+                composable(Screen.Planner.route) {
+                    PlannerScreen(
+                        repository = repository,
+                        platformLocation = platformLocation,
+                        locale = locale,
+                        onNavigateToStop = { stopId ->
+                            navController.navigate(Screen.StopDetail(stopId).route)
+                        },
+                        onNavigateToLine = { lineId ->
+                            navController.navigate(Screen.LineDetail(lineId).route)
+                        }
                     )
                 }
 

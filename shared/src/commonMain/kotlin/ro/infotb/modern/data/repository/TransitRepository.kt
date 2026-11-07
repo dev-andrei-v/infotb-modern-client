@@ -196,8 +196,9 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
         maxWalkDistance: Int,
         startTimeMs: Long,
         vehicleTypes: List<String>,
-        accessible: Boolean
-    ): String = api.planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible)
+        accessible: Boolean,
+        language: String
+    ): String = api.planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible, language)
 
     fun getCachedAnnouncements(limit: Int = 50, offset: Int = 0): List<Announcement>? {
         val cached = settings.getStringOrNull(announcementsCacheKey(limit, offset)) ?: return null

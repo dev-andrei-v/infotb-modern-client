@@ -328,12 +328,10 @@ struct NearbyMapView: View {
     }
 
     private var visibleStops: [CachedStop] {
-        nearestStops.filter {
-            guard !$0.lines.isEmpty else { return true }
-            return $0.lines.contains {
-                selectedTypes.contains($0.type) && (isNightTransitTime || !isNightBus($0))
-            }
-        }
+        // Transport filters affect route and line results, not the physical
+        // stop markers. A stop can remain useful even when none of its lines
+        // match the current filter selection.
+        nearestStops
     }
 
     private var isNightTransitTime: Bool {
@@ -691,38 +689,40 @@ struct NearbyMapView: View {
     }
 
     private var filters: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(tr("map.filters"), systemImage: "slider.horizontal.3")
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(TransportType.ordered, id: \.name) { type in
-                        let selected = selectedTypes.contains(type.name)
-                        Button {
-                            if selected { selectedTypes.remove(type.name) }
-                            else { selectedTypes.insert(type.name) }
-                        } label: {
-                            HStack(spacing: 6) {
-                                VehicleGlyph(type: type.name, size: 13)
-                                Text(type.label).lineLimit(1)
-                                if selected { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)) }
-                            }
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10).frame(minHeight: 44)
-                            .foregroundStyle(selected ? Color.white : Color.primary)
-                            .background(selected ? InfoTBDesign.accent : Color(.tertiarySystemFill), in: Capsule())
-                            .overlay(Capsule().stroke(selected ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(type.label)
-                        .accessibilityAddTraits(selected ? .isSelected : [])
+        Menu {
+            ForEach(TransportType.ordered, id: \.name) { type in
+                let selected = selectedTypes.contains(type.name)
+                Button {
+                    if selected { selectedTypes.remove(type.name) }
+                    else { selectedTypes.insert(type.name) }
+                } label: {
+                    HStack(spacing: 8) {
+                        VehicleGlyph(type: type.name, size: 14)
+                            .foregroundStyle(type.color)
+                        Text(type.label)
+                        Spacer()
+                        if selected { Image(systemName: "checkmark").foregroundStyle(type.color) }
                     }
                 }
-                .padding(.horizontal, 16).padding(.vertical, 3)
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "slider.horizontal.3").foregroundStyle(InfoTBDesign.accent)
+                Text(tr("map.filters")).font(.subheadline.weight(.medium))
+                Spacer()
+                Text("\(selectedTypes.count)/\(TransportType.ordered.count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.down").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 40)
+            .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
-        .frame(height: 62)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 3)
     }
 
     private var results: some View {
@@ -777,7 +777,7 @@ struct NearbyMapView: View {
     }
 
     private var lineStrip: some View {
-        let visibleLineLimit = isCompactSheet ? 3 : 10
+        let visibleLineLimit = isCompactSheet ? 3 : sheetLines.count
         let shownLines = Array(sheetLines.prefix(visibleLineLimit))
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -794,35 +794,22 @@ struct NearbyMapView: View {
                             .font(.caption.weight(.bold)).foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 16)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .frame(maxWidth: .infinity, minHeight: 36)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tr(isCompactSheet ? "map.expandSheet" : "map.collapseSheet"))
             }
 
-            Group {
-                if isCompactSheet {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            nearestRoutesChip
-                            ForEach(shownLines) { lineChip($0) }
-                            if sheetLines.count > visibleLineLimit { moreLinesChip(sheetLines.count - visibleLineLimit) }
-                        }
-                        .padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    nearestRoutesChip
+                    ForEach(shownLines) { lineChip($0) }
+                    if isCompactSheet && sheetLines.count > visibleLineLimit {
+                        moreLinesChip(sheetLines.count - visibleLineLimit)
                     }
-                } else {
-                    FlowLayout(spacing: 8, lineSpacing: 8) {
-                        nearestRoutesChip
-                        ForEach(shownLines) { lineChip($0) }
-                        if sheetLines.count > visibleLineLimit { moreLinesChip(sheetLines.count - visibleLineLimit) }
-                    }
-                    .padding(.horizontal, 16)
                 }
-            }
-            if !isCompactSheet && !isNightTransitTime {
-                Text(tr("map.nightBusesHidden"))
-                    .font(.caption2).foregroundStyle(.secondary).padding(.horizontal, 16)
+                .padding(.horizontal, 16)
             }
             if model.linesFailed || model.routesFailed {
                 HStack {

@@ -43,6 +43,7 @@ kotlin {
             dependencies {
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.activity.compose)
+                implementation(libs.maplibre.android.sdk)
             }
         }
 

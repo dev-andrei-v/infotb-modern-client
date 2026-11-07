@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -138,11 +139,20 @@ fun StopDetailScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = t("stopDetail.notFound", locale),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = LocalMuted.current
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Text(
+                        text = t("stopDetail.notFound", locale),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = LocalMuted.current
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { viewModel.refreshNow() }) {
+                        Text(t("common.retry", locale))
+                    }
+                }
             }
         } else {
             val info = stopInfo!!

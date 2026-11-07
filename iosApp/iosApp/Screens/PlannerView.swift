@@ -45,6 +45,45 @@ private struct SavedTrip: Codable, Identifiable, Equatable {
     }
 }
 
+private struct SavedDestination: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var label: String
+    var place: SavedTrip.SavedPlace
+}
+
+private struct PlannerLegStop {
+    let name: String
+    let time: String?
+    let coordinate: CLLocationCoordinate2D?
+}
+
+private struct PlannerRouteLeg: Identifiable {
+    let id: Int
+    let type: String?
+    let lineName: String?
+    let direction: String?
+    let startTime: String?
+    let stopTime: String?
+    let durationSeconds: Int?
+    let color: String?
+    let vehicleCode: String?
+    let hasLiveVehicle: Bool
+    let vehicleCoordinate: CLLocationCoordinate2D?
+    let stops: [PlannerLegStop]
+    let coordinates: [CLLocationCoordinate2D]
+
+    var isWalking: Bool {
+        ["WALK", "WALKING", "FOOT", "PEDESTRIAN"].contains(type?.uppercased() ?? "")
+    }
+
+    var glyphType: String {
+        let value = (type ?? "BUS").uppercased()
+        if value == "TROLLEYBUS" { return "CABLE_CAR" }
+        if value == "METRO" { return "SUBWAY" }
+        return value
+    }
+}
+
 private enum PlannerPlaceField: Equatable { case origin, destination }
 
 struct PlannerView: View {
@@ -63,7 +102,10 @@ struct PlannerView: View {
     @State private var loading = false
     @State private var error: String?
     @State private var response: String?
-    @State private var savedTrips: [SavedTrip] = []
+    @State private var savedDestinations: [SavedDestination] = []
+    @State private var isSavingDestination = false
+    @State private var destinationLabel = ""
+    @State private var selectedRouteIndex: Int?
     @State private var showAdvanced = false
     @State private var plannerLocation = ForegroundLocation()
     @State private var mapPickingTarget: PlannerPlaceField?
@@ -71,7 +113,8 @@ struct PlannerView: View {
     @State private var mapPickCoordinate = CLLocationCoordinate2D(latitude: 44.435, longitude: 26.10)
     @State private var placePickerMessage: String?
 
-    private let storageKey = "planner.savedTrips.v1"
+    private let destinationsStorageKey = "planner.savedDestinations.v1"
+    private let legacyTripsStorageKey = "planner.savedTrips.v1"
 
     private static let defaultMapRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 44.435, longitude: 26.10),
@@ -81,10 +124,11 @@ struct PlannerView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 12) {
                 departureCard
                 modeCard
                 advancedCard
+                savedSection
                 if let error {
                     Label {
                         Text(error).textSelection(.enabled)
@@ -94,10 +138,9 @@ struct PlannerView: View {
                     .font(.subheadline).foregroundStyle(.secondary)
                 }
                 if let response { routeResults(response) }
-                savedSection
             }
             .padding(.horizontal, InfoTBDesign.pageInset)
-            .padding(.top, 16)
+            .padding(.top, 12)
             .padding(.bottom, 12)
         }
         .background(Color(.systemGroupedBackground))
@@ -110,6 +153,14 @@ struct PlannerView: View {
             placePicker(item.field)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .alert(tr("planner.saveDestination"), isPresented: $isSavingDestination) {
+            TextField(tr("planner.destinationLabel"), text: $destinationLabel)
+                .textInputAutocapitalization(.words)
+            Button(tr("planner.cancel"), role: .cancel) { }
+            Button(tr("planner.saveAction")) { saveDestination() }
+        } message: {
+            Text(destination?.name ?? "")
         }
     }
 
@@ -177,39 +228,54 @@ struct PlannerView: View {
     }
 
     private var departureCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(tr("planner.departure"), systemImage: "clock").font(.headline)
-            Toggle(tr("planner.leaveNow"), isOn: $useCurrentTime)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(tr("planner.departure"), systemImage: "clock").font(.subheadline.weight(.semibold))
+                Spacer()
+                Toggle(tr("planner.leaveNow"), isOn: $useCurrentTime)
+                    .labelsHidden()
+                    .tint(InfoTBDesign.accent)
+                Text(tr(useCurrentTime ? "planner.leaveNow" : "planner.later"))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(useCurrentTime ? InfoTBDesign.accent : .primary)
+            }
             if !useCurrentTime {
                 DatePicker(tr("planner.dateAndTime"), selection: $departure, in: Date()..., displayedComponents: [.date, .hourAndMinute])
                     .datePickerStyle(.compact)
             }
         }
-        .padding(16).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        .padding(12).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var modeCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(tr("planner.vehicles"), systemImage: "bus").font(.headline)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+        VStack(alignment: .leading, spacing: 7) {
+            Label(tr("planner.vehicles"), systemImage: "bus").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
                 ForEach(TransportType.ordered, id: \.name) { type in
                     let isOn = modes.contains(type.name)
                     Button {
                         if isOn { modes.remove(type.name) } else { modes.insert(type.name) }
                     } label: {
-                        HStack(spacing: 8) {
-                            VehicleGlyph(type: type.name, size: 16)
+                        HStack(spacing: 6) {
+                            VehicleGlyph(type: type.name, size: 13).foregroundStyle(type.color)
                             Text(type.label).lineLimit(1)
+                            if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(type.color) }
                         }
-                            .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, minHeight: 44)
-                            .foregroundStyle(isOn ? type.color : Color.secondary)
-                            .background(isOn ? type.color.opacity(0.12) : Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isOn ? type.color.opacity(0.35) : .clear, lineWidth: 1))
-                    }.buttonStyle(.plain)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(isOn ? Color.primary : Color.secondary)
+                        .padding(.horizontal, 10).frame(minHeight: 36)
+                        .background(isOn ? type.color.opacity(0.10) : Color(.tertiarySystemGroupedBackground), in: Capsule())
+                        .overlay(Capsule().stroke(isOn ? type.color.opacity(0.4) : Color.secondary.opacity(0.15), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(type.label)
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                }
                 }
             }
         }
-        .padding(16).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        .padding(12).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var advancedCard: some View {
@@ -229,37 +295,40 @@ struct PlannerView: View {
     }
 
     private var savedSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(tr("planner.savedTrips"), systemImage: "bookmark.fill").font(.headline)
+                Label(tr("planner.savedDestinations"), systemImage: "bookmark.fill").font(.subheadline.weight(.semibold))
                 Spacer()
-                if !savedTrips.isEmpty { Text("\(savedTrips.count)").font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
+                if !savedDestinations.isEmpty { Text("\(savedDestinations.count)").font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
             }
-            if savedTrips.isEmpty {
-                Text(tr("planner.noSavedTrips")).font(.subheadline).foregroundStyle(.secondary)
+            if savedDestinations.isEmpty {
+                Text(tr("planner.noSavedDestinations")).font(.caption).foregroundStyle(.secondary)
             } else {
-                ForEach(savedTrips) { trip in
-                    HStack(spacing: 12) {
-                        Button { open(trip) } label: {
-                            HStack(spacing: 12) {
-                            Image(systemName: "arrow.triangle.swap").foregroundStyle(InfoTBDesign.accent)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("\(trip.from.name) → \(trip.to.name)").font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
-                                Text(trip.departure.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(savedDestinations) { saved in
+                            Button { open(saved) } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Label(saved.label, systemImage: "mappin.and.ellipse")
+                                        .font(.caption.weight(.semibold)).lineLimit(1)
+                                    Text(saved.place.name).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                .padding(.horizontal, 11).padding(.vertical, 8)
+                                .frame(minWidth: 110, alignment: .leading)
+                                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                             }
-                            Spacer()
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        Button(role: .destructive) { delete(trip) } label: { Image(systemName: "trash").foregroundStyle(.secondary) }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(role: .destructive) { delete(saved) } label: {
+                                    Label(tr("planner.removeSavedDestination"), systemImage: "trash")
+                                }
+                            }
+                        }
                     }
-                    .padding(12).background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
                 }
             }
         }
-        .padding(16).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
+        .padding(12).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder
@@ -404,34 +473,152 @@ struct PlannerView: View {
         let rows = parsedRows(raw)
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(tr("planner.routes"), systemImage: "point.topleft.down.to.point.bottomright.curvepath").font(.headline)
+                Label(tr(selectedRouteIndex == nil ? "planner.routes" : "planner.routeDetails"), systemImage: "point.topleft.down.to.point.bottomright.curvepath").font(.headline)
                 Spacer()
-                Button { saveCurrentTrip() } label: { Label(tr("planner.saveTrip"), systemImage: "bookmark") }.font(.subheadline)
+                if selectedRouteIndex == nil {
+                    Button { beginSaveDestination() } label: { Label(tr("planner.saveDestination"), systemImage: "bookmark") }.font(.subheadline)
+                }
             }
-            if rows.isEmpty {
-                Text(raw).font(.footnote.monospaced()).textSelection(.enabled).lineLimit(18)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(12).background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            if let selectedRouteIndex, rows.indices.contains(selectedRouteIndex) {
+                routeDetail(rows[selectedRouteIndex], index: selectedRouteIndex)
             } else {
-                ForEach(rows.indices, id: \.self) { index in
-                    let row = rows[index]
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(row.title ?? "\(tr("planner.option")) \(index + 1)").font(.headline)
-                            Spacer()
-                            if let duration = row.duration { Label(duration, systemImage: "clock").font(.caption.weight(.semibold)).foregroundStyle(InfoTBDesign.accent) }
+                if rows.isEmpty {
+                    Text(tr("planner.noRoutes")).font(.subheadline).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                } else {
+                    ForEach(rows.indices, id: \.self) { index in
+                        let row = rows[index]
+                        Button { withAnimation(.snappy) { selectedRouteIndex = index } } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(row.title ?? "\(tr("planner.option")) \(index + 1)")
+                                        .font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+                                    Spacer()
+                                    if let duration = row.duration {
+                                        Label(duration, systemImage: "clock")
+                                            .font(.caption.weight(.semibold)).foregroundStyle(InfoTBDesign.accent)
+                                    }
+                                }
+                                if !row.legs.isEmpty {
+                                    FlowLayout(spacing: 6, lineSpacing: 6) {
+                                        ForEach(Array(row.legs.enumerated()), id: \.offset) { index, leg in
+                                            if index > 0 { Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary) }
+                                            routeLegBadge(leg)
+                                        }
+                                    }
+                                }
+                                HStack {
+                                    if let arrival = row.arrival { Label("\(tr("planner.arrives")) \(arrival)", systemImage: "flag.checkered").font(.caption).foregroundStyle(.secondary) }
+                                    Spacer()
+                                    Label(tr("planner.seeDetails"), systemImage: "chevron.right")
+                                        .font(.caption.weight(.semibold)).foregroundStyle(InfoTBDesign.accent)
+                                }
+                            }
+                            .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                            .contentShape(RoundedRectangle(cornerRadius: 16))
                         }
-                        if let detail = row.detail { Text(detail).font(.subheadline).foregroundStyle(.secondary) }
-                        if !row.lines.isEmpty { Text(row.lines.joined(separator: "  ·  ")).font(.subheadline.weight(.semibold)).foregroundStyle(.primary) }
-                        if let arrival = row.arrival { Text("\(tr("planner.arrives")) \(arrival)").font(.caption).foregroundStyle(.secondary) }
+                        .buttonStyle(.plain)
                     }
-                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 }
             }
         }
     }
 
-    private struct RouteRow { var title: String?; var duration: String?; var detail: String?; var arrival: String?; var lines: [String] }
+    private struct RouteRow { var title: String?; var duration: String?; var detail: String?; var arrival: String?; var vehicleCoordinate: CLLocationCoordinate2D?; var legs: [PlannerRouteLeg] }
+
+    private func routeLegBadge(_ leg: PlannerRouteLeg) -> some View {
+        HStack(spacing: 5) {
+            if leg.isWalking {
+                Image(systemName: "figure.walk").font(.caption.weight(.semibold))
+            } else {
+                VehicleGlyph(type: leg.glyphType, size: 12)
+            }
+            Text(leg.isWalking ? tr("planner.walk") : (leg.lineName ?? transportLabel(leg.glyphType)))
+                .font(.caption.weight(.semibold)).lineLimit(1)
+        }
+        .foregroundStyle(leg.isWalking ? Color.secondary : (Color(hex: leg.color ?? "") ?? InfoTBDesign.accent))
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background((leg.isWalking ? Color.secondary : (Color(hex: leg.color ?? "") ?? InfoTBDesign.accent)).opacity(0.10), in: Capsule())
+    }
+
+    private func routeDetail(_ row: RouteRow, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Button { withAnimation(.snappy) { selectedRouteIndex = nil } } label: {
+                    Label(tr("planner.backToResults"), systemImage: "chevron.left")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.plain).foregroundStyle(InfoTBDesign.accent)
+                Spacer()
+                Button(action: findRoutes) {
+                    Label(tr("planner.refresh"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary).disabled(loading)
+            }
+            HStack {
+                Text(row.title ?? "\(tr("planner.option")) \(index + 1)").font(.headline)
+                Spacer()
+                if let duration = row.duration { Label(duration, systemImage: "clock").font(.subheadline.weight(.semibold)).foregroundStyle(InfoTBDesign.accent) }
+            }
+            if let origin, let destination {
+                PlannerRouteMapPreview(origin: origin, destination: destination, legs: row.legs, vehicleCoordinate: row.vehicleCoordinate)
+            }
+            if let arrival = row.arrival {
+                Label("\(tr("planner.arrives")) \(arrival)", systemImage: "flag.checkered")
+                    .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+            }
+            ForEach(Array(row.legs.enumerated()), id: \.offset) { _, leg in
+                routeLegDetail(leg)
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func routeLegDetail(_ leg: PlannerRouteLeg) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 9) {
+                if leg.isWalking {
+                    Image(systemName: "figure.walk").font(.body.weight(.semibold)).foregroundStyle(.secondary).frame(width: 24)
+                } else {
+                    VehicleGlyph(type: leg.glyphType, size: 16)
+                        .foregroundStyle(Color(hex: leg.color ?? "") ?? InfoTBDesign.accent).frame(width: 24)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(leg.isWalking ? tr("planner.walk") : (leg.lineName ?? transportLabel(leg.glyphType)))
+                        .font(.subheadline.weight(.semibold))
+                    if let direction = leg.direction, !direction.isEmpty {
+                        Text(direction).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 4)
+                if leg.hasLiveVehicle {
+                    Label(tr("planner.live"), systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption2.weight(.semibold)).foregroundStyle(Color.realtime)
+                }
+            }
+            if let first = leg.stops.first, let last = leg.stops.last {
+                HStack(spacing: 6) {
+                    Text(first.name)
+                    if let time = plannerClockTime(first.time ?? leg.startTime) { Text(time).monospacedDigit() }
+                    Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                    Text(last.name)
+                    if let time = plannerClockTime(last.time ?? leg.stopTime) { Text(time).monospacedDigit() }
+                }
+                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            } else if let start = plannerClockTime(leg.startTime), let stop = plannerClockTime(leg.stopTime) {
+                Text("\(start) – \(stop)").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+            }
+        }
+        .padding(11).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 13))
+    }
+
+    private func transportLabel(_ type: String) -> String {
+        TransportType.ordered.first(where: { $0.name == type })?.label ?? type.capitalized
+    }
 
     private func parsedRows(_ raw: String) -> [RouteRow] {
         guard let data = raw.data(using: .utf8), let root = try? JSONSerialization.jsonObject(with: data) else { return [] }
@@ -451,21 +638,76 @@ struct PlannerView: View {
                 return nil
             }()
             let segments = item["segments"] as? [[String: Any]] ?? item["steps"] as? [[String: Any]] ?? []
-            let legs = segments.compactMap { segment -> String? in
+            let legs = segments.enumerated().compactMap { offset, segment -> PlannerRouteLeg? in
                 let mode = (segment["type"] ?? segment["mode"] ?? segment["vehicle_type"]) as? String
                 let line = segment["line"] as? [String: Any]
                 let name = (line?["name"] ?? segment["line_name"] ?? segment["route_name"]) as? String
-                guard mode != nil || name != nil else { return nil }
-                return [mode?.capitalized, name].compactMap { $0 }.joined(separator: " ")
+                let stopItems = segment["stops"] as? [[String: Any]] ?? []
+                let stops = stopItems.compactMap { stop -> PlannerLegStop? in
+                    guard let stopName = stop["name"] as? String else { return nil }
+                    let lat = (stop["lat"] as? NSNumber)?.doubleValue
+                    let lng = (stop["lng"] as? NSNumber)?.doubleValue
+                    let coordinate: CLLocationCoordinate2D?
+                    if let lat, let lng { coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng) }
+                    else { coordinate = nil }
+                    return PlannerLegStop(name: stopName, time: stop["time"] as? String, coordinate: coordinate)
+                }
+                let geometry = (segment["segment_path"] as? String).map {
+                    PolylineKt.decodePolyline(encoded: $0).compactMap { pair -> CLLocationCoordinate2D? in
+                        guard let lat = pair.first?.doubleValue, let lng = pair.second?.doubleValue else { return nil }
+                        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+                    }
+                } ?? []
+                let vehicleId = (segment["transport_vehicle_id"] as? NSNumber)?.int64Value ?? 0
+                let vehicleCode = segment["transport_vehicle_code"] as? String
+                let timetable = (segment["is_timetable"] as? NSNumber)?.boolValue ?? false
+                let vehicleLat = (segment["transport_vehicle_lat"] as? NSNumber)?.doubleValue
+                let vehicleLng = (segment["transport_vehicle_lng"] as? NSNumber)?.doubleValue
+                let vehicleCoordinate: CLLocationCoordinate2D?
+                if let vehicleLat, let vehicleLng {
+                    vehicleCoordinate = CLLocationCoordinate2D(latitude: vehicleLat, longitude: vehicleLng)
+                } else {
+                    vehicleCoordinate = nil
+                }
+                return PlannerRouteLeg(
+                    id: offset,
+                    type: mode,
+                    lineName: name,
+                    direction: segment["direction_name"] as? String,
+                    startTime: segment["start_time"] as? String,
+                    stopTime: segment["stop_time"] as? String,
+                    durationSeconds: (segment["duration_seconds"] as? NSNumber)?.intValue,
+                    color: segment["transport_color"] as? String,
+                    vehicleCode: vehicleCode,
+                    hasLiveVehicle: vehicleId > 0 || (!timetable && vehicleCode != nil),
+                    vehicleCoordinate: vehicleCoordinate,
+                    stops: stops,
+                    coordinates: geometry.isEmpty ? stops.compactMap(\.coordinate) : geometry
+                )
             }
             return RouteRow(
                 title: item["title"] as? String ?? item["name"] as? String,
                 duration: duration,
                 detail: item["summary"] as? String ?? item["description"] as? String,
-                arrival: item["arrival_time"] as? String ?? item["arrival"] as? String,
-                lines: legs
+                arrival: plannerClockTime(item["arrival_time"] as? String ?? item["arrival"] as? String ?? item["stop_time"] as? String),
+                vehicleCoordinate: {
+                    guard let lat = (item["transport_vehicle_lat"] as? NSNumber)?.doubleValue,
+                          let lng = (item["transport_vehicle_lng"] as? NSNumber)?.doubleValue else { return nil }
+                    return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+                }(),
+                legs: legs
             )
         }
+    }
+
+    private func plannerClockTime(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        if let timestamp = Double(value) {
+            let seconds = timestamp > 100_000_000_000 ? timestamp / 1_000 : timestamp
+            return Date(timeIntervalSince1970: seconds).formatted(date: .omitted, time: .shortened)
+        }
+        let formatter = ISO8601DateFormatter()
+        return formatter.date(from: value)?.formatted(date: .omitted, time: .shortened) ?? value
     }
 
     private func search(_ value: String) {
@@ -492,6 +734,9 @@ struct PlannerView: View {
 
     private func choose(_ place: PlannerPlace, for target: PlannerPlaceField) {
         if target == .origin { origin = place } else { destination = place }
+        response = nil
+        selectedRouteIndex = nil
+        error = nil
         field = nil
     }
 
@@ -500,6 +745,7 @@ struct PlannerView: View {
         loading = true
         error = nil
         response = nil
+        selectedRouteIndex = nil
         let time = useCurrentTime ? Date() : departure
         Task {
             let result = try? await IosServices.shared.planRoutes(
@@ -508,7 +754,8 @@ struct PlannerView: View {
                 maxWalkDistance: Int32(maxWalkDistance),
                 startTimeMs: Int64(time.timeIntervalSince1970 * 1000),
                 vehicleTypes: TransportType.ordered.filter { modes.contains($0.name) }.map(\.name),
-                accessible: accessible
+                accessible: accessible,
+                language: AppModel.shared.localeCode
             )
             await MainActor.run {
                 loading = false
@@ -518,35 +765,129 @@ struct PlannerView: View {
         }
     }
 
-    private func saveCurrentTrip() {
-        guard let origin, let destination else { return }
-        let trip = SavedTrip(from: origin, to: destination, departure: departure, useCurrentTime: useCurrentTime, modes: Array(modes), accessible: accessible, maxWalkDistance: maxWalkDistance)
-        savedTrips.removeAll { $0.from.name == trip.from.name && $0.to.name == trip.to.name }
-        savedTrips.insert(trip, at: 0)
-        persistSavedTrips()
+    private func beginSaveDestination() {
+        guard let destination else { return }
+        destinationLabel = destination.name
+        isSavingDestination = true
     }
 
-    private func open(_ trip: SavedTrip) {
-        origin = trip.from.place
-        destination = trip.to.place
-        departure = trip.departure
-        useCurrentTime = trip.useCurrentTime
-        modes = Set(trip.modes)
-        accessible = trip.accessible
-        maxWalkDistance = trip.maxWalkDistance
-        findRoutes()
+    private func saveDestination() {
+        guard let destination else { return }
+        let label = destinationLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !label.isEmpty else { return }
+        let place = SavedTrip.SavedPlace(destination)
+        var saved = SavedDestination(label: label, place: place)
+        if let existing = savedDestinations.first(where: { samePlace($0.place, place) }) {
+            saved.id = existing.id
+            savedDestinations.removeAll { $0.id == existing.id }
+        }
+        savedDestinations.insert(saved, at: 0)
+        persistSavedDestinations()
     }
 
-    private func delete(_ trip: SavedTrip) { savedTrips.removeAll { $0.id == trip.id }; persistSavedTrips() }
+    private func samePlace(_ lhs: SavedTrip.SavedPlace, _ rhs: SavedTrip.SavedPlace) -> Bool {
+        if let left = lhs.stopId, let right = rhs.stopId { return left == right }
+        return abs(lhs.lat - rhs.lat) < 0.00005 && abs(lhs.lng - rhs.lng) < 0.00005
+    }
+
+    private func open(_ saved: SavedDestination) {
+        destination = saved.place.place
+        if let fix = plannerLocation.location {
+            origin = PlannerPlace(name: tr("planner.currentLocation"), lat: fix.coordinate.latitude,
+                                  lng: fix.coordinate.longitude, type: "CURRENT_LOCATION", description: nil, stop_id: nil)
+        }
+        response = nil
+        selectedRouteIndex = nil
+        error = nil
+        if origin != nil { findRoutes() }
+    }
+
+    private func delete(_ saved: SavedDestination) {
+        savedDestinations.removeAll { $0.id == saved.id }
+        persistSavedDestinations()
+    }
+
     private func loadSavedTrips() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey), let trips = try? JSONDecoder().decode([SavedTrip].self, from: data) else { return }
-        savedTrips = trips
-    }
-    private func persistSavedTrips() {
-        guard let data = try? JSONEncoder().encode(savedTrips) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        if let data = UserDefaults.standard.data(forKey: destinationsStorageKey),
+           let destinations = try? JSONDecoder().decode([SavedDestination].self, from: data) {
+            savedDestinations = destinations
+            return
+        }
+        guard let data = UserDefaults.standard.data(forKey: legacyTripsStorageKey),
+              let trips = try? JSONDecoder().decode([SavedTrip].self, from: data) else { return }
+        savedDestinations = trips.map { SavedDestination(label: $0.to.name, place: $0.to) }
+            .reduce(into: [SavedDestination]()) { result, saved in
+                if !result.contains(where: { samePlace($0.place, saved.place) }) { result.append(saved) }
+            }
+        persistSavedDestinations()
     }
 
+    private func persistSavedDestinations() {
+        guard let data = try? JSONEncoder().encode(savedDestinations) else { return }
+        UserDefaults.standard.set(data, forKey: destinationsStorageKey)
+    }
+
+}
+
+private struct PlannerRouteMapPreview: View {
+    let origin: PlannerPlace
+    let destination: PlannerPlace
+    let legs: [PlannerRouteLeg]
+    let vehicleCoordinate: CLLocationCoordinate2D?
+
+    private var start: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: origin.lat, longitude: origin.lng) }
+    private var finish: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: destination.lat, longitude: destination.lng) }
+    private var coordinates: [CLLocationCoordinate2D] { [start, finish] + legs.flatMap(\.coordinates) + (vehicleCoordinate.map { [$0] } ?? []) }
+    private var region: MKCoordinateRegion {
+        let latitudes = coordinates.map(\.latitude)
+        let longitudes = coordinates.map(\.longitude)
+        let minLat = latitudes.min() ?? start.latitude
+        let maxLat = latitudes.max() ?? finish.latitude
+        let minLng = longitudes.min() ?? start.longitude
+        let maxLng = longitudes.max() ?? finish.longitude
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLng + maxLng) / 2),
+            latitudinalMeters: max(1_000, (maxLat - minLat) * 111_000 * 1.25),
+            longitudinalMeters: max(1_000, (maxLng - minLng) * 111_000 * 1.25)
+        )
+    }
+
+    var body: some View {
+        Map(position: .constant(.region(region)), interactionModes: [.pan, .zoom]) {
+            ForEach(Array(legs.enumerated()), id: \.offset) { _, leg in
+                if leg.coordinates.count > 1 {
+                    MapPolyline(coordinates: leg.coordinates)
+                        .stroke(Color(hex: leg.color ?? "") ?? InfoTBDesign.accent,
+                                style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                }
+                if let vehicle = leg.vehicleCoordinate {
+                    Annotation(leg.vehicleCode ?? leg.lineName ?? "Vehicle", coordinate: vehicle) {
+                        VehicleGlyph(type: leg.glyphType, size: 12)
+                            .foregroundStyle(.white).padding(6)
+                            .background(Color(hex: leg.color ?? "") ?? InfoTBDesign.accent, in: Circle())
+                            .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    }
+                }
+            }
+            Annotation("Start", coordinate: start) { endpointPin("A", color: InfoTBDesign.accent) }
+            Annotation("Destination", coordinate: finish) { endpointPin("B", color: .red) }
+            if let vehicleCoordinate {
+                Annotation("Vehicle", coordinate: vehicleCoordinate) {
+                    Image(systemName: "bus.fill").font(.caption.weight(.bold)).foregroundStyle(.white)
+                        .padding(7).background(InfoTBDesign.accent, in: Circle()).overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+        }
+        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+    }
+
+    private func endpointPin(_ label: String, color: Color) -> some View {
+        Text(label).font(.caption.weight(.heavy)).foregroundStyle(.white)
+            .frame(width: 28, height: 28).background(color, in: Circle())
+            .overlay(Circle().stroke(.white, lineWidth: 2)).shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+    }
 }
 
 private struct PlaceFieldSheet: Identifiable {

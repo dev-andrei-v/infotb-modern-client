@@ -5,11 +5,11 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -45,12 +45,20 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
             for ((key, value) in getHeaders(token)) {
                 header(key, value)
             }
+            if (path.startsWith("/notifications")) {
+                header("Accept-Language", "en-US,en;q=0.9,ro-RO;q=0.8,ro;q=0.7")
+                header("Referer", "https://info.stb.ro/notifications")
+            }
         }
     }
 
-    private suspend fun requestRoutes(body: String, token: String): HttpResponse =
+    private suspend fun requestRoutes(body: String, token: String, language: String): HttpResponse =
         client.post("${Constants.API_BASE_URL}/routes") {
-            for ((key, value) in getHeaders(token)) header(key, value)
+            for ((key, value) in getHeaders(token)) {
+                if (key != "Lang") header(key, value)
+            }
+            header("Lang", if (language == "en") "en" else "ro")
+            header("Accept-Language", if (language == "en") "en-US,en;q=0.9" else "ro-RO,ro;q=0.9,en;q=0.7")
             // Match the Origin and Referer sent by the web planner for this POST.
             header("Origin", "https://info.stb.ro")
             header("Referer", "https://info.stb.ro/")
@@ -77,11 +85,11 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         return response
     }
 
-    private suspend fun fetchRoutes(body: String): String {
+    private suspend fun fetchRoutes(body: String, language: String): String {
         val token = authManager.ensureAuthenticated(client)
-        var response = requestRoutes(body, token)
+        var response = requestRoutes(body, token, language)
         if (response.status.value == 401 || response.status.value == 412) {
-            response = requestRoutes(body, authManager.reauthenticate(client, token))
+            response = requestRoutes(body, authManager.reauthenticate(client, token), language)
         }
         val bytes = response.readRawBytes()
         val text = bytes.decodeToString(throwOnInvalidSequence = false).removePrefix("\uFEFF").trimStart()
@@ -90,8 +98,12 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
             throw RuntimeException("API error: ${response.status.value} ${response.status.description} (Content-Type: $contentType): ${text.take(500)}")
         }
         if (!(text.startsWith("{") || text.startsWith("["))) {
-            val sample = bytes.take(12).joinToString(" ") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
-            throw RuntimeException("Planner API returned a non-JSON response (Content-Type: $contentType, ${bytes.size} bytes; prefix: $sample)")
+            return try {
+                ProtoDecoder.decodePlannerRoutes(bytes)
+            } catch (error: Exception) {
+                val sample = bytes.take(12).joinToString(" ") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
+                throw RuntimeException("Planner protobuf could not be decoded (Content-Type: $contentType, ${bytes.size} bytes; prefix: $sample)", error)
+            }
         }
         return text
     }
@@ -144,11 +156,52 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         val body = fetchJson("/notifications?limit=$limit&offset=$offset")
         val root = json.parseToJsonElement(body)
         val notificationsArray = announcementArray(root)
-            ?: throw IllegalStateException("Unexpected announcements response shape")
-        return json.decodeFromString<List<Announcement>>(notificationsArray.toString()).map { notice ->
-            notice.copy(lines = notice.lines.map { it.copy(color = lineColor(it.name, it.type, it.color)) })
+            ?: throw IllegalStateException("Unexpected announcements response shape: ${describeJsonShape(root)}")
+        return notificationsArray.mapIndexedNotNull { index, element ->
+            val value = element as? JsonObject ?: return@mapIndexedNotNull null
+            val title = value.string("title", "name", "subject")
+            val message = value.string("message", "description", "body", "text")
+            if (title == null && message == null) return@mapIndexedNotNull null
+
+            val createdAt = value.long("created_at", "createdAt", "timestamp", "date") ?: 0L
+            val safeTitle = title ?: message.orEmpty()
+            val lines = (value["lines"] as? JsonArray).orEmpty().mapNotNull { lineElement ->
+                val line = lineElement as? JsonObject ?: return@mapNotNull null
+                val name = line.string("name", "line_name") ?: return@mapNotNull null
+                val type = TransportType.fromString(line.string("type", "transport_type") ?: "BUS")
+                val color = line.string("color") ?: "#1E88E5"
+                AnnouncementLine(
+                    id = line.long("id", "line_id"),
+                    name = name,
+                    color = lineColor(name, type, color),
+                    type = type
+                )
+            }
+            Announcement(
+                id = value.long("id", "notification_id") ?: "${safeTitle}_$createdAt".hashCode().toLong(),
+                title = safeTitle,
+                message = message.orEmpty(),
+                lines = lines,
+                created_at = createdAt
+            )
         }
     }
+
+    private fun describeJsonShape(element: JsonElement): String = when (element) {
+        is JsonObject -> "object keys=${element.keys.joinToString().take(240)}"
+        is JsonArray -> "array(${element.size})"
+        else -> element.toString().take(120)
+    }
+
+    private fun JsonObject.string(vararg keys: String): String? {
+        for (key in keys) {
+            val value = this[key] as? JsonPrimitive ?: continue
+            value.contentOrNull?.trim()?.takeIf(String::isNotEmpty)?.let { return it }
+        }
+        return null
+    }
+
+    private fun JsonObject.long(vararg keys: String): Long? = string(*keys)?.toLongOrNull()
 
     suspend fun searchPlannerPlaces(query: String): List<PlannerPlace> {
         val root = json.parseToJsonElement(fetchJson("/places?query=${encodeQuery(query)}"))
@@ -176,7 +229,7 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         }
     }
 
-    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean): String {
+    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean, language: String): String {
         // The client model calls this mode CABLE_CAR, while the web planner
         // expects its public API name, TROLLEYBUS.
         val apiVehicleTypes = vehicleTypes.map { if (it == "CABLE_CAR") "TROLLEYBUS" else it }.distinct()
@@ -186,12 +239,16 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
             // Omit defaults so the ordinary request matches the web planner's
             // minimal payload. Add advanced fields only when the user changes them.
             if (apiVehicleTypes != allVehicleTypes) {
-                append(",\"vehicle_types\":${json.encodeToString(apiVehicleTypes)}")
+                val selected = apiVehicleTypes.toSet()
+                val transportTypes = allVehicleTypes.joinToString(",") { type ->
+                    "{\"type\":\"$type\",\"selected\":${type in selected}}"
+                }
+                append(",\"transport_types\":[$transportTypes]")
             }
-            if (accessible) append(",\"accessibility\":true")
+            if (accessible) append(",\"user_has_disability\":true")
             append("}")
         }
-        return fetchRoutes(body)
+        return fetchRoutes(body, language)
     }
 
     private fun encodeQuery(value: String): String = value.encodeToByteArray().joinToString("") { byte ->

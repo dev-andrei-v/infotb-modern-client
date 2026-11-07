@@ -21,6 +21,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "planner.swap" to mapOf(Locale.RO to "Inverseaza", Locale.EN to "Swap"),
     "planner.departure" to mapOf(Locale.RO to "Plecare", Locale.EN to "Departure"),
     "planner.leaveNow" to mapOf(Locale.RO to "Pleaca acum", Locale.EN to "Leave now"),
+    "planner.later" to mapOf(Locale.RO to "Mai tarziu", Locale.EN to "Later"),
     "planner.dateAndTime" to mapOf(Locale.RO to "Data si ora", Locale.EN to "Date and time"),
     "planner.vehicles" to mapOf(Locale.RO to "Mijloace de transport", Locale.EN to "Transport modes"),
     "planner.advanced" to mapOf(Locale.RO to "Optiuni avansate", Locale.EN to "Advanced options"),
@@ -38,6 +39,19 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "planner.saveTrip" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
     "planner.savedTrips" to mapOf(Locale.RO to "Calatorii salvate", Locale.EN to "Saved trips"),
     "planner.noSavedTrips" to mapOf(Locale.RO to "Salveaza o calatorie pentru a o putea planifica din nou mai tarziu.", Locale.EN to "Save a trip to plan it again later."),
+    "planner.saveDestination" to mapOf(Locale.RO to "Salveaza destinatia", Locale.EN to "Save destination"),
+    "planner.destinationLabel" to mapOf(Locale.RO to "Eticheta (Acasa, Serviciu)", Locale.EN to "Label (Home, Work)"),
+    "planner.saveAction" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
+    "planner.savedDestinations" to mapOf(Locale.RO to "Destinatii salvate", Locale.EN to "Saved destinations"),
+    "planner.noSavedDestinations" to mapOf(Locale.RO to "Salveaza destinatii precum Acasa sau Serviciu.", Locale.EN to "Save places like Home or Work for quick access."),
+    "planner.removeSavedDestination" to mapOf(Locale.RO to "Elimina destinatia", Locale.EN to "Remove destination"),
+    "planner.noRoutes" to mapOf(Locale.RO to "Nu au fost gasite rute.", Locale.EN to "No routes found."),
+    "planner.seeDetails" to mapOf(Locale.RO to "Vezi detalii", Locale.EN to "See details"),
+    "planner.backToResults" to mapOf(Locale.RO to "Inapoi la rezultate", Locale.EN to "Back to results"),
+    "planner.routeDetails" to mapOf(Locale.RO to "Detalii ruta", Locale.EN to "Route details"),
+    "planner.refresh" to mapOf(Locale.RO to "Actualizeaza", Locale.EN to "Refresh"),
+    "planner.walk" to mapOf(Locale.RO to "Mers pe jos", Locale.EN to "Walk"),
+    "planner.live" to mapOf(Locale.RO to "Timp real", Locale.EN to "Live"),
     "lineDetail.nearbyStops" to mapOf(Locale.RO to "Statii in apropiere", Locale.EN to "Nearby stops"),
     "lineDetail.allStops" to mapOf(Locale.RO to "Toate statiile", Locale.EN to "All stops"),
     "settings.nearbyStopCount" to mapOf(Locale.RO to "Numar de statii", Locale.EN to "Number of stops"),
@@ -93,8 +107,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "theme.system" to mapOf(Locale.RO to "Sistem", Locale.EN to "System"),
 
     // Direction
-    "direction.tur" to mapOf(Locale.RO to "Tur", Locale.EN to "Tour"),
-    "direction.retur" to mapOf(Locale.RO to "Retur", Locale.EN to "Retour"),
+    "direction.tur" to mapOf(Locale.RO to "Tur", Locale.EN to "Outbound"),
+    "direction.retur" to mapOf(Locale.RO to "Retur", Locale.EN to "Inbound"),
 
     // Dashboard page
     "dashboard.title" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
@@ -365,6 +379,13 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "liveTracking.emptyDescription" to mapOf(
         Locale.RO to "Apasa pe butonul Live de pe o statie pentru a urmari sosirea in timp real.",
         Locale.EN to "Tap the Live button on a stop to track arrivals in real-time."
+    ),
+    "dynamicIsland.title" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
+    "dynamicIsland.enabled" to mapOf(Locale.RO to "Urmarire Dynamic Island activa", Locale.EN to "Dynamic Island tracking active"),
+    "dynamicIsland.emptyTitle" to mapOf(Locale.RO to "Nicio urmarire activa", Locale.EN to "No active tracking"),
+    "dynamicIsland.emptyDescription" to mapOf(
+        Locale.RO to "Apasa pe butonul Live de pe o statie pentru a urmari sosirea in Dynamic Island.",
+        Locale.EN to "Tap the Live button on a stop to follow its arrival in the Dynamic Island."
     ),
     "notifications.description" to mapOf(Locale.RO to "Gestioneaza notificarile pentru sosiri", Locale.EN to "Manage arrival notifications"),
     "notifications.active" to mapOf(Locale.RO to "notificari active", Locale.EN to "active notifications"),

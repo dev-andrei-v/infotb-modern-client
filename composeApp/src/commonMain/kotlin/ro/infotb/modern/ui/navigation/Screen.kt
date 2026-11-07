@@ -27,5 +27,7 @@ sealed class Screen(val route: String) {
     }
     data object Announcements : Screen("announcements")
     data object Notifications : Screen("notifications")
+    data object NearbyMap : Screen("map")
+    data object Planner : Screen("planner")
     data object Settings : Screen("settings")
 }

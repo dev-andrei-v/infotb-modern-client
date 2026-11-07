@@ -61,9 +61,9 @@ object IosServices : KoinComponent {
         null
     }
 
-    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean): String? = try {
+    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean, language: String): String? = try {
         lastPlannerError = null
-        get<TransitRepository>().planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible)
+        get<TransitRepository>().planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible, language)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

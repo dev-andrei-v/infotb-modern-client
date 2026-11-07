@@ -209,7 +209,7 @@ private struct LineDetailContent: View {
         let labelColor = colorScheme == .dark
             ? Color(red: 1, green: 0.78, blue: 0.34)
             : Color(red: 0.60, green: 0.36, blue: 0.02)
-        let showAirport = isAirport || LineColorsKt.isAirportLineName(name: lineName)
+        let isAirportLine = isAirport || LineColorsKt.isAirportLineName(name: lineName) || stops.contains { LineColorsKt.isAirportStopName(name: $0) }
         return HStack(spacing: 14) {
             HStack(spacing: 6) {
                 Text(lineName)
@@ -218,14 +218,13 @@ private struct LineDetailContent: View {
                     .lineLimit(1)
             }
             .frame(minWidth: 64, alignment: .leading)
-            VStack(alignment: .leading, spacing: 1) {
-                ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
-                    let stopAirport = showAirport || LineColorsKt.isAirportStopName(name: stop)
-                    HStack(spacing: 4) {
-                        if stopAirport {
-                            Image(systemName: "airplane")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
+            HStack(alignment: .center, spacing: 8) {
+                if isAirportLine {
+                    Image(systemName: "airplane")
+                        .font(.system(size: 18, weight: .bold))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(Array(stops.prefix(2).enumerated()), id: \.offset) { _, stop in
                         Text(stop.uppercased())
                             .lineLimit(1)
                             .truncationMode(.tail)

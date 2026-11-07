@@ -634,7 +634,7 @@ private fun LineRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val endpoints = listOfNotNull(line.startStopName, line.endStopName)
-            val isAirport = isAirportLineName(line.name)
+            val isAirport = isAirportLineName(line.name) || endpoints.any { isAirportStopName(it) }
             if (!busDisplay) {
                 LineBadge(
                     name = if (line.type == TransportType.SUBWAY) line.name.substringBefore('-').trim() else line.name,
@@ -667,19 +667,21 @@ private fun LineRow(
                             maxLines = 1
                         )
                     }
-                    Column(modifier = Modifier.weight(1f)) {
-                        endpoints.ifEmpty { listOf("—") }.forEach { endpoint ->
-                            val showAirport = isAirport || isAirportStopName(endpoint)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (showAirport) {
-                                    Icon(
-                                        imageVector = AirplaneIcon,
-                                        contentDescription = "Airport",
-                                        tint = lcdText,
-                                        modifier = Modifier.size(12.dp).rotate(45f)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                }
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isAirport) {
+                            Icon(
+                                imageVector = AirplaneIcon,
+                                contentDescription = "Airport",
+                                tint = lcdText,
+                                modifier = Modifier.size(20.dp).rotate(45f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            endpoints.ifEmpty { listOf("—") }.forEach { endpoint ->
                                 Text(
                                     text = endpoint.uppercase(),
                                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
@@ -696,19 +698,21 @@ private fun LineRow(
                     }
                 }
             } else if (endpoints.isNotEmpty()) {
-                Column(modifier = Modifier.weight(1f)) {
-                    endpoints.forEach { endpoint ->
-                        val showAirport = isAirport || isAirportStopName(endpoint)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (showAirport) {
-                                Icon(
-                                    imageVector = AirplaneIcon,
-                                    contentDescription = "Airport",
-                                    tint = LocalMuted.current,
-                                    modifier = Modifier.size(11.dp).rotate(45f)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                            }
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isAirport) {
+                        Icon(
+                            imageVector = AirplaneIcon,
+                            contentDescription = "Airport",
+                            tint = LocalMuted.current,
+                            modifier = Modifier.size(16.dp).rotate(45f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        endpoints.forEach { endpoint ->
                             Text(
                                 text = endpoint,
                                 style = MaterialTheme.typography.bodySmall,

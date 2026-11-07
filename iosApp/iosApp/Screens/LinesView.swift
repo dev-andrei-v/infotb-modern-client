@@ -284,18 +284,18 @@ struct LinesView: View {
                                 .lineLimit(1)
                         }
                         .frame(minWidth: 64, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 1) {
-                            let endpoints = [line.startStopName, line.endStopName].compactMap { $0 }
-                            if endpoints.isEmpty {
-                                Text("—")
-                            } else {
-                                ForEach(Array(endpoints.enumerated()), id: \.offset) { _, stop in
-                                    let showAirport = line.isAirport || LineColorsKt.isAirportStopName(name: stop)
-                                    HStack(spacing: 4) {
-                                        if showAirport {
-                                            Image(systemName: "airplane")
-                                                .font(.system(size: 10, weight: .semibold))
-                                        }
+                        let endpoints = [line.startStopName, line.endStopName].compactMap { $0 }
+                        let isAirport = line.isAirport || endpoints.contains { LineColorsKt.isAirportStopName(name: $0) }
+                        HStack(alignment: .center, spacing: 8) {
+                            if isAirport {
+                                Image(systemName: "airplane")
+                                    .font(.system(size: 18, weight: .bold))
+                            }
+                            VStack(alignment: .leading, spacing: 1) {
+                                if endpoints.isEmpty {
+                                    Text("—")
+                                } else {
+                                    ForEach(Array(endpoints.enumerated()), id: \.offset) { _, stop in
                                         Text(stop.uppercased())
                                             .lineLimit(1)
                                             .truncationMode(.tail)
@@ -320,26 +320,18 @@ struct LinesView: View {
                         if model.lineDisplayStyle == "normal",
                            let start = line.startStopName,
                            let end = line.endStopName {
-                            VStack(alignment: .leading, spacing: 2) {
-                                let showStartAirport = line.isAirport || LineColorsKt.isAirportStopName(name: start)
-                                HStack(spacing: 4) {
-                                    if showStartAirport {
-                                        Image(systemName: "airplane")
-                                            .font(.caption2.weight(.medium))
-                                            .foregroundStyle(.secondary)
-                                    }
+                            let isAirport = line.isAirport || LineColorsKt.isAirportStopName(name: start) || LineColorsKt.isAirportStopName(name: end)
+                            HStack(alignment: .center, spacing: 8) {
+                                if isAirport {
+                                    Image(systemName: "airplane")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
                                     Text(start)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
-                                }
-                                let showEndAirport = line.isAirport || LineColorsKt.isAirportStopName(name: end)
-                                HStack(spacing: 4) {
-                                    if showEndAirport {
-                                        Image(systemName: "airplane")
-                                            .font(.caption2.weight(.medium))
-                                            .foregroundStyle(.secondary)
-                                    }
                                     Text(end)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)

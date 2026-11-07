@@ -194,7 +194,7 @@ fun LineDetailScreen(
                     val directionName = if (direction == Direction.TUR) detail.directionNameTur else detail.directionNameRetur
                     val routeStops = directionName.orEmpty().split(" - ").map { it.trim() }.filter { it.isNotEmpty() }.take(2)
                     val lcdColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
-                    val isAirport = isAirportLineName(detail.name)
+                    val isAirport = isAirportLineName(detail.name) || routeStops.any { isAirportStopName(it) }
                     Row(
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 10.dp),
@@ -217,19 +217,21 @@ fun LineDetailScreen(
                                 maxLines = 1
                             )
                         }
-                        Column(modifier = Modifier.weight(1f)) {
-                            routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
-                                val showAirport = isAirport || isAirportStopName(stopName)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (showAirport) {
-                                        Icon(
-                                            imageVector = AirplaneIcon,
-                                            contentDescription = "Airport",
-                                            tint = lcdColor,
-                                            modifier = Modifier.size(12.dp).rotate(45f)
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                    }
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isAirport) {
+                                Icon(
+                                    imageVector = AirplaneIcon,
+                                    contentDescription = "Airport",
+                                    tint = lcdColor,
+                                    modifier = Modifier.size(20.dp).rotate(45f)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
                                     Text(
                                         stopName.uppercase(),
                                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,

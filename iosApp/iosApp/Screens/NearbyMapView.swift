@@ -75,26 +75,34 @@ private struct StopMapMarker: View {
     let transportType: String?
     let selected: Bool
 
-    private var signColor: Color { Color(hex: "#0066A4") ?? .blue }
+    private var signColor: Color { Color(hex: isMetro ? "#D21F32" : "#C92335") ?? .red }
     var body: some View {
         VStack(spacing: 0) {
             Group {
                 if isMetro {
                     Text("M")
                         .font(.system(size: 21, weight: .heavy, design: .rounded))
-                        .foregroundStyle(signColor)
-                        .frame(width: 32, height: 32)
-                        .background(.white, in: RoundedRectangle(cornerRadius: 4))
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(signColor, lineWidth: 2))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(signColor, in: Circle())
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
                 } else {
-                    VStack(spacing: 1) {
-                        VehicleGlyph(type: transportType ?? TransportType.bus.name, size: 13)
-                        Text("STB").font(.system(size: 6, weight: .black, design: .rounded))
+                    VStack(spacing: 0) {
+                        Text("STB")
+                            .font(.system(size: 6, weight: .black, design: .rounded))
+                            .tracking(0.5)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 9)
+                            .background(signColor)
+                        VehicleGlyph(type: transportType ?? TransportType.bus.name, size: 14)
+                            .foregroundStyle(signColor)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(.white)
                     }
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 32)
-                    .background(signColor, in: RoundedRectangle(cornerRadius: 5))
-                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(.white, lineWidth: 1.5))
+                    .frame(width: 27, height: 32)
+                    .clipShape(STBStopPlaqueShape())
+                    .overlay(STBStopPlaqueShape().stroke(signColor, lineWidth: 2))
                 }
             }
             Rectangle().fill(signColor).frame(width: 3, height: 6)
@@ -110,6 +118,26 @@ private struct StopMapMarker: View {
         .shadow(color: .black.opacity(0.24), radius: 2, y: 1)
         .scaleEffect(selected ? 1.08 : 1)
         .animation(.easeOut(duration: 0.16), value: selected)
+    }
+}
+
+/// The surface stop marker borrows the tall, red-edged STB stop plaque shape.
+private struct STBStopPlaqueShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let topRadius = min(rect.width * 0.34, rect.height * 0.16)
+        path.move(to: CGPoint(x: topRadius, y: 0))
+        path.addLine(to: CGPoint(x: rect.width - topRadius, y: 0))
+        path.addQuadCurve(to: CGPoint(x: rect.width, y: topRadius), control: CGPoint(x: rect.width, y: 0))
+        path.addLine(to: CGPoint(x: rect.width, y: rect.height * 0.78))
+        path.addLine(to: CGPoint(x: rect.width * 0.72, y: rect.height * 0.78))
+        path.addLine(to: CGPoint(x: rect.width * 0.5, y: rect.height))
+        path.addLine(to: CGPoint(x: rect.width * 0.28, y: rect.height * 0.78))
+        path.addLine(to: CGPoint(x: 0, y: rect.height * 0.78))
+        path.addLine(to: CGPoint(x: 0, y: topRadius))
+        path.addQuadCurve(to: CGPoint(x: topRadius, y: 0), control: .zero)
+        path.closeSubpath()
+        return path
     }
 }
 

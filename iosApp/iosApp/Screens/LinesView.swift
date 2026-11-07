@@ -248,7 +248,7 @@ struct LinesView: View {
                     }
                 }
                 if model.lineDisplayStyle == "normal", let start = line.startStopName, let end = line.endStopName {
-                    Text("\(start.uppercased())\n\(end.uppercased())")
+                    Text("\(start.uppercased()) - \(end.uppercased())")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .tracking(0.6)
                         .lineSpacing(-1)

@@ -544,7 +544,7 @@ private fun LineRow(
                         .background(Color(0xFF18212B)).padding(horizontal = 8.dp, vertical = 5.dp)
                 ) {
                     Text(
-                        text = endpoints.joinToString("\n") { it.uppercase() },
+                        text = endpoints.joinToString(" - ") { it.uppercase() },
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,

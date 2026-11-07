@@ -33,14 +33,94 @@ private struct NearbyRoute: Identifiable {
     }
 }
 
+private struct MapViewport: Equatable {
+    let latitude: Double
+    let longitude: Double
+    let latitudeDelta: Double
+    let longitudeDelta: Double
+
+    init(_ region: MKCoordinateRegion) {
+        latitude = region.center.latitude
+        longitude = region.center.longitude
+        latitudeDelta = abs(region.span.latitudeDelta)
+        longitudeDelta = abs(region.span.longitudeDelta)
+    }
+
+    var center: CLLocation { CLLocation(latitude: latitude, longitude: longitude) }
+
+    /// Load a little beyond the visible map so a short pan stays within cache.
+    var searchBounds: (south: Double, west: Double, north: Double, east: Double) {
+        let latitudeHalf = min(latitudeDelta / 2, 0.035)
+        let longitudeHalf = min(longitudeDelta / 2, 0.05)
+        let latitudePad = min(latitudeDelta * 0.2, 0.014)
+        let longitudePad = min(longitudeDelta * 0.2, 0.02)
+        return (
+            max(-90, latitude - latitudeHalf - latitudePad),
+            max(-180, longitude - longitudeHalf - longitudePad),
+            min(90, latitude + latitudeHalf + latitudePad),
+            min(180, longitude + longitudeHalf + longitudePad)
+        )
+    }
+
+    var stopSearchRadius: Double {
+        let latitudeMeters = latitudeDelta * 111_000
+        let longitudeMeters = longitudeDelta * 111_000 * max(0.1, cos(latitude * .pi / 180))
+        return min(5_000, max(1_000, hypot(latitudeMeters, longitudeMeters) / 2))
+    }
+}
+
+private struct StopMapMarker: View {
+    let name: String
+    let isMetro: Bool
+    let transportType: String?
+    let selected: Bool
+
+    private var signColor: Color { Color(hex: "#0066A4") ?? .blue }
+    var body: some View {
+        VStack(spacing: 0) {
+            Group {
+                if isMetro {
+                    Text("M")
+                        .font(.system(size: 21, weight: .heavy, design: .rounded))
+                        .foregroundStyle(signColor)
+                        .frame(width: 32, height: 32)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 4))
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(signColor, lineWidth: 2))
+                } else {
+                    VStack(spacing: 1) {
+                        VehicleGlyph(type: transportType ?? TransportType.bus.name, size: 13)
+                        Text("STB").font(.system(size: 6, weight: .black, design: .rounded))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 32)
+                    .background(signColor, in: RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(.white, lineWidth: 1.5))
+                }
+            }
+            Rectangle().fill(signColor).frame(width: 3, height: 6)
+            if selected {
+                Text(name)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(.regularMaterial, in: Capsule())
+                    .fixedSize()
+            }
+        }
+        .shadow(color: .black.opacity(0.24), radius: 2, y: 1)
+        .scaleEffect(selected ? 1.08 : 1)
+        .animation(.easeOut(duration: 0.16), value: selected)
+    }
+}
+
 private enum MapSheetLevel: CaseIterable {
     case collapsed, medium, expanded
 
     func height(in available: Double) -> Double {
         switch self {
-        case .collapsed: min(150, available * 0.3)
-        case .medium: min(max(300, available * 0.46), available * 0.75)
-        case .expanded: available * 0.9
+        case .collapsed: min(132, available * 0.24)
+        case .medium: min(max(270, available * 0.36), available * 0.62)
+        case .expanded: available * 0.84
         }
     }
 }
@@ -86,6 +166,36 @@ private final class NearbyMapModel {
         if let result {
             StopLocationCache.shared.storeArea(result, south: south, west: west, north: north, east: east)
             lastSearch = location
+            lastLoaded = .now
+            failed = false
+        } else {
+            failed = true
+        }
+    }
+
+    func load(in viewport: MapViewport, force: Bool = false) async {
+        let bounds = viewport.searchBounds
+        if !force, StopLocationCache.shared.hasFreshCoverage(
+            south: bounds.south, west: bounds.west, north: bounds.north, east: bounds.east
+        ) {
+            failed = false
+            return
+        }
+        if !force, let lastSearch, viewport.center.distance(from: lastSearch) < 350,
+           Date().timeIntervalSince(lastLoaded) < 30 { return }
+
+        let requestId = UUID()
+        searchId = requestId
+        loading = true
+        defer { if searchId == requestId { loading = false } }
+        let result = try? await IosServices.shared.stopsInBounds(
+            south: bounds.south, west: bounds.west, north: bounds.north, east: bounds.east
+        )
+        guard !Task.isCancelled, searchId == requestId else { return }
+        if let result {
+            StopLocationCache.shared.storeArea(result, south: bounds.south, west: bounds.west,
+                                               north: bounds.north, east: bounds.east)
+            lastSearch = viewport.center
             lastLoaded = .now
             failed = false
         } else {
@@ -151,6 +261,7 @@ struct NearbyMapView: View {
     @State private var model = NearbyMapModel()
     @State private var cache = StopLocationCache.shared
     @State private var position: MapCameraPosition = .region(Self.bucharest)
+    @State private var mapViewport: MapViewport?
     @State private var centered = false
     @State private var selectedGroupId: String?
     @State private var selectedStop: CachedStop?
@@ -161,7 +272,7 @@ struct NearbyMapView: View {
     @State private var lanes = RouteLaneLayout(paths: [])
     @State private var metersPerPoint = 6.0
     @State private var mapWidth = 400.0
-    @State private var sheetLevel: MapSheetLevel = .medium
+    @State private var sheetLevel: MapSheetLevel = .collapsed
     @State private var sheetDrag = 0.0
     @State private var routeColors: [Int64: String] = [:]
 
@@ -170,16 +281,18 @@ struct NearbyMapView: View {
         latitudinalMeters: 3_000, longitudinalMeters: 3_000
     )
 
+    private var mapCenter: CLLocation? { mapViewport?.center ?? location.location }
+
     private var nearestStops: [CachedStop] {
-        guard let fix = location.location else { return [] }
-        let stops = cache.nearest(to: fix)
+        guard let center = mapCenter else { return [] }
+        let stops = cache.nearest(to: center, radius: mapViewport?.stopSearchRadius ?? 1_000)
         // Include nearby metro entrances even in dense clusters of surface
         // stops, so the metro filter can discover its nearest lines too.
         let groups = NearbyStopGroup.groups(stops)
         let first = Array(groups.prefix(8))
         let ids = Set(first.map(\.id))
         let metro = groups.filter { !ids.contains($0.id) && $0.stops.contains { $0.type == "SUBWAY_STATION" } }.prefix(2)
-        return (first + metro).flatMap(\.stops).sorted { $0.distance(from: fix) < $1.distance(from: fix) }
+        return (first + metro).flatMap(\.stops).sorted { $0.distance(from: center) < $1.distance(from: center) }
     }
 
     private var nearbyLines: [CachedStopLine] {
@@ -249,6 +362,12 @@ struct NearbyMapView: View {
             }
             await model.load(near: fix)
         }
+        .task(id: mapViewport) {
+            guard let viewport = mapViewport else { return }
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            await model.load(in: viewport)
+        }
         .task(id: nearestStops.map(\.id)) { await model.loadLines(for: nearestStops) }
         .task(id: routeIds) { await model.loadRoutes(routeIds) }
         .task(id: selectedStop?.id) {
@@ -273,7 +392,11 @@ struct NearbyMapView: View {
         .task(id: visibleRoutes.map(\.id)) {
             lanes = RouteLaneLayout(paths: visibleRoutes.map { RouteLanePath(id: $0.id, lineId: $0.lineId, coordinates: $0.coordinates) })
         }
-        .onChange(of: selectedTypes) { _, _ in selectedLineId = nil; selectedGroupId = nil }
+        .onChange(of: selectedTypes) { _, _ in
+            selectedLineId = nil
+            selectedGroupId = nil
+            selectedStop = nil
+        }
     }
 
     private var map: some View {
@@ -305,11 +428,12 @@ struct NearbyMapView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: stop.type == "SUBWAY_STATION" ? "tram.fill" : "bus.fill")
-                            .font(.caption.weight(.bold)).foregroundStyle(.white)
-                            .frame(width: selectedGroupId == group.id ? 36 : 28, height: selectedGroupId == group.id ? 36 : 28)
-                            .background(Color(hex: stop.color ?? "") ?? .accentColor, in: Circle())
-                            .overlay(Circle().stroke(.white, lineWidth: 2))
+                        StopMapMarker(
+                            name: group.name,
+                            isMetro: stop.type == "SUBWAY_STATION",
+                            transportType: group.lines.first?.type,
+                            selected: selectedGroupId == group.id
+                        )
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(group.name)
@@ -332,6 +456,7 @@ struct NearbyMapView: View {
             if scale.isFinite && scale > 0 && abs(scale - metersPerPoint) / metersPerPoint > 0.05 {
                 metersPerPoint = scale
             }
+            mapViewport = MapViewport(context.region)
         }
     }
 
@@ -339,15 +464,13 @@ struct NearbyMapView: View {
         let base = sheetLevel.height(in: available)
         let height = min(MapSheetLevel.expanded.height(in: available), max(MapSheetLevel.collapsed.height(in: available), base - sheetDrag))
         return VStack(spacing: 0) {
-            Capsule()
-                .fill(.secondary.opacity(0.45))
-                .frame(width: 36, height: 5)
-                .frame(maxWidth: .infinity).frame(height: 26)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.snappy) { sheetLevel = sheetLevel == .collapsed ? .medium : .collapsed }
-                }
-                .gesture(DragGesture(minimumDistance: 4)
+            HStack(spacing: 12) {
+                Capsule()
+                    .fill(.secondary.opacity(0.45))
+                    .frame(width: 36, height: 5)
+                    .frame(maxWidth: .infinity).frame(height: 32)
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 4)
                     .onChanged { sheetDrag = $0.translation.height }
                     .onEnded { value in
                         let projected = base - value.predictedEndTranslation.height
@@ -356,23 +479,39 @@ struct NearbyMapView: View {
                         } ?? .medium
                         withAnimation(.snappy) { sheetLevel = nearest; sheetDrag = 0 }
                     })
-                .accessibilityElement()
-                .accessibilityLabel(tr("map.adjustSheet"))
-                .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : sheetLevel == .expanded ? "map.sheetExpanded" : "map.sheetMedium"))
-                .accessibilityAdjustableAction { direction in
-                    withAnimation(.snappy) {
-                        switch direction {
-                        case .increment: sheetLevel = sheetLevel == .collapsed ? .medium : .expanded
-                        case .decrement: sheetLevel = sheetLevel == .expanded ? .medium : .collapsed
-                        @unknown default: break
+                    .accessibilityElement()
+                    .accessibilityLabel(tr("map.adjustSheet"))
+                    .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : sheetLevel == .expanded ? "map.sheetExpanded" : "map.sheetMedium"))
+                    .accessibilityAdjustableAction { direction in
+                        withAnimation(.snappy) {
+                            switch direction {
+                            case .increment: sheetLevel = sheetLevel == .collapsed ? .medium : .expanded
+                            case .decrement: sheetLevel = sheetLevel == .expanded ? .medium : .collapsed
+                            @unknown default: break
+                            }
                         }
                     }
+                Button {
+                    withAnimation(.snappy) {
+                        sheetLevel = sheetLevel == .collapsed ? .medium : .collapsed
+                        sheetDrag = 0
+                    }
+                } label: {
+                    Image(systemName: sheetLevel == .collapsed ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color(.tertiarySystemFill), in: Circle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tr(sheetLevel == .collapsed ? "map.expandSheet" : "map.collapseSheet"))
+            }
+            .padding(.horizontal, 16)
 
-            if sheetLevel != .collapsed { filters.frame(height: 52) }
-            if location.location != nil {
+            if sheetLevel != .collapsed { filters }
+            if mapCenter != nil {
                 lineStrip.fixedSize(horizontal: false, vertical: true)
-            } else if sheetLevel == .collapsed {
+            } else {
                 LocationStatusView(location: location).padding(.horizontal)
             }
             if sheetLevel != .collapsed { results }
@@ -385,30 +524,43 @@ struct NearbyMapView: View {
     }
 
     private var filters: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(TransportType.ordered, id: \.name) { type in
-                    Button {
-                        if selectedTypes.contains(type.name) { selectedTypes.remove(type.name) }
-                        else { selectedTypes.insert(type.name) }
-                    } label: {
-                        Label { Text(type.label) } icon: { VehicleGlyph(type: type.name, size: 13) }
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .foregroundStyle(selectedTypes.contains(type.name) ? type.color : .secondary)
-                            .background(selectedTypes.contains(type.name) ? type.color.opacity(0.14) : Color.clear, in: Capsule())
+        VStack(alignment: .leading, spacing: 4) {
+            Label(tr("map.filters"), systemImage: "slider.horizontal.3")
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(TransportType.ordered, id: \.name) { type in
+                        let selected = selectedTypes.contains(type.name)
+                        Button {
+                            if selected { selectedTypes.remove(type.name) }
+                            else { selectedTypes.insert(type.name) }
+                        } label: {
+                            HStack(spacing: 6) {
+                                VehicleGlyph(type: type.name, size: 13)
+                                Text(type.label).lineLimit(1)
+                                if selected { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)) }
+                            }
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10).frame(height: 34)
+                            .foregroundStyle(selected ? Color.white : Color.primary)
+                            .background(selected ? Color.accentColor : Color(.tertiarySystemFill), in: Capsule())
+                            .overlay(Capsule().stroke(selected ? Color.clear : Color.secondary.opacity(0.2), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(type.label)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(selectedTypes.contains(type.name) ? .isSelected : [])
                 }
+                .padding(.horizontal, 16).padding(.vertical, 3)
             }
-            .padding(.horizontal).padding(.vertical, 8)
         }
+        .frame(height: 62)
     }
 
     private var results: some View {
         List {
-            if location.location == nil {
+            if mapCenter == nil {
                 Section { LocationStatusView(location: location) }
             } else {
                 if model.failed {
@@ -416,7 +568,10 @@ struct NearbyMapView: View {
                         Label(tr("map.cachedResults"), systemImage: "wifi.exclamationmark")
                             .font(.subheadline).foregroundStyle(.secondary)
                         Button(tr("common.retry")) {
-                            Task { if let fix = location.location { await model.load(near: fix, force: true) } }
+                            Task {
+                                if let mapViewport { await model.load(in: mapViewport, force: true) }
+                                else if let fix = location.location { await model.load(near: fix, force: true) }
+                            }
                         }
                     }
                 }
@@ -454,7 +609,11 @@ struct NearbyMapView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
-                if model.linesLoading || model.routesLoading { ProgressView().controlSize(.mini) }
+                Group {
+                    if model.linesLoading || model.routesLoading { ProgressView().controlSize(.mini) }
+                    else { Color.clear }
+                }
+                .frame(width: 12, height: 12)
                 Spacer()
                 if let line = nearbyLines.first(where: { $0.id == selectedLineId }) {
                     Button {
@@ -532,8 +691,8 @@ struct NearbyMapView: View {
                 }
             }
             Spacer()
-            if let fix = location.location {
-                Text(DashboardFormat.distance(group.nearest.distance(from: fix)))
+            if let center = mapCenter {
+                Text(DashboardFormat.distance(group.nearest.distance(from: center)))
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             }
         }
@@ -547,8 +706,8 @@ struct NearbyMapView: View {
                     Text(stop.description.flatMap { $0.isEmpty ? nil : $0 } ?? tr(stop.type == "SUBWAY_STATION" ? "map.metroEntrance" : "map.surfaceStop"))
                         .font(.subheadline.weight(.medium)).foregroundStyle(.primary)
                     Spacer()
-                    if let fix = location.location {
-                        Text(DashboardFormat.distance(stop.distance(from: fix)))
+                    if let center = mapCenter {
+                        Text(DashboardFormat.distance(stop.distance(from: center)))
                             .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)

@@ -78,7 +78,7 @@ struct SettingsView: View {
     private var trackingSection: some View {
         Section {
             if app.subscriptions.isEmpty {
-                Label(tr("dynamicIsland.emptyDescription"), systemImage: "bell.badge")
+                Label(tr("notifications.emptyDescription"), systemImage: "bell.badge")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -103,10 +103,10 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text(tr("dynamicIsland.title"))
+            Text(tr("settings.arrivalAlerts"))
         } footer: {
             if !app.subscriptions.isEmpty {
-                Text(tr("dynamicIsland.enabled"))
+                Text(tr("settings.arrivalAlertsActive"))
             }
         }
     }

@@ -40,6 +40,10 @@ private struct CachedStopArea: Codable {
     func contains(latitude: Double, longitude: Double) -> Bool {
         (south...north).contains(latitude) && (west...east).contains(longitude)
     }
+
+    func contains(south: Double, west: Double, north: Double, east: Double) -> Bool {
+        south >= self.south && west >= self.west && north <= self.north && east <= self.east
+    }
 }
 
 /// A bounded, on-device stop catalogue. Frequent and recently opened stops
@@ -109,6 +113,13 @@ final class StopLocationCache {
             Date().timeIntervalSince($0.updated) < Self.coordinateTTL &&
                 $0.contains(latitude: lat - dLat, longitude: lng - dLng) &&
                 $0.contains(latitude: lat + dLat, longitude: lng + dLng)
+        }
+    }
+
+    func hasFreshCoverage(south: Double, west: Double, north: Double, east: Double) -> Bool {
+        areas.contains {
+            Date().timeIntervalSince($0.updated) < Self.coordinateTTL &&
+                $0.contains(south: south, west: west, north: north, east: east)
         }
     }
 

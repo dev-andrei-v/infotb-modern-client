@@ -14,9 +14,12 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "map.locationUnavailable" to mapOf(Locale.RO to "Pozitia nu este disponibila. Activeaza localizarea pentru a vedea statiile din apropiere.", Locale.EN to "Location is unavailable. Enable location to see nearby stops."),
     "map.openSettings" to mapOf(Locale.RO to "Deschide Setari", Locale.EN to "Open Settings"),
     "map.nearbyLines" to mapOf(Locale.RO to "Linii in apropiere", Locale.EN to "Nearby lines"),
+    "map.filters" to mapOf(Locale.RO to "Filtre de transport", Locale.EN to "Transport filters"),
     "map.viewStops" to mapOf(Locale.RO to "Statiile liniei", Locale.EN to "View stops for"),
     "map.nearestRoutes" to mapOf(Locale.RO to "Trasee apropiate", Locale.EN to "Nearest routes"),
     "map.adjustSheet" to mapOf(Locale.RO to "Redimensioneaza panoul hartii", Locale.EN to "Resize map sheet"),
+    "map.expandSheet" to mapOf(Locale.RO to "Extinde panoul", Locale.EN to "Expand sheet"),
+    "map.collapseSheet" to mapOf(Locale.RO to "Restrange panoul", Locale.EN to "Collapse sheet"),
     "map.sheetCollapsed" to mapOf(Locale.RO to "Restrans", Locale.EN to "Collapsed"),
     "map.sheetMedium" to mapOf(Locale.RO to "Jumatate de ecran", Locale.EN to "Half screen"),
     "map.sheetExpanded" to mapOf(Locale.RO to "Extins", Locale.EN to "Expanded"),
@@ -24,11 +27,11 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "map.surfaceStop" to mapOf(Locale.RO to "Statie de suprafata", Locale.EN to "Surface stop"),
     "map.metroEntrance" to mapOf(Locale.RO to "Intrare metrou", Locale.EN to "Metro entrance"),
     "map.cachedResults" to mapOf(Locale.RO to "Datele nu au putut fi actualizate. Sunt afisate statiile salvate, daca exista.", Locale.EN to "Could not refresh. Showing saved stops where available."),
-    "map.noStops" to mapOf(Locale.RO to "Nicio statie gasita la mai putin de 1 km cu aceste filtre.", Locale.EN to "No stops found within 1 km with these filters."),
+    "map.noStops" to mapOf(Locale.RO to "Nicio statie gasita in zona hartii cu aceste filtre.", Locale.EN to "No stops found in this map area with these filters."),
     "map.loadingRoutes" to mapOf(Locale.RO to "Se incarca liniile si traseele...", Locale.EN to "Loading lines and routes..."),
     "map.routeSelected" to mapOf(Locale.RO to "Traseu selectat", Locale.EN to "Route selected"),
     "map.showRoute" to mapOf(Locale.RO to "Evidentiaza traseul", Locale.EN to "Highlight route"),
-    "map.routeHint" to mapOf(Locale.RO to "Linii de la cele mai apropiate 8 statii si intrari de metrou, la cel mult 1 km. Harta evidentiaza primele 6 linii; atinge o linie pentru a-i izola traseul.", Locale.EN to "Lines serving the nearest 8 stops and metro entrances within 1 km. The first 6 lines are highlighted; tap a line to focus its route."),
+    "map.routeHint" to mapOf(Locale.RO to "Linii de la statiile si intrarile de metrou din zona hartii. Harta evidentiaza primele 6 linii; atinge o linie pentru a-i izola traseul.", Locale.EN to "Lines serving stops and metro entrances in the map area. The first 6 lines are highlighted; tap a line to focus its route."),
     "map.routesUnavailable" to mapOf(Locale.RO to "Unele linii sau trasee nu au putut fi incarcate.", Locale.EN to "Some lines or routes could not be loaded."),
 
     // Navigation
@@ -327,14 +330,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
         Locale.EN to "Add notifications from stop pages to be alerted when the bus arrives."
     ),
 
-    // Dynamic Island (iOS)
-    "dynamicIsland.title" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
-    "dynamicIsland.enabled" to mapOf(Locale.RO to "Dynamic Island activat", Locale.EN to "Dynamic Island enabled"),
-    "dynamicIsland.emptyTitle" to mapOf(Locale.RO to "Dynamic Island inactiv", Locale.EN to "Dynamic Island inactive"),
-    "dynamicIsland.emptyDescription" to mapOf(
-        Locale.RO to "Adauga notificari din paginile statiilor pentru a activa Dynamic Island.",
-        Locale.EN to "Add notifications from stop pages to activate the Dynamic Island."
-    ),
+    "settings.arrivalAlerts" to mapOf(Locale.RO to "Alerte de sosire", Locale.EN to "Arrival alerts"),
+    "settings.arrivalAlertsActive" to mapOf(Locale.RO to "Alerte active", Locale.EN to "Active alerts"),
     "notifications.onceSummary" to mapOf(Locale.RO to "Notificare la {min} min inainte", Locale.EN to "Notify {min} min before"),
     "notifications.repeatSummary" to mapOf(Locale.RO to "Repeta la fiecare {min} min", Locale.EN to "Repeat every {min} min"),
     "notifications.every" to mapOf(Locale.RO to "la fiecare", Locale.EN to "every"),

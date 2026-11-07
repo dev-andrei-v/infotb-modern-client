@@ -29,7 +29,7 @@ import org.maplibre.android.maps.MapView
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/bright"
 
 @Composable
-actual fun LeafletMap(
+actual fun EmbeddedMapView(
     lat: Double,
     lng: Double,
     label: String,

@@ -157,6 +157,10 @@ fun App(
                 when (quickAction.action) {
                     "lines" -> navController.navigate(Screen.Lines.route) { launchSingleTop = true }
                     "map" -> navController.navigate(Screen.NearbyMap.route) { launchSingleTop = true }
+                    "refresh_dashboard" -> {
+                        navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                        dashboardViewModel.refreshNow()
+                    }
                     "plan_destination" -> {
                         plannerShortcutDestination.value = quickAction.destinationJson?.let { raw ->
                             runCatching {

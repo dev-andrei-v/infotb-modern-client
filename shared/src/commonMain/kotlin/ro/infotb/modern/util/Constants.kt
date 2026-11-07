@@ -20,7 +20,12 @@ object Constants {
 
     /** Line names, stop lists, and route geometry change infrequently. */
     const val LINE_DETAIL_CACHE_MS = 24 * 60 * 60_000L
+    /** Stop locations and stop-to-line membership are long-lived reference data. */
+    const val STOP_LOCATION_CACHE_MS = 7 * 24 * 60 * 60_000L
+    const val STOP_LINES_CACHE_MS = 24 * 60 * 60_000L
     const val MAX_CACHED_LINE_DIRECTIONS = 40
+    const val MAX_CACHED_STOP_TILES = 80
+    const val MAX_CACHED_STOP_LINES = 300
 
     /** Max simultaneous stop-info requests from the dashboard. */
     const val DASHBOARD_MAX_PARALLEL_FETCHES = 4
@@ -43,6 +48,8 @@ object Constants {
     const val SETTINGS_KEY_ANNOUNCEMENTS_CACHE = "stb-announcements-cache"
     const val SETTINGS_KEY_LINES_CACHE = "stb-lines-cache-v1"
     const val SETTINGS_KEY_LINE_DETAIL_CACHE = "stb-line-detail-cache-v1"
+    const val SETTINGS_KEY_STOP_TILE_CACHE = "stb-stop-tile-cache-v1"
+    const val SETTINGS_KEY_STOP_LINES_CACHE = "stb-stop-lines-cache-v1"
 
     // Database
     const val DB_NAME = "stb.db"

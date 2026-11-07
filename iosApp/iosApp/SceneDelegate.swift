@@ -110,6 +110,10 @@ enum DeepLinkHandler {
         guard url.scheme == "infotb",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
 
+        if url.host == "dashboard", url.path == "/refresh" {
+            Task { @MainActor in AppModel.shared.refreshDashboardFromWidget() }
+            return true
+        }
         if url.host == "dashboard", url.path == "/group",
            let name = components.queryItems?.first(where: { $0.name == "name" })?.value {
             AppModel.shared.openDashboardGroup(name)

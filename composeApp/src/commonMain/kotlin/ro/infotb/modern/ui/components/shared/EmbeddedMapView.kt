@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-expect fun LeafletMap(
+expect fun EmbeddedMapView(
     lat: Double,
     lng: Double,
     label: String,

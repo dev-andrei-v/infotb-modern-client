@@ -681,8 +681,73 @@ struct TransitGroupHomeWidget: Widget {
 
 private struct TransitGroupWidgetView: View {
     let entry: GroupStopWidgetEntry
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
+        if family == .systemSmall {
+            compactBody
+        } else {
+            regularBody
+        }
+    }
+
+    private var compactBody: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 5) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(entry.stop?.name ?? (entry.localeCode == "en" ? "Dashboard stop" : "Stație din Panou"))
+                        .font(.subheadline.weight(.bold)).lineLimit(1)
+                    Text(entry.groupName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 2)
+                Link(destination: refreshURL()) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption2.weight(.semibold)).frame(width: 24, height: 24)
+                }
+                if entry.stopCount > 1 {
+                    Button(intent: RotateDashboardGroupStopIntent(groupID: entry.groupID)) {
+                        Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
+                            .font(.caption2.weight(.semibold)).frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if entry.arrivals.isEmpty {
+                Text(entry.localeCode == "en" ? "No arrival data" : "Fără date de sosire")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(entry.arrivals.prefix(2).enumerated()), id: \.offset) { _, arrival in
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 5) {
+                                Text(arrival.name)
+                                    .font(.caption.weight(.bold).monospacedDigit())
+                                    .foregroundStyle(Color(hex: arrival.color).contrastingText)
+                                    .lineLimit(1).frame(minWidth: 34)
+                                    .padding(.horizontal, 5).padding(.vertical, 3)
+                                    .background(Color(hex: arrival.color), in: RoundedRectangle(cornerRadius: 5))
+                                Spacer(minLength: 0)
+                                arrivalTime(arrival, compact: true)
+                            }
+                            Text(arrival.direction)
+                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            Link(destination: groupURL(entry.groupName)) {
+                Label(entry.localeCode == "en" ? "Other stops" : "Alte stații", systemImage: "arrow.up.right")
+                    .font(.caption2.weight(.semibold)).lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .containerBackground(for: .widget) { Color(.systemBackground) }
+    }
+
+    private var regularBody: some View {
         HStack(spacing: 0) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(Color(hex: entry.arrivals.first?.color ?? "#C92335"))
@@ -709,6 +774,10 @@ private struct TransitGroupWidgetView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel(entry.localeCode == "en" ? "Next stop" : "Următoarea stație")
                     }
+                    Link(destination: refreshURL()) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption.weight(.semibold)).frame(width: 30, height: 30)
+                    }
                 }
 
                 if entry.arrivals.isEmpty {
@@ -720,7 +789,6 @@ private struct TransitGroupWidgetView: View {
                         ForEach(Array(entry.arrivals.prefix(2).enumerated()), id: \.offset) { index, arrival in
                             if index > 0 { Divider().padding(.leading, 44) }
                             HStack(spacing: 7) {
-                                let timeColor = arrival.isTimetable ? Color(hex: "#7E8CA0") : Color(hex: "#43A047")
                                 Text(arrival.name)
                                     .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
                                     .foregroundStyle(Color(hex: arrival.color).contrastingText)
@@ -728,22 +796,13 @@ private struct TransitGroupWidgetView: View {
                                     .frame(minWidth: 36)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 4)
-                                    .background(Color(hex: arrival.color) ?? .gray, in: RoundedRectangle(cornerRadius: 6))
+                                    .background(Color(hex: arrival.color), in: RoundedRectangle(cornerRadius: 6))
                                 Text(arrival.direction)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                HStack(spacing: 4) {
-                                    Image(systemName: arrival.isTimetable ? "calendar" : "dot.radiowaves.left.and.right")
-                                        .font(.system(size: 9, weight: .semibold))
-                                    Text(arrival.seconds < 60 ? "<1 min" : "\(max(1, arrival.seconds / 60)) min")
-                                        .font(.caption.monospacedDigit().weight(.bold))
-                                }
-                                .foregroundStyle(timeColor)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 5)
-                                .background(timeColor.opacity(0.13), in: RoundedRectangle(cornerRadius: 8))
+                                arrivalTime(arrival, compact: false)
                             }
                             .padding(.vertical, 4)
                         }
@@ -763,8 +822,27 @@ private struct TransitGroupWidgetView: View {
             .padding(.vertical, 10)
             .padding(.trailing, 12)
         }
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .containerBackground(for: .widget) { Color(.systemGroupedBackground) }
+        .containerBackground(for: .widget) { Color(.systemBackground) }
+    }
+
+    private func arrivalTime(_ arrival: (name: String, color: String, direction: String, seconds: Int, isTimetable: Bool), compact: Bool) -> some View {
+        let timeColor = arrival.isTimetable ? Color(hex: "#7E8CA0") : Color(hex: "#43A047")
+        return HStack(spacing: 3) {
+            Image(systemName: arrival.isTimetable ? "calendar" : "dot.radiowaves.left.and.right")
+                .font(.system(size: compact ? 8 : 9, weight: .semibold))
+            Text(arrival.seconds < 60 ? "<1 min" : "\(max(1, arrival.seconds / 60)) min")
+                .font((compact ? Font.caption2 : Font.caption).monospacedDigit().weight(.bold))
+                .lineLimit(1).fixedSize()
+        }
+        .foregroundStyle(timeColor)
+        .padding(.horizontal, compact ? 5 : 7)
+        .padding(.vertical, compact ? 3 : 5)
+        .background(timeColor.opacity(0.13), in: RoundedRectangle(cornerRadius: 8))
+        .fixedSize()
+    }
+
+    private func refreshURL() -> URL {
+        URL(string: "infotb://dashboard/refresh")!
     }
 
     private func groupURL(_ group: String) -> URL {

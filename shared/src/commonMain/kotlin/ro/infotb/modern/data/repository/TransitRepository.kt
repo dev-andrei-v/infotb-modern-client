@@ -9,6 +9,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.math.ceil
+import kotlin.math.floor
 import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.api.StbApi
 import ro.infotb.modern.data.model.*
@@ -30,9 +32,19 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
 
     private data class CachedStopInfo(val info: StopInfo, val fetchedAtMs: Long)
 
+    @Serializable
+    private data class CachedStops(val fetchedAtMs: Long, val stops: List<Stop>)
+
+    @Serializable
+    private data class CachedStopLines(val fetchedAtMs: Long, val lines: List<Line>)
+
     private val stopInfoCache = mutableMapOf<String, CachedStopInfo>()
     private val stopInfoInFlight = mutableMapOf<String, CompletableDeferred<StopInfo>>()
     private val stopInfoLock = Mutex()
+    private val stopTileLock = Mutex()
+    private val stopTileInFlight = mutableMapOf<String, CompletableDeferred<List<Stop>>>()
+    private val stopLinesLock = Mutex()
+    private val stopLinesInFlight = mutableMapOf<Long, CompletableDeferred<List<Line>>>()
 
     suspend fun getAllLines(): List<Line> {
         val cached = settings.getStringOrNull(Constants.SETTINGS_KEY_LINES_CACHE)
@@ -52,6 +64,22 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
         } catch (e: Exception) {
             cached?.lines ?: throw e
         }
+    }
+
+    fun getLinesCachedAtMs(): Long = settings.getStringOrNull(Constants.SETTINGS_KEY_LINES_CACHE)
+        ?.let { runCatching { lineDetailCacheJson.decodeFromString<CachedLineCatalog>(it).fetchedAtMs }.getOrNull() }
+        ?: 0L
+
+    suspend fun refreshLinesAndStops(): List<Line> {
+        val lines = api.getAllLines()
+        settings.putString(
+            Constants.SETTINGS_KEY_LINES_CACHE,
+            lineDetailCacheJson.encodeToString(CachedLineCatalog(currentTimeMillis(), lines))
+        )
+        clearIndexedCache("${Constants.SETTINGS_KEY_LINE_DETAIL_CACHE}-index", Constants.SETTINGS_KEY_LINE_DETAIL_CACHE)
+        clearIndexedCache("${Constants.SETTINGS_KEY_STOP_LINES_CACHE}-index", Constants.SETTINGS_KEY_STOP_LINES_CACHE)
+        clearIndexedCache("${Constants.SETTINGS_KEY_STOP_TILE_CACHE}-index", Constants.SETTINGS_KEY_STOP_TILE_CACHE)
+        return lines
     }
 
     suspend fun getLineDetail(lineId: Long): LineDetail {
@@ -169,7 +197,44 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
         return api.getStopDetails(stopId)
     }
 
-    suspend fun getStopLines(stopId: Long): List<Line> = api.getStopLines(stopId)
+    suspend fun getStopLines(stopId: Long): List<Line> {
+        val key = "${Constants.SETTINGS_KEY_STOP_LINES_CACHE}-$stopId"
+        val cached = settings.getStringOrNull(key)
+            ?.let { runCatching { lineDetailCacheJson.decodeFromString<CachedStopLines>(it) }.getOrNull() }
+        if (cached != null && currentTimeMillis() - cached.fetchedAtMs <= Constants.STOP_LINES_CACHE_MS) return cached.lines
+
+        val pending: CompletableDeferred<List<Line>>
+        val isOwner: Boolean
+        stopLinesLock.withLock {
+            val existing = stopLinesInFlight[stopId]
+            if (existing != null) {
+                pending = existing
+                isOwner = false
+            } else {
+                pending = CompletableDeferred()
+                stopLinesInFlight[stopId] = pending
+                isOwner = true
+            }
+        }
+        if (!isOwner) return pending.await()
+        try {
+            val lines = api.getStopLines(stopId)
+            settings.putString(key, lineDetailCacheJson.encodeToString(CachedStopLines(currentTimeMillis(), lines)))
+            retainRecentEntries("${Constants.SETTINGS_KEY_STOP_LINES_CACHE}-index", stopId.toString(), Constants.MAX_CACHED_STOP_LINES)
+            stopLinesLock.withLock { stopLinesInFlight.remove(stopId) }
+            pending.complete(lines)
+            return lines
+        } catch (e: CancellationException) {
+            stopLinesLock.withLock { stopLinesInFlight.remove(stopId) }
+            pending.completeExceptionally(e)
+            throw e
+        } catch (e: Exception) {
+            stopLinesLock.withLock { stopLinesInFlight.remove(stopId) }
+            if (cached != null) { pending.complete(cached.lines); return cached.lines }
+            pending.completeExceptionally(e)
+            throw e
+        }
+    }
 
     suspend fun getVehicles(lineId: Long, direction: Direction): List<VehiclePosition> {
         return api.getVehicles(lineId, direction)
@@ -212,6 +277,64 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
         return api.getHomeStops(stopId)
     }
 
-    suspend fun getStopsInBounds(south: Double, west: Double, north: Double, east: Double): List<Stop> =
-        api.getStopsInBounds(south, west, north, east)
+    suspend fun getStopsInBounds(south: Double, west: Double, north: Double, east: Double): List<Stop> {
+        // Request and cache 0.02° tiles so small pans reuse the same stop-location data.
+        val step = 0.02
+        val tileSouth = floor(south / step) * step
+        val tileWest = floor(west / step) * step
+        val tileNorth = ceil(north / step) * step
+        val tileEast = ceil(east / step) * step
+        val coordinates = listOf(tileSouth, tileWest, tileNorth, tileEast).map { (it * 100).toInt() }
+        val tileId = coordinates.joinToString("_")
+        val key = "${Constants.SETTINGS_KEY_STOP_TILE_CACHE}-$tileId"
+        val cached = settings.getStringOrNull(key)
+            ?.let { runCatching { lineDetailCacheJson.decodeFromString<CachedStops>(it) }.getOrNull() }
+        val inTile = { stops: List<Stop> -> stops.filter { it.lat in south..north && it.lng in west..east } }
+        if (cached != null && currentTimeMillis() - cached.fetchedAtMs <= Constants.STOP_LOCATION_CACHE_MS) return inTile(cached.stops)
+
+        val pending: CompletableDeferred<List<Stop>>
+        val isOwner: Boolean
+        stopTileLock.withLock {
+            val existing = stopTileInFlight[tileId]
+            if (existing != null) {
+                pending = existing
+                isOwner = false
+            } else {
+                pending = CompletableDeferred()
+                stopTileInFlight[tileId] = pending
+                isOwner = true
+            }
+        }
+        if (!isOwner) return inTile(pending.await())
+        try {
+            val stops = api.getStopsInBounds(tileSouth, tileWest, tileNorth, tileEast)
+            settings.putString(key, lineDetailCacheJson.encodeToString(CachedStops(currentTimeMillis(), stops)))
+            retainRecentEntries("${Constants.SETTINGS_KEY_STOP_TILE_CACHE}-index", tileId, Constants.MAX_CACHED_STOP_TILES)
+            stopTileLock.withLock { stopTileInFlight.remove(tileId) }
+            pending.complete(stops)
+            return inTile(stops)
+        } catch (e: CancellationException) {
+            stopTileLock.withLock { stopTileInFlight.remove(tileId) }
+            pending.completeExceptionally(e)
+            throw e
+        } catch (e: Exception) {
+            stopTileLock.withLock { stopTileInFlight.remove(tileId) }
+            if (cached != null) { pending.complete(cached.stops); return inTile(cached.stops) }
+            pending.completeExceptionally(e)
+            throw e
+        }
+    }
+
+    private fun retainRecentEntries(indexKey: String, entry: String, maxEntries: Int) {
+        val previous = settings.getStringOrNull(indexKey)?.split('|')?.filter(String::isNotBlank).orEmpty()
+        val retained = (previous.filterNot { it == entry } + entry).takeLast(maxEntries)
+        (previous - retained.toSet()).forEach { settings.remove("${indexKey.removeSuffix("-index")}-${it}") }
+        settings.putString(indexKey, retained.joinToString("|"))
+    }
+
+    private fun clearIndexedCache(indexKey: String, keyPrefix: String) {
+        settings.getStringOrNull(indexKey)?.split('|')?.filter(String::isNotBlank).orEmpty()
+            .forEach { settings.remove("$keyPrefix-$it") }
+        settings.remove(indexKey)
+    }
 }

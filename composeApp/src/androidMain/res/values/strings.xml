@@ -5,6 +5,7 @@
     <string name="widget_default_group">Ungrouped stops</string>
     <string name="widget_no_stops">No stops in this group</string>
     <string name="widget_all_stops">Other stops</string>
+    <string name="widget_refresh">Refresh arrivals</string>
     <string name="widget_open_dashboard">Open dashboard for arrivals</string>
     <string name="widget_rotating_group">Rotating group</string>
     <string name="widget_dashboard_selection">Dashboard selection</string>

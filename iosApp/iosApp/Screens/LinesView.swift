@@ -8,11 +8,15 @@ final class LinesModel {
 
     private(set) var lines: [Line] = []
     private(set) var isLoading = false
+    private(set) var lastUpdatedMs: Int64 = 0
     private(set) var error: String?
     private(set) var isSearchingStops = false
     private(set) var selectedTypes: Set<String> = []
     private(set) var favoriteIds: Set<Int64> = []
     private(set) var lineDisplayStyle = "normal"
+    private(set) var nearbyOnly = false
+    private(set) var isLoadingNearby = false
+    private(set) var nearbyError: String?
 
     var searchQuery = "" {
         didSet {
@@ -36,6 +40,7 @@ final class LinesModel {
         scope.own(viewModel)
         scope.watch(viewModel.filteredLines) { [weak self] in self?.lines = Unbox.list($0) }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
+        scope.watch(viewModel.lastUpdatedMs) { [weak self] in self?.lastUpdatedMs = Unbox.int64($0) }
         scope.watch(viewModel.error) { [weak self] in self?.error = $0 as? String }
         scope.watch(viewModel.isSearchingStops) { [weak self] in self?.isSearchingStops = Unbox.bool($0) }
         scope.watch(viewModel.selectedTypes) { [weak self] value in
@@ -47,6 +52,9 @@ final class LinesModel {
         scope.watch(viewModel.lineDisplayStyle) { [weak self] value in
             self?.lineDisplayStyle = value as? String ?? "normal"
         }
+        scope.watch(viewModel.nearbyOnly) { [weak self] in self?.nearbyOnly = Unbox.bool($0) }
+        scope.watch(viewModel.isLoadingNearby) { [weak self] in self?.isLoadingNearby = Unbox.bool($0) }
+        scope.watch(viewModel.nearbyError) { [weak self] in self?.nearbyError = $0 as? String }
     }
 
     func toggleType(_ type: TransportType) {
@@ -54,8 +62,13 @@ final class LinesModel {
         viewModel.toggleTypeFilter(type: type)
     }
 
+    func toggleNearby() {
+        nightOnly = false
+        viewModel.setNearbyOnly(enabled: !nearbyOnly)
+    }
+
     func toggleFavorite(_ line: Line) { viewModel.toggleFavorite(lineId: line.id) }
-    func reload() { viewModel.loadLines() }
+    func reload() { viewModel.refreshLines() }
     func setLineDisplayStyle(_ style: String) { viewModel.setLineDisplayStyle(style: style) }
 
     var favorites: [Line] { lines.filter { favoriteIds.contains($0.id) } }
@@ -130,6 +143,19 @@ struct LinesView: View {
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if model.isLoading || model.lastUpdatedMs > 0 {
+                    HStack(spacing: 5) {
+                        if model.isLoading { ProgressView().controlSize(.mini) }
+                        Text(model.isLoading
+                             ? tr("dashboard.updating")
+                             : "\(tr("dashboard.updated")) \(DashboardFormat.ago(Int64(Date.now.timeIntervalSince1970 * 1000) - model.lastUpdatedMs))")
+                            .font(.caption2).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 18).padding(.vertical, 4)
+                }
+            }
             .scrollDismissesKeyboard(.interactively)
             .refreshable { model.reload() }
     }
@@ -247,6 +273,16 @@ struct LinesView: View {
                 } else {
                     HStack(spacing: 12) {
                         LineBadge(name: displayLineName, color: line.color)
+                        if model.lineDisplayStyle == "normal",
+                           let start = line.startStopName,
+                           let end = line.endStopName {
+                            Text("\(start)\n\(end)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                         if showsType {
                             Text(line.type.label)
                                 .foregroundStyle(.secondary)
@@ -256,13 +292,6 @@ struct LinesView: View {
                             Image(systemName: "star.fill").foregroundStyle(Color.favorite)
                         }
                     }
-                }
-                if model.lineDisplayStyle == "normal", let start = line.startStopName, let end = line.endStopName {
-                    Text("\(start) - \(end)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.tail)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -299,6 +328,15 @@ struct LinesView: View {
     private var filterChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                FilterChip(
+                    title: tr("lines.nearby"),
+                    color: .accentColor,
+                    isOn: model.nearbyOnly,
+                    icon: {
+                        if model.isLoadingNearby { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "location.fill").font(.system(size: 12, weight: .semibold)) }
+                    }
+                ) { model.toggleNearby() }
                 ForEach(TransportType.ordered, id: \.name) { type in
                     FilterChip(
                         title: type.label,
@@ -321,6 +359,13 @@ struct LinesView: View {
             .padding(.horizontal)
         }
         .scrollClipDisabled()
+        .overlay(alignment: .bottomLeading) {
+            if model.isLoadingNearby || model.nearbyError != nil {
+                Text(model.nearbyError ?? tr("lines.nearbyLoading"))
+                    .font(.caption2).foregroundStyle(model.nearbyError == nil ? Color.secondary : Color.red)
+                    .padding(.horizontal, 16).padding(.bottom, 1)
+            }
+        }
     }
 }
 

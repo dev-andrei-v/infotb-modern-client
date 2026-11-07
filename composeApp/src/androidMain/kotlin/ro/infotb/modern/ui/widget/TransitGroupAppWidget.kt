@@ -36,6 +36,12 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                     putExtra(EXTRA_OPEN_GROUP, group)
                 })
             }
+            ACTION_REFRESH -> {
+                context.startActivity(Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra(EXTRA_REFRESH_WIDGET, true)
+                })
+            }
         }
     }
 
@@ -48,6 +54,8 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         const val EXTRA_OPEN_GROUP = "open_dashboard_group"
         const val ACTION_ROTATE = "ro.infotb.modern.widget.ROTATE"
         const val ACTION_OPEN_GROUP = "ro.infotb.modern.widget.OPEN_GROUP"
+        const val ACTION_REFRESH = "ro.infotb.modern.widget.REFRESH"
+        const val EXTRA_REFRESH_WIDGET = "refresh_dashboard_from_widget"
 
         fun groupKey(id: Int) = "group_$id"
         private fun indexKey(id: Int) = "index_$id"
@@ -150,6 +158,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                 }
                 setInt(R.id.widget_accent, "setBackgroundColor", accent)
                 setViewVisibility(R.id.widget_rotate, if (stopCount > 1) android.view.View.VISIBLE else android.view.View.GONE)
+                setOnClickPendingIntent(R.id.widget_refresh, activityRefresh(context, widgetId))
                 setOnClickPendingIntent(R.id.widget_rotate, broadcast(context, widgetId, ACTION_ROTATE, 1))
                 setOnClickPendingIntent(R.id.widget_open, broadcast(context, widgetId, ACTION_OPEN_GROUP, 2))
                 setOnClickPendingIntent(R.id.widget_root, activity(context, selectedGroupName, widgetId))
@@ -183,6 +192,17 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(EXTRA_OPEN_GROUP, groupName)
+            }
+            return PendingIntent.getActivity(
+                context, widgetId * 10 + 3, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+
+        private fun activityRefresh(context: Context, widgetId: Int): PendingIntent {
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_REFRESH_WIDGET, true)
             }
             return PendingIntent.getActivity(
                 context, widgetId * 10 + 3, intent,

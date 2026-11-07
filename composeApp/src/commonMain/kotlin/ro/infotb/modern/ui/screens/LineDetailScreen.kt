@@ -53,7 +53,7 @@ import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.VehiclePosition
 import ro.infotb.modern.ui.components.shared.DirectionToggle
-import ro.infotb.modern.ui.components.shared.LeafletRouteMap
+import ro.infotb.modern.ui.components.shared.EmbeddedRouteMapView
 import ro.infotb.modern.ui.components.shared.drawScrollbar
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
@@ -90,7 +90,7 @@ fun LineDetailScreen(
     if (showFullMap && lineDetail != null) {
         val detail = lineDetail!!
         Box(modifier = Modifier.fillMaxSize()) {
-            LeafletRouteMap(
+            EmbeddedRouteMapView(
                 stops = detail.stops,
                 vehicles = vehicles,
                 lineColor = detail.color,

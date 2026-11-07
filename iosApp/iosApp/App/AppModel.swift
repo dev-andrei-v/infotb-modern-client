@@ -204,6 +204,11 @@ final class AppModel {
         services.notificationEngine.refreshNow()
     }
 
+    func refreshDashboardFromWidget() {
+        selectedTab = .dashboard
+        Task { @MainActor in await dashboard.refresh() }
+    }
+
     // MARK: Toast
 
     func showToast(_ message: String) {

@@ -84,15 +84,24 @@ struct ArrivalBadge: View {
         }
         .contentTransition(.numericText())
         .onTapGesture { showInfo = true }
-        .popover(isPresented: $showInfo) {
-            Label(
-                isTimetable ? tr("arrival.scheduledInfo") : tr("arrival.liveInfo"),
-                systemImage: isTimetable ? "calendar" : "dot.radiowaves.left.and.right"
-            )
-            .font(.callout)
-            .padding()
-            .frame(maxWidth: 280)
-            .presentationCompactAdaptation(.popover)
+        .sheet(isPresented: $showInfo) {
+            VStack(alignment: .leading, spacing: 16) {
+                Label(
+                    isTimetable ? tr("arrival.scheduled") : "Live GPS",
+                    systemImage: isTimetable ? "calendar" : "dot.radiowaves.left.and.right"
+                )
+                .font(.headline)
+                ScrollView {
+                    Text(isTimetable ? tr("arrival.scheduledInfo") : tr("arrival.liveInfo"))
+                        .font(.body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(24)
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .accessibilityElement(children: .combine)
     }

@@ -212,6 +212,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     ),
     "lines.favorites" to mapOf(Locale.RO to "Favorite", Locale.EN to "Favorites"),
     "lines.night" to mapOf(Locale.RO to "Noapte", Locale.EN to "Night"),
+    "lines.nearby" to mapOf(Locale.RO to "Linii apropiate", Locale.EN to "Nearby lines"),
+    "lines.nearbyLoading" to mapOf(Locale.RO to "Se cauta liniile din apropiere...", Locale.EN to "Finding nearby lines..."),
     "lines.emptyTitle" to mapOf(Locale.RO to "Nicio linie gasita", Locale.EN to "No lines found"),
     "lines.searchingStops" to mapOf(Locale.RO to "Se cauta liniile...", Locale.EN to "Searching lines..."),
     "lines.emptyDescription" to mapOf(

@@ -4,6 +4,7 @@
     <string name="widget_default_group">Stații fără grup</string>
     <string name="widget_no_stops">Nicio stație în acest grup</string>
     <string name="widget_all_stops">Alte stații</string>
+    <string name="widget_refresh">Reîmprospătează sosirile</string>
     <string name="widget_open_dashboard">Deschide Panoul pentru sosiri</string>
     <string name="widget_rotating_group">Grup rotativ</string>
     <string name="widget_dashboard_selection">Stația aleasă în Panou</string>

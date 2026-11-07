@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-actual fun LeafletMap(
+actual fun EmbeddedMapView(
     lat: Double,
     lng: Double,
     label: String,

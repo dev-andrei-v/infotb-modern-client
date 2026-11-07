@@ -69,7 +69,7 @@ import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
-import ro.infotb.modern.ui.components.shared.LeafletMap
+import ro.infotb.modern.ui.components.shared.EmbeddedMapView
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.RealtimeColor
@@ -195,11 +195,11 @@ fun StopDetailScreen(
                     }
                 }
 
-                // Leaflet Map
+                // Embedded Map
                 val coords = stopCoordinates
                 if (coords != null) {
                     item(key = "map") {
-                        LeafletMap(
+                        EmbeddedMapView(
                             lat = coords.lat,
                             lng = coords.lng,
                             label = info.name,

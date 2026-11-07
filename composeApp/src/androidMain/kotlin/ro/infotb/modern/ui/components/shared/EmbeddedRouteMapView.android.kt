@@ -34,7 +34,7 @@ import ro.infotb.modern.util.decodePolyline
 private const val OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/bright"
 
 @Composable
-actual fun LeafletRouteMap(
+actual fun EmbeddedRouteMapView(
     stops: List<Stop>,
     vehicles: List<VehiclePosition>,
     lineColor: String,

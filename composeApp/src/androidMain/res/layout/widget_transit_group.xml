@@ -7,7 +7,7 @@
     android:background="@drawable/widget_transit_background"
     android:clipToOutline="true">
 
-    <View
+    <FrameLayout
         android:id="@+id/widget_accent"
         android:layout_width="5dp"
         android:layout_height="match_parent"
@@ -53,6 +53,17 @@
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_refresh"
+                android:layout_width="30dp"
+                android:layout_height="36dp"
+                android:contentDescription="@string/widget_refresh"
+                android:gravity="center"
+                android:text="⟳"
+                android:textColor="@color/widget_secondary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_rotate"

@@ -96,12 +96,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleQuickActionIntent(intent: Intent?) {
-        val action = intent?.getStringExtra(TransitAppShortcuts.ACTION_KEY) ?: return
-        val destinationJson = intent.getStringExtra(TransitAppShortcuts.DESTINATION_KEY)
+        val sourceIntent = intent ?: return
+        val action = when {
+            sourceIntent.getBooleanExtra(ro.infotb.modern.ui.widget.TransitGroupAppWidget.EXTRA_REFRESH_WIDGET, false) -> "refresh_dashboard"
+            else -> sourceIntent.getStringExtra(TransitAppShortcuts.ACTION_KEY)
+        } ?: return
+        val destinationJson = sourceIntent.getStringExtra(TransitAppShortcuts.DESTINATION_KEY)
         if (action == "plan_destination") {
             TransitAppShortcuts.recordDestinationUse(
                 this,
-                intent.getStringExtra(TransitAppShortcuts.TRIP_ID_KEY).orEmpty()
+                sourceIntent.getStringExtra(TransitAppShortcuts.TRIP_ID_KEY).orEmpty()
             )
         }
         quickActionRequestId += 1

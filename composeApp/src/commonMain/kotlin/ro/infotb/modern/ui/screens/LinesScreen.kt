@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
@@ -36,6 +37,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +47,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.model.Line
 import ro.infotb.modern.data.model.TransportType
+import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.ui.components.shared.EmptyState
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
@@ -73,6 +77,7 @@ import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun LinesScreen(
     viewModel: LinesViewModel,
     locale: Locale,
@@ -80,10 +85,14 @@ fun LinesScreen(
 ) {
     val filteredLines by viewModel.filteredLines.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val lastUpdatedMs by viewModel.lastUpdatedMs.collectAsState()
     val error by viewModel.error.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isSearchingStops by viewModel.isSearchingStops.collectAsState()
     val selectedTypes by viewModel.selectedTypes.collectAsState()
+    val nearbyOnly by viewModel.nearbyOnly.collectAsState()
+    val isLoadingNearby by viewModel.isLoadingNearby.collectAsState()
+    val nearbyError by viewModel.nearbyError.collectAsState()
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val lineDisplayStyle by viewModel.lineDisplayStyle.collectAsState()
     var showDisplayMenu by remember { mutableStateOf(false) }
@@ -143,7 +152,11 @@ fun LinesScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = t("lines.description", locale),
+                text = when {
+                    isLoading && filteredLines.isNotEmpty() -> t("dashboard.updating", locale)
+                    lastUpdatedMs > 0L -> "${t("dashboard.updated", locale)} ${formatLinesAge(nowMs() - lastUpdatedMs, locale)}"
+                    else -> t("lines.description", locale)
+                },
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalMuted.current
                 )
@@ -173,13 +186,16 @@ fun LinesScreen(
         }
 
         // Main List Content
-        Box(
+        PullToRefreshBox(
+            isRefreshing = isLoading && filteredLines.isNotEmpty(),
+            onRefresh = { viewModel.refreshLines() },
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
         ) {
+        Box(Modifier.fillMaxSize()) {
             when {
-                isLoading -> {
+                isLoading && filteredLines.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -392,6 +408,7 @@ fun LinesScreen(
                 }
             }
         }
+        }
 
         // Docked Bottom Bar (Filters + Search within thumb reach, matching Swift)
         Surface(
@@ -413,6 +430,18 @@ fun LinesScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    FilterChip(
+                        selected = nearbyOnly,
+                        onClick = {
+                            if (showNightOnly) showNightOnly = false
+                            viewModel.setNearbyOnly(!nearbyOnly)
+                        },
+                        label = { Text(t("lines.nearby", locale), fontSize = 12.sp) },
+                        leadingIcon = {
+                            if (isLoadingNearby) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                            else Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    )
                     TransportType.entries.forEach { type ->
                         val isSelected = type in selectedTypes
                         val color = transportColor(type)
@@ -451,6 +480,15 @@ fun LinesScreen(
                     )
                 }
 
+                if (nearbyError != null || (nearbyOnly && isLoadingNearby)) {
+                    Text(
+                        text = nearbyError ?: t("lines.nearbyLoading", locale),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (nearbyError != null) MaterialTheme.colorScheme.error else LocalMuted.current
+                    )
+                }
+
                 Spacer(Modifier.height(6.dp))
 
                 // Search field docked at bottom
@@ -484,6 +522,17 @@ fun LinesScreen(
                 )
             }
         }
+    }
+}
+
+private fun nowMs(): Long = currentTimeMillis()
+
+private fun formatLinesAge(elapsedMs: Long, locale: Locale): String {
+    val seconds = (elapsedMs / 1_000).coerceAtLeast(0)
+    return when {
+        seconds < 5 -> t("time.justNow", locale)
+        seconds < 60 -> t("time.secondsAgo", locale).replace("{n}", seconds.toString())
+        else -> t("time.minutesAgo", locale).replace("{n}", (seconds / 60).toString())
     }
 }
 
@@ -550,18 +599,14 @@ private fun LineRow(
                     )
                 }
             } else if (endpoints.isNotEmpty()) {
-                Column(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF18212B)).padding(horizontal = 8.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = endpoints.joinToString(" - "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = endpoints.joinToString("\n"),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             } else {
                 Spacer(Modifier.weight(1f))
             }

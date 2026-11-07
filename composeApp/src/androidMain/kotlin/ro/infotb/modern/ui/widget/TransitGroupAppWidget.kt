@@ -1,6 +1,7 @@
 package ro.infotb.modern.ui.widget
 
 import android.app.PendingIntent
+import android.app.AlarmManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
@@ -9,6 +10,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Build
+import android.os.SystemClock
 import android.widget.RemoteViews
 import org.json.JSONObject
 import ro.infotb.modern.MainActivity
@@ -22,13 +24,14 @@ class TransitGroupAppWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        if (intent.action == ACTION_SCHEDULE_UPDATE) {
+            val manager = AppWidgetManager.getInstance(context)
+            manager.getAppWidgetIds(ComponentName(context, TransitGroupAppWidget::class.java)).forEach { update(context, manager, it) }
+            scheduleNextBoundary(context)
+            return
+        }
         if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
         when (intent.action) {
-            ACTION_ROTATE -> {
-                val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-                prefs.edit().putInt(indexKey(widgetId), prefs.getInt(indexKey(widgetId), 0) + 1).apply()
-                update(context, AppWidgetManager.getInstance(context), widgetId)
-            }
             ACTION_OPEN_GROUP -> {
                 val group = resolveGroupName(context, widgetId)
                 context.startActivity(Intent(context, MainActivity::class.java).apply {
@@ -50,15 +53,15 @@ class TransitGroupAppWidget : AppWidgetProvider() {
         const val SNAPSHOT_KEY = "dashboard_snapshot"
         const val SELECTED_STOP_KEY = "dashboard_selected_stop"
         const val DASHBOARD_SELECTION_ID = "__dashboard_selection__"
-        const val ROTATING_GROUP_ID = "__rotating_group__"
+        const val ROTATING_GROUP_ID = "__active_group__"
         const val EXTRA_OPEN_GROUP = "open_dashboard_group"
-        const val ACTION_ROTATE = "ro.infotb.modern.widget.ROTATE"
+        const val ACTION_SCHEDULE_UPDATE = "ro.infotb.modern.widget.SCHEDULE_UPDATE"
         const val ACTION_OPEN_GROUP = "ro.infotb.modern.widget.OPEN_GROUP"
         const val ACTION_REFRESH = "ro.infotb.modern.widget.REFRESH"
         const val EXTRA_REFRESH_WIDGET = "refresh_dashboard_from_widget"
 
         fun groupKey(id: Int) = "group_$id"
-        private fun indexKey(id: Int) = "index_$id"
+        private fun stopKey(id: Int) = "stop_$id"
 
         private fun resolveGroupName(context: Context, widgetId: Int): String {
             val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -79,9 +82,18 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             val populated = (0 until (groups?.length() ?: 0)).mapNotNull { groups?.optJSONObject(it) }
                 .filter { (it.optJSONArray("stops")?.length() ?: 0) > 0 }
             if (populated.isEmpty()) return ""
-            val rotationBucket = System.currentTimeMillis() / ROTATION_INTERVAL_MS
-            val index = Math.floorMod(rotationBucket, populated.size.toLong()).toInt()
-            return populated[index].optString("name")
+            return activeGroup(populated, System.currentTimeMillis())?.optString("name") ?: populated.first().optString("name")
+        }
+
+        private fun activeGroup(groups: List<JSONObject>, atMillis: Long): JSONObject? {
+            val c = java.util.Calendar.getInstance().apply { timeInMillis = atMillis }
+            val minute = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+            fun isActive(from: Int, to: Int) = if (from <= to) minute in from..to else minute >= from || minute <= to
+            return groups.firstOrNull { group ->
+                val from = group.optInt("activeFrom", -1)
+                val to = group.optInt("activeTo", -1)
+                from >= 0 && to >= 0 && isActive(from, to)
+            } ?: groups.firstOrNull { it.optInt("activeFrom", -1) < 0 || it.optInt("activeTo", -1) < 0 }
         }
 
         fun update(context: Context, manager: AppWidgetManager, widgetId: Int) {
@@ -91,6 +103,7 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             val snapshot = runCatching { JSONObject(prefs.getString(SNAPSHOT_KEY, "{}") ?: "{}") }.getOrNull()
             val groups = snapshot?.optJSONArray("groups")
             val selectedStopId = prefs.getString(SELECTED_STOP_KEY, null)
+            val widgetStopId = prefs.getString(stopKey(widgetId), null)
             val selectedStop = if (storedGroup == DASHBOARD_SELECTION_ID && selectedStopId != null) {
                 (0 until (groups?.length() ?: 0)).asSequence()
                     .mapNotNull { groups?.optJSONObject(it)?.optJSONArray("stops") }
@@ -100,11 +113,16 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             val group = (0 until (groups?.length() ?: 0))
                 .mapNotNull { groups?.optJSONObject(it) }
                 .firstOrNull { it.optString("name") == groupName }
-            val stops = if (selectedStop != null) org.json.JSONArray().put(selectedStop) else group?.optJSONArray("stops")
-            val stopCount = stops?.length() ?: 0
-            val empty = stopCount == 0
-            val index = if (empty) 0 else Math.floorMod(prefs.getInt(indexKey(widgetId), 0), stopCount)
-            val stop = if (empty) null else stops?.optJSONObject(index)
+            val groupStops = group?.optJSONArray("stops")
+            val stop = when {
+                selectedStop != null -> selectedStop
+                widgetStopId != null -> (0 until (groupStops?.length() ?: 0)).asSequence().mapNotNull { groupStops?.optJSONObject(it) }
+                    .firstOrNull { it.optString("id") == widgetStopId }
+                else -> group?.optLong("selectedStopId")?.takeIf { it != 0L }?.let { target ->
+                    (0 until (groupStops?.length() ?: 0)).asSequence().mapNotNull { groupStops?.optJSONObject(it) }
+                        .firstOrNull { it.optString("id").toLongOrNull() == target }
+                }
+            }
             val views = RemoteViews(context.packageName, R.layout.widget_transit_group).apply {
                 val selectedGroupName = if (storedGroup == DASHBOARD_SELECTION_ID) {
                     val stopId = selectedStop?.optString("id")
@@ -121,14 +139,14 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                     else -> groupName.ifBlank { context.getString(R.string.widget_choose_group) }
                 }
                 setTextViewText(R.id.widget_group_name, title)
-                setTextViewText(R.id.widget_stop_name, stop?.optString("name") ?: context.getString(R.string.widget_no_stops))
+                setTextViewText(R.id.widget_stop_name, stop?.optString("name") ?: context.getString(R.string.widget_choose_stop))
                 val arrivals = stop?.optJSONArray("arrivals")
                 removeAllViews(R.id.widget_line_rows)
                 val visibleCount = minOf(arrivals?.length() ?: 0, 2)
                 setViewVisibility(R.id.widget_line_rows, if (visibleCount > 0) android.view.View.VISIBLE else android.view.View.GONE)
                 setViewVisibility(R.id.widget_empty, if (visibleCount == 0) android.view.View.VISIBLE else android.view.View.GONE)
                 if (visibleCount == 0) {
-                    setTextViewText(R.id.widget_empty, context.getString(R.string.widget_open_dashboard))
+                    setTextViewText(R.id.widget_empty, if (stop == null) context.getString(R.string.widget_choose_stop) else context.getString(R.string.widget_open_dashboard))
                 }
                 var accent = Color.parseColor("#C92335")
                 repeat(visibleCount) { rowIndex ->
@@ -157,9 +175,8 @@ class TransitGroupAppWidget : AppWidgetProvider() {
                     addView(R.id.widget_line_rows, row)
                 }
                 setInt(R.id.widget_accent, "setBackgroundColor", accent)
-                setViewVisibility(R.id.widget_rotate, if (stopCount > 1) android.view.View.VISIBLE else android.view.View.GONE)
                 setOnClickPendingIntent(R.id.widget_refresh, activityRefresh(context, widgetId))
-                setOnClickPendingIntent(R.id.widget_rotate, broadcast(context, widgetId, ACTION_ROTATE, 1))
+                setOnClickPendingIntent(R.id.widget_settings, configure(context, widgetId))
                 setOnClickPendingIntent(R.id.widget_open, broadcast(context, widgetId, ACTION_OPEN_GROUP, 2))
                 setOnClickPendingIntent(R.id.widget_root, activity(context, selectedGroupName, widgetId))
             }
@@ -175,7 +192,32 @@ class TransitGroupAppWidget : AppWidgetProvider() {
             return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.6
         }
 
-        private const val ROTATION_INTERVAL_MS = 30 * 60 * 1000L
+        fun scheduleNextBoundary(context: Context) {
+            val snapshot = runCatching { JSONObject(context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(SNAPSHOT_KEY, "{}") ?: "{}") }.getOrNull()
+            val groups = snapshot?.optJSONArray("groups")
+            val now = System.currentTimeMillis()
+            val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
+            val minuteNow = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+            val boundaries = (0 until (groups?.length() ?: 0)).flatMap { i ->
+                val group = groups?.optJSONObject(i) ?: return@flatMap emptyList()
+                listOf(group.optInt("activeFrom", -1), group.optInt("activeTo", -1)).filter { it in 0..1439 }
+            }
+            val delta = boundaries.map { boundary -> ((boundary - minuteNow + 1440) % 1440).takeIf { it > 0 } ?: 1440 }.minOrNull() ?: return
+            val whenMillis = now + delta * 60_000L
+            val intent = Intent(context, TransitGroupAppWidget::class.java).apply { action = ACTION_SCHEDULE_UPDATE }
+            val pending = PendingIntent.getBroadcast(context, 79021, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (Build.VERSION.SDK_INT >= 23) alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMillis, pending)
+            else alarm.set(AlarmManager.RTC_WAKEUP, whenMillis, pending)
+        }
+
+        private fun configure(context: Context, widgetId: Int): PendingIntent {
+            val intent = Intent(context, TransitGroupWidgetConfigureActivity::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            return PendingIntent.getActivity(context, widgetId * 10 + 4, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
 
         private fun broadcast(context: Context, widgetId: Int, action: String, salt: Int): PendingIntent {
             val intent = Intent(context, TransitGroupAppWidget::class.java).apply {

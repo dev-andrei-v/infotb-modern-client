@@ -24,6 +24,7 @@ actual fun publishDashboardWidgetSnapshot(snapshot: String, selectedStopId: Long
         val manager = AppWidgetManager.getInstance(context)
         val provider = ComponentName(context, TransitGroupAppWidget::class.java)
         manager.getAppWidgetIds(provider).forEach { TransitGroupAppWidget.update(context, manager, it) }
+        TransitGroupAppWidget.scheduleNextBoundary(context)
     }.onFailure { Log.w("TransitGroupWidget", "Unable to refresh dashboard widget", it) }
 }
 

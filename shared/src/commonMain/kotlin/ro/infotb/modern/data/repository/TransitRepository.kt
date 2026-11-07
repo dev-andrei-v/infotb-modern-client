@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.api.StbApi
@@ -17,6 +18,16 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
 
     private val announcementsJson = Json { ignoreUnknownKeys = true }
 
+    @Serializable
+    private data class CachedLineCatalog(val fetchedAtMs: Long, val lines: List<Line>)
+
+    @Serializable
+    private data class CachedLineDetail(val fetchedAtMs: Long, val detail: LineDetail)
+
+    private val lineDetailCacheJson = Json { ignoreUnknownKeys = true }
+    private val lineDetailInFlight = mutableMapOf<String, CompletableDeferred<LineDetail>>()
+    private val lineDetailLock = Mutex()
+
     private data class CachedStopInfo(val info: StopInfo, val fetchedAtMs: Long)
 
     private val stopInfoCache = mutableMapOf<String, CachedStopInfo>()
@@ -24,15 +35,83 @@ class TransitRepository(private val api: StbApi, private val settings: Settings)
     private val stopInfoLock = Mutex()
 
     suspend fun getAllLines(): List<Line> {
-        return api.getAllLines()
+        val cached = settings.getStringOrNull(Constants.SETTINGS_KEY_LINES_CACHE)
+            ?.let { runCatching { lineDetailCacheJson.decodeFromString<CachedLineCatalog>(it) }.getOrNull() }
+        if (cached != null && currentTimeMillis() - cached.fetchedAtMs <= Constants.LINE_DETAIL_CACHE_MS) {
+            return cached.lines
+        }
+        return try {
+            api.getAllLines().also { lines ->
+                settings.putString(
+                    Constants.SETTINGS_KEY_LINES_CACHE,
+                    lineDetailCacheJson.encodeToString(CachedLineCatalog(currentTimeMillis(), lines))
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            cached?.lines ?: throw e
+        }
     }
 
     suspend fun getLineDetail(lineId: Long): LineDetail {
-        return api.getLineDetail(lineId)
+        return getCachedLineDetail("$lineId-all") { api.getLineDetail(lineId) }
     }
 
     suspend fun getLineDirection(lineId: Long, direction: Direction): LineDetail {
-        return api.getLineDirection(lineId, direction)
+        return getCachedLineDetail("$lineId-${direction.value}") { api.getLineDirection(lineId, direction) }
+    }
+
+    private suspend fun getCachedLineDetail(key: String, fetch: suspend () -> LineDetail): LineDetail {
+        val settingKey = "${Constants.SETTINGS_KEY_LINE_DETAIL_CACHE}-$key"
+        val cached = settings.getStringOrNull(settingKey)
+            ?.let { runCatching { lineDetailCacheJson.decodeFromString<CachedLineDetail>(it) }.getOrNull() }
+        val now = currentTimeMillis()
+        if (cached != null && now - cached.fetchedAtMs <= Constants.LINE_DETAIL_CACHE_MS) return cached.detail
+
+        val pending: CompletableDeferred<LineDetail>
+        val isOwner: Boolean
+        lineDetailLock.withLock {
+            val existing = lineDetailInFlight[key]
+            if (existing != null) {
+                pending = existing
+                isOwner = false
+            } else {
+                pending = CompletableDeferred()
+                lineDetailInFlight[key] = pending
+                isOwner = true
+            }
+        }
+        if (!isOwner) return pending.await()
+
+        try {
+            val detail = fetch()
+            settings.putString(settingKey, lineDetailCacheJson.encodeToString(CachedLineDetail(currentTimeMillis(), detail)))
+            retainRecentLineDetails(key)
+            lineDetailLock.withLock { lineDetailInFlight.remove(key) }
+            pending.complete(detail)
+            return detail
+        } catch (e: CancellationException) {
+            lineDetailLock.withLock { lineDetailInFlight.remove(key) }
+            pending.completeExceptionally(e)
+            throw e
+        } catch (e: Exception) {
+            lineDetailLock.withLock { lineDetailInFlight.remove(key) }
+            if (cached != null) {
+                pending.complete(cached.detail)
+                return cached.detail
+            }
+            pending.completeExceptionally(e)
+            throw e
+        }
+    }
+
+    private fun retainRecentLineDetails(key: String) {
+        val indexKey = "${Constants.SETTINGS_KEY_LINE_DETAIL_CACHE}-index"
+        val previous = settings.getStringOrNull(indexKey)?.split('|')?.filter(String::isNotBlank).orEmpty()
+        val retained = (previous.filterNot { it == key } + key).takeLast(Constants.MAX_CACHED_LINE_DIRECTIONS)
+        (previous - retained.toSet()).forEach { settings.remove("${Constants.SETTINGS_KEY_LINE_DETAIL_CACHE}-$it") }
+        settings.putString(indexKey, retained.joinToString("|"))
     }
 
     /**

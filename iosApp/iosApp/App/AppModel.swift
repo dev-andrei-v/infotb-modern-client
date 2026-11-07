@@ -3,7 +3,7 @@ import Shared
 import UIKit
 
 enum AppTab: Hashable {
-    case dashboard, lines, news, settings
+    case dashboard, lines, map, settings
 }
 
 enum Route: Hashable {
@@ -11,6 +11,7 @@ enum Route: Hashable {
     case stop(Int64, lineId: Int64? = nil, direction: Direction? = nil)
     /// A line's route and live vehicles on a full-screen map.
     case lineMap(Int64, direction: Direction)
+    case news
 }
 
 /// App-wide state: preferences, navigation, live-tracking subscriptions and
@@ -33,7 +34,8 @@ final class AppModel {
     var selectedTab: AppTab = .dashboard
     var dashboardPath: [Route] = []
     var linesPath: [Route] = []
-    var newsPath: [Route] = []
+    var mapPath: [Route] = []
+    var settingsPath: [Route] = []
 
     /// Short confirmation shown at the top of the screen.
     private(set) var toast: String?
@@ -89,9 +91,14 @@ final class AppModel {
         switch selectedTab {
         case .dashboard: dashboardPath.append(route)
         case .lines: linesPath.append(route)
-        case .news: newsPath.append(route)
-        case .settings: break
+        case .map: mapPath.append(route)
+        case .settings: settingsPath.append(route)
         }
+    }
+
+    func openNews() {
+        selectedTab = .settings
+        settingsPath = [.news]
     }
 
     func addToDashboard(stopId: Int64, stopName: String) {

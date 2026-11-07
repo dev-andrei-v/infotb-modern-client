@@ -36,6 +36,7 @@ It's a native app on both platforms: **SwiftUI with Liquid Glass on iPhone**, **
 - **Track an arrival.** Tap the bell next to a line and follow it in the **Dynamic Island** and on the Lock Screen (iPhone), or in an ongoing notification (Android), until it reaches your stop.
 - **Every line, searchable.** Filter by bus, tram, trolleybus, metro or night lines, and star your favourites.
 - **Live map.** See a line's route, its direction and every vehicle on it right now; tap a stop to see when the next one arrives there.
+- **Nearby on iPhone.** The Map tab shows nearby stations and routes with bus, tram, trolleybus and metro filters in a draggable sheet over a full-size map. Direction-specific stops are grouped under one station and can be expanded to pick a platform. Shared corridors use parallel lanes, and selecting a line emphasizes its route. Line pages show configurable nearby-stop shortcuts above the full route. Stop locations are cached for 7 days, with frequently opened stops kept first; service news lives in Settings and still appears on affected cards and line pages.
 - **Timetables.** The full day's schedule for any line at any stop, scrolled to the current hour.
 - **STB notices.** Service notices show up on the cards of the lines they affect, and you can be notified when a line you follow gets one.
 - **Metro in its real colours.** M1 yellow, M2 blue, M3 red, M4 green, M5 orange.

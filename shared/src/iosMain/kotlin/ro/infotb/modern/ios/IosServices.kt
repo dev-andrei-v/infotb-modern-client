@@ -14,6 +14,10 @@ import org.koin.core.component.get
 import ro.infotb.modern.data.backup.BackupManager
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.LineArrivalDetail
+import ro.infotb.modern.data.model.Line
+import ro.infotb.modern.data.model.Stop
+import ro.infotb.modern.data.model.StopInfo
+import ro.infotb.modern.data.model.LineDetail
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
 import ro.infotb.modern.data.store.FavoritesStore
@@ -53,6 +57,40 @@ object IosServices : KoinComponent {
     suspend fun lineArrival(stopId: Long, lineId: Long, direction: Direction): LineArrivalDetail? = try {
         get<TransitRepository>().getStopInfo(stopId, lineId, direction)
             .lines.firstOrNull { it.id == lineId && it.direction == direction }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Null means the request failed; an empty list means no stops in this area. */
+    suspend fun stopsInBounds(south: Double, west: Double, north: Double, east: Double): List<Stop>? = try {
+        get<TransitRepository>().getStopsInBounds(south, west, north, east)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    suspend fun stopLines(stopId: Long): List<Line>? = try {
+        get<TransitRepository>().getStopLines(stopId)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Stop arrivals and live vehicle positions for the map's stop preview. */
+    suspend fun stopPreview(stopId: Long): StopInfo? = try {
+        get<TransitRepository>().getStopInfo(stopId, maxAgeMs = 0)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    suspend fun mapLine(lineId: Long, direction: Direction): LineDetail? = try {
+        get<TransitRepository>().getLineDirection(lineId, direction)
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {

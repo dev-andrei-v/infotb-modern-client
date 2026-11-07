@@ -63,8 +63,22 @@ private struct AnnouncementRow: View {
     let announcement: Announcement
     @State private var expanded = false
 
+    private var title: String { HTMLText.plain(announcement.title) }
     private var message: String { HTMLText.plain(announcement.message) }
-    private var isLong: Bool { announcement.message.count > 200 }
+    private var titleContainsMessage: Bool {
+        message.count > 20 && title.localizedCaseInsensitiveContains(message)
+    }
+    private var isLong: Bool {
+        message.count > 200 || (titleContainsMessage && title.count > 140)
+    }
+    private var titlePreview: String {
+        guard titleContainsMessage, !expanded, title.count > 140 else { return title }
+        let prefix = String(title.prefix(137))
+        if let boundary = prefix.lastIndex(of: " ") {
+            return String(prefix[..<boundary]) + "…"
+        }
+        return prefix + "…"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -73,9 +87,9 @@ private struct AnnouncementRow: View {
                     .foregroundStyle(.orange)
                     .font(.title3)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(announcement.title)
+                    Text(titlePreview)
                         .font(.headline)
-                        .lineLimit(2)
+                        .lineLimit(expanded ? nil : 3)
                     Text(relativeDate)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -90,10 +104,12 @@ private struct AnnouncementRow: View {
                 }
             }
 
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(expanded || !isLong ? nil : 4)
+            if !titleContainsMessage, !message.isEmpty {
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(expanded || !isLong ? nil : 4)
+            }
 
             if isLong {
                 Button(expanded ? tr("announcements.showLess") : tr("announcements.showMore")) {

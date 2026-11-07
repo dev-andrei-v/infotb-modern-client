@@ -70,7 +70,7 @@ val sharedModule: Module = module {
     }
 
     single {
-        TransitRepository(api = get())
+        TransitRepository(api = get(), settings = get())
     }
 
     // Room Database

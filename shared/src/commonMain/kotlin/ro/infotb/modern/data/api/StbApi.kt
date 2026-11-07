@@ -4,8 +4,9 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import ro.infotb.modern.data.model.*
 import ro.infotb.modern.util.Constants
 import ro.infotb.modern.util.lineColor
@@ -93,6 +94,11 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
         return ProtoDecoder.decodeStopDetails(data)
     }
 
+    /** Lightweight memberships; this endpoint currently serves JSON, including metro stops. */
+    suspend fun getStopLines(stopId: Long): List<Line> {
+        return decodeStopLines(fetchJson("/lines/stops/$stopId"))
+    }
+
     suspend fun getVehicles(lineId: Long, direction: Direction): List<VehiclePosition> {
         val data = fetchProto("/lines/v2/$lineId/vehicles/${direction.value}?lang=ro")
         return ProtoDecoder.decodeVehicles(data)
@@ -100,15 +106,36 @@ class StbApi(private val client: HttpClient, private val authManager: AuthManage
 
     suspend fun getAnnouncements(limit: Int, offset: Int): List<Announcement> {
         val body = fetchJson("/notifications?limit=$limit&offset=$offset")
-        val jsonObj = json.parseToJsonElement(body).jsonObject
-        val notificationsArray = jsonObj["notifications"]?.jsonArray ?: return emptyList()
+        val root = json.parseToJsonElement(body)
+        val notificationsArray = announcementArray(root)
+            ?: throw IllegalStateException("Unexpected announcements response shape")
         return json.decodeFromString<List<Announcement>>(notificationsArray.toString()).map { notice ->
             notice.copy(lines = notice.lines.map { it.copy(color = lineColor(it.name, it.type, it.color)) })
         }
     }
 
+    private fun announcementArray(root: JsonElement): JsonArray? = when (root) {
+        is JsonArray -> root
+        is JsonObject -> {
+            (root["notifications"] as? JsonArray)
+                ?: (root["data"] as? JsonArray)
+                ?: ((root["data"] as? JsonObject)?.get("notifications") as? JsonArray)
+                ?: ((root["data"] as? JsonObject)?.get("items") as? JsonArray)
+                ?: (root["items"] as? JsonArray)
+                ?: (root["results"] as? JsonArray)
+        }
+        else -> null
+    }
+
     suspend fun getHomeStops(stopId: Long): List<Stop> {
         val data = fetchProto("/lines/v2/home/stops/$stopId")
+        return ProtoDecoder.decodeHomeStops(data)
+    }
+
+    suspend fun getStopsInBounds(south: Double, west: Double, north: Double, east: Double): List<Stop> {
+        require(south.isFinite() && north.isFinite() && west.isFinite() && east.isFinite())
+        require(south >= -90 && north <= 90 && south < north && west >= -180 && east <= 180 && west < east)
+        val data = fetchProto("/lines/v2/home/stops/$south/$west/$north/$east")
         return ProtoDecoder.decodeHomeStops(data)
     }
 }

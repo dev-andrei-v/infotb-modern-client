@@ -19,12 +19,22 @@ final class StopDetailModel {
     init(stopId: Int64, lineId: Int64?, direction: Direction?) {
         self.stopId = stopId
         self.primaryLineId = lineId
+        if let stop = StopLocationCache.shared.stops[stopId] {
+            coordinates = Stop(id: stop.id, lat: stop.latitude, lng: stop.longitude, name: stop.name,
+                               description: nil, type: stop.type, iconColor: stop.color, lines: nil)
+            StopLocationCache.shared.markUsed(stopId)
+        }
         scope.own(viewModel)
         scope.watch(viewModel.stopInfo) { [weak self] in self?.info = $0 as? StopInfo }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
         scope.watch(viewModel.lineTimetables) { [weak self] in self?.timetables = Unbox.stringKeyed($0) }
         scope.watch(viewModel.timetableLoading) { [weak self] in self?.timetableLoading = Unbox.strings($0) }
-        scope.watch(viewModel.stopCoordinates) { [weak self] in self?.coordinates = $0 as? Stop }
+        scope.watch(viewModel.stopCoordinates) { [weak self] in
+            if let stop = $0 as? Stop {
+                self?.coordinates = stop
+                StopLocationCache.shared.store([stop])
+            }
+        }
         viewModel.loadStop(stopId: stopId, lineId: lineId.kotlin, direction: direction)
         // Brings the Dynamic Island up to date when visiting a tracked stop.
         AppModel.shared.refreshTracking()

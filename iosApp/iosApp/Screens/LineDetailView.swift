@@ -1,3 +1,4 @@
+import CoreLocation
 import Shared
 import SwiftUI
 
@@ -14,7 +15,11 @@ final class LineDetailModel {
 
     init(lineId: Int64, direction: Direction = .tur) {
         scope.own(viewModel)
-        scope.watch(viewModel.lineDetail) { [weak self] in self?.detail = $0 as? LineDetail }
+        scope.watch(viewModel.lineDetail) { [weak self] in
+            let detail = $0 as? LineDetail
+            self?.detail = detail
+            if let detail { StopLocationCache.shared.store(detail.stops) }
+        }
         scope.watch(viewModel.vehicles) { [weak self] in self?.vehicles = Unbox.list($0) }
         scope.watch(viewModel.direction) { [weak self] in self?.direction = $0 as? Direction ?? .tur }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
@@ -39,6 +44,8 @@ struct LineDetailView: View {
 
 private struct LineDetailContent: View {
     let model: LineDetailModel
+    @AppStorage(LineStopPreferences.countKey) private var nearbyStopCount = LineStopPreferences.defaultCount
+    @State private var location = ForegroundLocation()
 
     var body: some View {
         Group {
@@ -52,10 +59,19 @@ private struct LineDetailContent: View {
         }
         .navigationTitle("\(tr("lineDetail.linePrefix")) \(model.detail?.name ?? "")")
         .navigationBarTitleDisplayMode(.inline)
+        .foregroundLocation(location, enabled: nearbyStopCount > 0)
     }
 
     private func list(_ detail: LineDetail) -> some View {
-        List {
+        let distances = location.location.map { fix in
+            detail.stops.map { stop -> Double in
+                guard CLLocationCoordinate2DIsValid(.init(latitude: stop.lat, longitude: stop.lng)),
+                      stop.lat != 0 || stop.lng != 0 else { return .infinity }
+                return fix.distance(from: CLLocation(latitude: stop.lat, longitude: stop.lng))
+            }
+        }
+        let selection = NearbyStopSelection(distances: distances, stopCount: detail.stops.count, count: nearbyStopCount)
+        return List {
             Section {
                 HStack(spacing: 10) {
                     LineBadge(name: detail.name, color: detail.color, size: .large)
@@ -97,7 +113,7 @@ private struct LineDetailContent: View {
             if let notice = model.announcements.first {
                 Section {
                     Button {
-                        AppModel.shared.selectedTab = .news
+                        AppModel.shared.openNews()
                     } label: {
                         Label {
                             Text(notice.title).font(.subheadline).lineLimit(2)
@@ -109,20 +125,51 @@ private struct LineDetailContent: View {
                 }
             }
 
-            Section(tr("lineDetail.stops")) {
-                ForEach(Array(detail.stops.enumerated()), id: \.element.id) { index, stop in
-                    NavigationLink(value: Route.stop(stop.id, lineId: detail.id, direction: model.direction)) {
-                        StopTimelineRow(
-                            index: index,
-                            stop: stop,
-                            color: Color(hex: detail.color) ?? .lineFallback,
-                            isFirst: index == 0,
-                            isLast: index == detail.stops.count - 1,
-                            vehicles: model.vehicles
-                        )
+            if nearbyStopCount > 0 {
+                Section(tr("lineDetail.nearbyStops")) {
+                    ForEach(selection.nearby, id: \.self) { index in
+                        let stop = detail.stops[index]
+                        NavigationLink(value: Route.stop(stop.id, lineId: detail.id, direction: model.direction)) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "location.fill").foregroundStyle(Color.accentColor)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(stop.name).font(.body.weight(.medium))
+                                    Text(tr("lineDetail.stopOf")
+                                        .replacingOccurrences(of: "{n}", with: "\(index + 1)")
+                                        .replacingOccurrences(of: "{total}", with: "\(detail.stops.count)"))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if let distances {
+                                    Text(DashboardFormat.distance(distances[index]))
+                                        .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    if location.location == nil {
+                        LocationStatusView(location: location)
+                    }
+                }
+            }
+
+            if !detail.stops.isEmpty {
+                Section(tr("lineDetail.allStops")) {
+                    ForEach(Array(detail.stops.indices), id: \.self) { index in
+                        let stop = detail.stops[index]
+                        NavigationLink(value: Route.stop(stop.id, lineId: detail.id, direction: model.direction)) {
+                            StopTimelineRow(
+                                index: index,
+                                stop: stop,
+                                color: Color(hex: detail.color) ?? .lineFallback,
+                                isFirst: index == 0,
+                                isLast: index == detail.stops.count - 1,
+                                vehicles: model.vehicles
+                            )
+                        }
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    }
                 }
             }
         }
@@ -210,6 +257,7 @@ private struct LiveMapScreen: View {
     let model: LineDetailModel
     @Environment(\.dismiss) private var dismiss
     @State private var selectedStopId: Int64?
+    @State private var locationPermission = ForegroundLocation()
 
     var body: some View {
         Group {
@@ -239,6 +287,7 @@ private struct LiveMapScreen: View {
         .ignoresSafeArea(edges: .top)
         .overlay(alignment: .top) { header }
         .animation(.snappy, value: selectedStopId)
+        .task { locationPermission.requestPermission() }
     }
 
     private var header: some View {
@@ -275,6 +324,7 @@ private struct LiveMapScreen: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal)
+        .padding(.trailing, 50)
     }
 }
 

@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Bindable private var app = AppModel.shared
+    @AppStorage(LineStopPreferences.countKey) private var nearbyStopCount = LineStopPreferences.defaultCount
 
     var body: some View {
         Form {
@@ -26,9 +27,26 @@ struct SettingsView: View {
                 Text(tr("settings.languageDescription"))
             }
 
+            Section {
+                Picker(tr("settings.nearbyStopCount"), selection: $nearbyStopCount) {
+                    Text(tr("settings.nearbyStopsOff")).tag(0)
+                    ForEach(1...LineStopPreferences.maximumCount, id: \.self) { count in
+                        Text("\(count)").tag(count)
+                    }
+                }
+            } header: {
+                Text(tr("lineDetail.nearbyStops"))
+            } footer: {
+                Text(tr("settings.nearbyStopsDescription"))
+                Text(tr("settings.stopCacheDescription"))
+            }
+
             trackingSection
 
             Section {
+                NavigationLink(value: Route.news) {
+                    Label(tr("nav.announcements"), systemImage: "exclamationmark.bubble.fill")
+                }
                 Toggle(tr("settings.noticeAlerts"), isOn: Binding(get: { app.noticeAlerts }, set: { app.setNoticeAlerts($0) }))
             } footer: {
                 Text(tr("settings.noticeAlertsDescription"))

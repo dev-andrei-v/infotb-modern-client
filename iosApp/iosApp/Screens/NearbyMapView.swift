@@ -1,0 +1,635 @@
+import CoreLocation
+import MapKit
+import Shared
+import SwiftUI
+
+private struct PreviewVehicle: Identifiable {
+    let id: Int64
+    let coordinate: CLLocationCoordinate2D
+    let code: String?
+    let lineName: String
+    let color: String
+    let type: String?
+}
+
+private struct NearbyRoute: Identifiable {
+    let id: String
+    let lineId: Int64
+    let color: String
+    let coordinates: [CLLocationCoordinate2D]
+
+    init(detail: LineDetail, direction: Direction) {
+        id = "\(detail.id)-\(direction.name)"
+        lineId = detail.id
+        color = detail.color
+        if let path = detail.segmentPath, !path.isEmpty {
+            coordinates = PolylineKt.decodePolyline(encoded: path).compactMap {
+                guard let lat = $0.first?.doubleValue, let lng = $0.second?.doubleValue else { return nil }
+                return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            }
+        } else {
+            coordinates = detail.stops.map { .init(latitude: $0.lat, longitude: $0.lng) }
+        }
+    }
+}
+
+private enum MapSheetLevel: CaseIterable {
+    case collapsed, medium, expanded
+
+    func height(in available: Double) -> Double {
+        switch self {
+        case .collapsed: min(150, available * 0.3)
+        case .medium: min(max(300, available * 0.46), available * 0.75)
+        case .expanded: available * 0.9
+        }
+    }
+}
+
+@Observable
+@MainActor
+private final class NearbyMapModel {
+    var loading = false
+    var failed = false
+    var linesLoading = false
+    var linesFailed = false
+    var routesLoading = false
+    var routesFailed = false
+    var routes: [Int64: [NearbyRoute]] = [:]
+    private var lastSearch: CLLocation?
+    private var lastLoaded = Date.distantPast
+    private var searchId = UUID()
+    private var linesRequestId = UUID()
+    private var routesRequestId = UUID()
+    private var completedRoutes: Set<Int64> = []
+
+    func load(near location: CLLocation, force: Bool = false) async {
+        if !force, StopLocationCache.shared.hasFreshCoverage(near: location) {
+            failed = false
+            return
+        }
+        if !force, let lastSearch, location.distance(from: lastSearch) < 250,
+           Date().timeIntervalSince(lastLoaded) < 300 { return }
+        let requestId = UUID()
+        searchId = requestId
+        loading = true
+        defer { if searchId == requestId { loading = false } }
+        // A slightly larger square contains the full 1 km search circle.
+        let lat = location.coordinate.latitude, lng = location.coordinate.longitude
+        let dLat = 1_500.0 / 111_000
+        let dLng = dLat / max(0.1, cos(lat * .pi / 180))
+        let south = max(-90, lat - dLat), west = max(-180, lng - dLng)
+        let north = min(90, lat + dLat), east = min(180, lng + dLng)
+        let result = try? await IosServices.shared.stopsInBounds(
+            south: south, west: west, north: north, east: east
+        )
+        guard !Task.isCancelled, searchId == requestId else { return }
+        if let result {
+            StopLocationCache.shared.storeArea(result, south: south, west: west, north: north, east: east)
+            lastSearch = location
+            lastLoaded = .now
+            failed = false
+        } else {
+            failed = true
+        }
+    }
+
+    func loadLines(for stops: [CachedStop], force: Bool = false) async {
+        let requestId = UUID()
+        linesRequestId = requestId
+        linesLoading = true
+        linesFailed = false
+        defer { if linesRequestId == requestId { linesLoading = false } }
+        // Grouped stations can have several physical platforms. Limit their
+        // membership requests to four at a time, reusing a day's cached data.
+        let pending = stops.filter {
+            guard !force, let updated = $0.linesUpdated else { return true }
+            return Date().timeIntervalSince(updated) >= StopLocationCache.linesTTL
+        }
+        for start in stride(from: 0, to: pending.count, by: 4) {
+            guard !Task.isCancelled else { return }
+            await withTaskGroup(of: (Int64, [Line]?).self) { group in
+                for stop in pending[start..<min(start + 4, pending.count)] {
+                    group.addTask { @MainActor in
+                        (stop.id, try? await IosServices.shared.stopLines(stopId: stop.id))
+                    }
+                }
+                for await (id, lines) in group {
+                    guard !Task.isCancelled, linesRequestId == requestId else { continue }
+                    if let lines { StopLocationCache.shared.storeLines(lines, for: id) }
+                    else { linesFailed = true }
+                }
+            }
+        }
+    }
+
+    func loadRoutes(_ lineIds: [Int64]) async {
+        let requestId = UUID()
+        routesRequestId = requestId
+        routesLoading = true
+        routesFailed = false
+        defer { if routesRequestId == requestId { routesLoading = false } }
+        for id in lineIds where !completedRoutes.contains(id) {
+            guard !Task.isCancelled else { return }
+            var paths: [NearbyRoute] = []
+            for direction in [Direction.tur, .retur] {
+                if let detail = try? await IosServices.shared.mapLine(lineId: id, direction: direction) {
+                    guard !Task.isCancelled else { return }
+                    StopLocationCache.shared.store(detail.stops)
+                    paths.append(NearbyRoute(detail: detail, direction: direction))
+                    routes[id] = paths
+                } else {
+                    routesFailed = true
+                }
+            }
+            if paths.count == 2 { completedRoutes.insert(id) }
+        }
+    }
+}
+
+struct NearbyMapView: View {
+    @State private var location = ForegroundLocation()
+    @State private var model = NearbyMapModel()
+    @State private var cache = StopLocationCache.shared
+    @State private var position: MapCameraPosition = .region(Self.bucharest)
+    @State private var centered = false
+    @State private var selectedGroupId: String?
+    @State private var selectedStop: CachedStop?
+    @State private var stopPreview: StopInfo?
+    @State private var previewLoading = false
+    @State private var selectedLineId: Int64?
+    @State private var selectedTypes = Set(TransportType.ordered.map(\.name))
+    @State private var lanes = RouteLaneLayout(paths: [])
+    @State private var metersPerPoint = 6.0
+    @State private var mapWidth = 400.0
+    @State private var sheetLevel: MapSheetLevel = .medium
+    @State private var sheetDrag = 0.0
+    @State private var routeColors: [Int64: String] = [:]
+
+    private static let bucharest = MKCoordinateRegion(
+        center: .init(latitude: 44.435, longitude: 26.10),
+        latitudinalMeters: 3_000, longitudinalMeters: 3_000
+    )
+
+    private var nearestStops: [CachedStop] {
+        guard let fix = location.location else { return [] }
+        let stops = cache.nearest(to: fix)
+        // Include nearby metro entrances even in dense clusters of surface
+        // stops, so the metro filter can discover its nearest lines too.
+        let groups = NearbyStopGroup.groups(stops)
+        let first = Array(groups.prefix(8))
+        let ids = Set(first.map(\.id))
+        let metro = groups.filter { !ids.contains($0.id) && $0.stops.contains { $0.type == "SUBWAY_STATION" } }.prefix(2)
+        return (first + metro).flatMap(\.stops).sorted { $0.distance(from: fix) < $1.distance(from: fix) }
+    }
+
+    private var nearbyLines: [CachedStopLine] {
+        var seen: Set<Int64> = []
+        return nearestStops.flatMap(\.lines).filter { seen.insert($0.id).inserted && selectedTypes.contains($0.type) }
+    }
+
+    private var visibleStops: [CachedStop] {
+        nearestStops.filter {
+            selectedTypes.count == TransportType.ordered.count || $0.lines.contains { selectedTypes.contains($0.type) }
+        }
+    }
+
+    private var visibleGroups: [NearbyStopGroup] { NearbyStopGroup.groups(visibleStops) }
+
+    private var routeIds: [Int64] {
+        var ids = Array(nearbyLines.prefix(6).map(\.id))
+        if let selectedLineId, nearbyLines.contains(where: { $0.id == selectedLineId }), !ids.contains(selectedLineId) {
+            ids.append(selectedLineId)
+        }
+        return ids
+    }
+
+    private var visibleRoutes: [NearbyRoute] {
+        routeIds.flatMap { model.routes[$0] ?? [] }.sorted {
+            // Paint the focused route last so junctions remain legible.
+            if ($0.lineId == selectedLineId) != ($1.lineId == selectedLineId) { return $1.lineId == selectedLineId }
+            return $0.id < $1.id
+        }
+    }
+
+    private var previewVehicles: [PreviewVehicle] {
+        guard let stopPreview else { return [] }
+        var seen = Set<Int64>()
+        return stopPreview.lines.flatMap { line in
+            line.vehicles.compactMap { vehicle -> PreviewVehicle? in
+                guard seen.insert(vehicle.id).inserted else { return nil }
+                return PreviewVehicle(id: vehicle.id, coordinate: .init(latitude: vehicle.lat, longitude: vehicle.lng),
+                                      code: vehicle.code, lineName: line.name, color: line.color,
+                                      type: vehicle.transportType?.name)
+            }
+        }
+    }
+
+    private func routeColor(_ lineId: Int64) -> String {
+        routeColors[lineId] ?? "#1565C0"
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                map
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onAppear { mapWidth = max(1, geometry.size.width) }
+                    .onChange(of: geometry.size.width) { _, width in mapWidth = max(1, width) }
+                bottomSheet(in: geometry.size.height)
+            }
+        }
+        .navigationTitle(tr("nav.map"))
+        .navigationBarTitleDisplayMode(.inline)
+        .foregroundLocation(location)
+        .task(id: location.location) {
+            guard let fix = location.location else { return }
+            if !centered {
+                position = .region(.init(center: fix.coordinate, latitudinalMeters: 2_500, longitudinalMeters: 2_500))
+                centered = true
+            }
+            await model.load(near: fix)
+        }
+        .task(id: nearestStops.map(\.id)) { await model.loadLines(for: nearestStops) }
+        .task(id: routeIds) { await model.loadRoutes(routeIds) }
+        .task(id: selectedStop?.id) {
+            guard let stop = selectedStop else { stopPreview = nil; previewLoading = false; return }
+            stopPreview = nil
+            previewLoading = true
+            while !Task.isCancelled {
+                stopPreview = try? await IosServices.shared.stopPreview(stopId: stop.id)
+                previewLoading = false
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
+        .task(id: nearbyLines.map(\.id)) {
+            // Keep a line's map colour stable while memberships arrive and
+            // filters change, without repeating spatial queries for each badge.
+            let palette = ["#1565C0", "#8E24AA", "#D84315", "#00838F", "#2E7D32", "#C62828", "#5E35B1", "#AD5700"]
+            for (index, line) in nearbyLines.enumerated() where routeColors[line.id] == nil {
+                routeColors[line.id] = line.type == TransportType.subway.name ? line.color :
+                    (palette.first { !routeColors.values.contains($0) } ?? palette[index % palette.count])
+            }
+        }
+        .task(id: visibleRoutes.map(\.id)) {
+            lanes = RouteLaneLayout(paths: visibleRoutes.map { RouteLanePath(id: $0.id, lineId: $0.lineId, coordinates: $0.coordinates) })
+        }
+        .onChange(of: selectedTypes) { _, _ in selectedLineId = nil; selectedGroupId = nil }
+    }
+
+    private var map: some View {
+        let laneCoordinates = lanes.coordinates(metersPerPoint: metersPerPoint)
+        return Map(position: $position, interactionModes: [.pan, .zoom]) {
+            UserAnnotation()
+            ForEach(visibleRoutes) { route in
+                let points = laneCoordinates[route.id] ?? route.coordinates
+                let dimmed = selectedLineId != nil && selectedLineId != route.lineId
+                if points.count >= 2 {
+                    MapPolyline(coordinates: points)
+                        .stroke(.white.opacity(dimmed ? 0.25 : 0.8), lineWidth: selectedLineId == route.lineId ? 9 : 7)
+                    MapPolyline(coordinates: points)
+                        .stroke((Color(hex: routeColor(route.lineId)) ?? .lineFallback).opacity(dimmed ? 0.25 : 0.95),
+                                style: StrokeStyle(lineWidth: selectedLineId == route.lineId ? 6 : 4, lineCap: .round, lineJoin: .round))
+                }
+            }
+            ForEach(visibleGroups) { group in
+                let stop = group.nearest
+                Annotation(group.name, coordinate: stop.coordinate) {
+                    Button {
+                        withAnimation(.snappy) {
+                            selectedGroupId = selectedGroupId == group.id ? nil : group.id
+                            if selectedGroupId != nil {
+                                selectedStop = group.nearest
+                                sheetLevel = .medium
+                            } else {
+                                selectedStop = nil
+                            }
+                        }
+                    } label: {
+                        Image(systemName: stop.type == "SUBWAY_STATION" ? "tram.fill" : "bus.fill")
+                            .font(.caption.weight(.bold)).foregroundStyle(.white)
+                            .frame(width: selectedGroupId == group.id ? 36 : 28, height: selectedGroupId == group.id ? 36 : 28)
+                            .background(Color(hex: stop.color ?? "") ?? .accentColor, in: Circle())
+                            .overlay(Circle().stroke(.white, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(group.name)
+                }
+            }
+            ForEach(previewVehicles) { vehicle in
+                Annotation(vehicle.code.map { "\(vehicle.lineName) · \($0)" } ?? vehicle.lineName, coordinate: vehicle.coordinate) {
+                    VehicleGlyph(type: vehicle.type ?? TransportType.bus.name, size: 11)
+                        .foregroundStyle(.white)
+                        .padding(6).background(Color(hex: vehicle.color) ?? .accentColor, in: Circle())
+                        .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                }
+            }
+        }
+        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        .mapControls { MapUserLocationButton(); MapScaleView() }
+        .onMapCameraChange(frequency: .onEnd) { context in
+            let scale = context.region.span.longitudeDelta * 111_000 *
+                cos(context.region.center.latitude * .pi / 180) / max(1, mapWidth)
+            if scale.isFinite && scale > 0 && abs(scale - metersPerPoint) / metersPerPoint > 0.05 {
+                metersPerPoint = scale
+            }
+        }
+    }
+
+    private func bottomSheet(in available: Double) -> some View {
+        let base = sheetLevel.height(in: available)
+        let height = min(MapSheetLevel.expanded.height(in: available), max(MapSheetLevel.collapsed.height(in: available), base - sheetDrag))
+        return VStack(spacing: 0) {
+            Capsule()
+                .fill(.secondary.opacity(0.45))
+                .frame(width: 36, height: 5)
+                .frame(maxWidth: .infinity).frame(height: 26)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.snappy) { sheetLevel = sheetLevel == .collapsed ? .medium : .collapsed }
+                }
+                .gesture(DragGesture(minimumDistance: 4)
+                    .onChanged { sheetDrag = $0.translation.height }
+                    .onEnded { value in
+                        let projected = base - value.predictedEndTranslation.height
+                        let nearest = MapSheetLevel.allCases.min {
+                            abs($0.height(in: available) - projected) < abs($1.height(in: available) - projected)
+                        } ?? .medium
+                        withAnimation(.snappy) { sheetLevel = nearest; sheetDrag = 0 }
+                    })
+                .accessibilityElement()
+                .accessibilityLabel(tr("map.adjustSheet"))
+                .accessibilityValue(tr(sheetLevel == .collapsed ? "map.sheetCollapsed" : sheetLevel == .expanded ? "map.sheetExpanded" : "map.sheetMedium"))
+                .accessibilityAdjustableAction { direction in
+                    withAnimation(.snappy) {
+                        switch direction {
+                        case .increment: sheetLevel = sheetLevel == .collapsed ? .medium : .expanded
+                        case .decrement: sheetLevel = sheetLevel == .expanded ? .medium : .collapsed
+                        @unknown default: break
+                        }
+                    }
+                }
+
+            if sheetLevel != .collapsed { filters.frame(height: 52) }
+            if location.location != nil {
+                lineStrip.fixedSize(horizontal: false, vertical: true)
+            } else if sheetLevel == .collapsed {
+                LocationStatusView(location: location).padding(.horizontal)
+            }
+            if sheetLevel != .collapsed { results }
+            else { Spacer(minLength: 0) }
+        }
+        .frame(maxWidth: .infinity).frame(height: height, alignment: .top)
+        .background(.regularMaterial, in: UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: -3)
+    }
+
+    private var filters: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(TransportType.ordered, id: \.name) { type in
+                    Button {
+                        if selectedTypes.contains(type.name) { selectedTypes.remove(type.name) }
+                        else { selectedTypes.insert(type.name) }
+                    } label: {
+                        Label { Text(type.label) } icon: { VehicleGlyph(type: type.name, size: 13) }
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .foregroundStyle(selectedTypes.contains(type.name) ? type.color : .secondary)
+                            .background(selectedTypes.contains(type.name) ? type.color.opacity(0.14) : Color.clear, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedTypes.contains(type.name) ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal).padding(.vertical, 8)
+        }
+    }
+
+    private var results: some View {
+        List {
+            if location.location == nil {
+                Section { LocationStatusView(location: location) }
+            } else {
+                if model.failed {
+                    Section {
+                        Label(tr("map.cachedResults"), systemImage: "wifi.exclamationmark")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        Button(tr("common.retry")) {
+                            Task { if let fix = location.location { await model.load(near: fix, force: true) } }
+                        }
+                    }
+                }
+                if let selectedStop { stopPreviewSection(selectedStop) }
+                Section(tr("lineDetail.nearbyStops")) {
+                    ForEach(visibleGroups) { group in
+                        if group.stops.count == 1 {
+                            Button { select(group.nearest) } label: { groupLabel(group) }
+                                .buttonStyle(.plain)
+                        } else {
+                            DisclosureGroup(isExpanded: Binding(
+                                get: { selectedGroupId == group.id },
+                                set: { selectedGroupId = $0 ? group.id : nil }
+                            )) {
+                                ForEach(group.stops) { stop in platformRow(stop) }
+                            } label: {
+                                groupLabel(group)
+                            }
+                        }
+                    }
+                    if visibleStops.isEmpty {
+                        if model.loading || model.linesLoading {
+                            ProgressView()
+                        } else {
+                            Text(tr("map.noStops")).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    private var lineStrip: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(tr("map.nearbyLines")).font(.subheadline.weight(.semibold))
+                if model.linesLoading || model.routesLoading { ProgressView().controlSize(.mini) }
+                Spacer()
+                if let line = nearbyLines.first(where: { $0.id == selectedLineId }) {
+                    Button {
+                        AppModel.shared.push(.line(line.id))
+                    } label: {
+                        Text("\(tr("map.viewStops")) \(line.name)")
+                            .font(.subheadline.weight(.medium))
+                    }
+                }
+            }
+            .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button {
+                        selectedLineId = nil
+                    } label: {
+                        Label(tr("map.nearestRoutes"), systemImage: "point.3.connected.trianglepath.dotted")
+                            .font(.subheadline.weight(.medium))
+                            .padding(.horizontal, 12).frame(height: 38)
+                            .background(selectedLineId == nil ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(selectedLineId == nil ? Color.accentColor : .secondary)
+                    .accessibilityAddTraits(selectedLineId == nil ? .isSelected : [])
+
+                    ForEach(nearbyLines) { line in
+                        let selected = selectedLineId == line.id
+                        Button {
+                            selectedLineId = selected ? nil : line.id
+                        } label: {
+                            HStack(spacing: 6) {
+                                LineBadge(name: line.name, color: routeColor(line.id))
+                                if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.accentColor) }
+                            }
+                            .padding(.horizontal, 9).frame(height: 38)
+                            .background(selected ? Color.accentColor.opacity(0.1) : Color(.tertiarySystemFill), in: Capsule())
+                            .overlay(Capsule().stroke(selected ? Color.accentColor : .clear, lineWidth: 2))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(tr("lineDetail.linePrefix")) \(line.name)")
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                    }
+                }
+                .padding(.horizontal)
+            }
+            if model.linesFailed || model.routesFailed {
+                HStack {
+                    Text(tr("map.routesUnavailable")).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(tr("common.retry")) {
+                        Task { await model.loadLines(for: nearestStops, force: true); await model.loadRoutes(routeIds) }
+                    }
+                    .font(.caption.weight(.semibold))
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding(.vertical, 10)
+        .background(Color(.systemBackground))
+    }
+
+    private func groupLabel(_ group: NearbyStopGroup) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(group.name).font(.body.weight(.medium)).foregroundStyle(.primary)
+                FlowLayout(spacing: 4, lineSpacing: 4) {
+                    ForEach(group.lines.filter { selectedTypes.contains($0.type) }) { line in
+                        LineBadge(name: line.name, color: routeColor(line.id), size: .small)
+                    }
+                }
+                if group.stops.count > 1 {
+                    Text(tr("map.platformCount").replacingOccurrences(of: "{n}", with: "\(group.stops.count)"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if let fix = location.location {
+                Text(DashboardFormat.distance(group.nearest.distance(from: fix)))
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+
+    private func platformRow(_ stop: CachedStop) -> some View {
+        Button { select(stop) } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text(stop.description.flatMap { $0.isEmpty ? nil : $0 } ?? tr(stop.type == "SUBWAY_STATION" ? "map.metroEntrance" : "map.surfaceStop"))
+                        .font(.subheadline.weight(.medium)).foregroundStyle(.primary)
+                    Spacer()
+                    if let fix = location.location {
+                        Text(DashboardFormat.distance(stop.distance(from: fix)))
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                }
+                FlowLayout(spacing: 4, lineSpacing: 4) {
+                    ForEach(stop.lines.filter { selectedTypes.contains($0.type) }) { line in
+                        LineBadge(name: line.name, color: routeColor(line.id), size: .small)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func select(_ stop: CachedStop) {
+        withAnimation(.snappy) {
+            selectedStop = stop
+            selectedGroupId = NearbyStopGroup.groups(nearestStops)
+                .first(where: { $0.stops.contains(where: { $0.id == stop.id }) })?.id
+            sheetLevel = .expanded
+        }
+    }
+
+    @ViewBuilder
+    private func stopPreviewSection(_ stop: CachedStop) -> some View {
+        Section {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(stop.name).font(.headline)
+                    Text(stop.description ?? tr("map.surfaceStop"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { selectedStop = nil; selectedGroupId = nil } label: {
+                    Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if previewLoading && stopPreview == nil {
+                ProgressView().frame(maxWidth: .infinity)
+            } else if let preview = stopPreview, !preview.lines.isEmpty {
+                ForEach(Array(preview.lines.enumerated()), id: \.offset) { _, line in
+                    HStack(spacing: 9) {
+                        Button { AppModel.shared.push(.line(line.id)) } label: {
+                            LineBadge(name: line.name, color: line.color)
+                        }
+                        .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(line.directionName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            if !line.vehicles.isEmpty {
+                                Text("\(line.vehicles.count) \(tr(line.vehicles.count == 1 ? "lineDetail.vehicleLive" : "lineDetail.vehiclesLive"))")
+                                    .font(.caption2.weight(.medium)).foregroundStyle(.green)
+                            }
+                        }
+                        Spacer(minLength: 4)
+                        if line.arrivingTime >= 0 {
+                            ArrivalBadge(seconds: line.arrivingTime, isTimetable: line.isTimetable, size: .small,
+                                         imminent: line.arrivingTime < 120)
+                        } else {
+                            OutOfServicePill()
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { AppModel.shared.push(.line(line.id)) }
+                }
+            } else if stopPreview != nil {
+                Text(tr("widget.noData")).font(.subheadline).foregroundStyle(.secondary)
+            } else {
+                Label(tr("map.routesUnavailable"), systemImage: "wifi.exclamationmark")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Button { AppModel.shared.push(.stop(stop.id)) } label: {
+                Label(tr("lineDetail.moreAboutStop"), systemImage: "arrow.right.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        } header: {
+            Label(tr("map.nearbyLines"), systemImage: "tram.fill")
+        }
+    }
+}

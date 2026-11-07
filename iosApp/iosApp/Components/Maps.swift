@@ -44,6 +44,7 @@ struct RouteMap: View {
 
     var body: some View {
         Map(position: $position, interactionModes: [.pan, .zoom]) {
+            UserAnnotation()
             if route.count >= 2 {
                 MapPolyline(coordinates: route)
                     .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
@@ -93,6 +94,7 @@ struct RouteMap: View {
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .mapControls {
             MapScaleView()
+            MapUserLocationButton()
         }
     }
 

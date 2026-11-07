@@ -59,7 +59,7 @@ Platform differences are kept to a few `expect`/`actual` pieces:
 
 ## How SwiftUI talks to Kotlin
 
-The iOS app never re-implements logic; it observes the shared view models.
+The iOS app observes the shared view models for transit screens. Its nearby map also calls the repository through nullable `IosServices` helpers for stop discovery, line memberships and route geometry.
 
 - `IosServices` (Kotlin, `iosMain`) exposes the Koin singletons and creates view models.
 - `KotlinScope` (Swift, `Bridge/KotlinBridge.swift`) subscribes to Kotlin `Flow`s through the `watch(flow:onEach:)` helper and owns view models through `ViewModelOwner`, so `onCleared()` runs when a screen goes away.
@@ -92,7 +92,13 @@ stb.db
 └── notification_subscriptions (id, stopId, stopName, lineId, lineName, lineColor, direction, mode, thresholdMinutes, enabled)
 ```
 
-Lines, arrivals and notices are not stored; they are always fetched live (stop info is cached in memory for a few seconds).
+Arrivals and notices are fetched live (stop info is cached in memory for a few seconds).
+
+The Swift app keeps a separate bounded `StopLocationCache` in UserDefaults: at most 1,000 stop records, prioritizing frequently and recently opened stops. Map-area coverage has a 7-day TTL; line memberships have a 24-hour TTL. Expired records remain available as an offline fallback. Successful area refreshes remove obsolete stops, while eviction invalidates coverage for affected areas. Route geometry stays in memory for the map session.
+
+`ForegroundLocation` runs only while nearby-stop screens are visible and the app is in the foreground. It is separate from the coarse background location manager used for live arrival tracking. The map offsets shared route corridors into parallel lanes at a constant screen spacing; stop markers retain their actual coordinates.
+
+`NearbyStopGroup` combines direction-specific stop records by normalized station name, preserving the nearest platform's coordinate, the union of serving lines, and all individual stop IDs for navigation. The Map tab uses a full-size map with an inline bottom sheet at collapsed, medium and expanded heights; the app's tab bar stays accessible. Platform memberships load in batches of four and retain their 24-hour TTL.
 
 ## Strings
 

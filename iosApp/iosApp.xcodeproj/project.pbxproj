@@ -35,6 +35,12 @@
 		DB00000000000025 /* DashboardSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000024 /* DashboardSheets.swift */; };
 		DB00000000000027 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB00000000000026 /* DashboardView.swift */; };
 		DB0000000000F002 /* StopDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB0000000000F001 /* StopDetailView.swift */; };
+		DC00000000000002 /* ForegroundLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000001 /* ForegroundLocation.swift */; };
+		DC00000000000004 /* NearbyStopSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000003 /* NearbyStopSelection.swift */; };
+		DC00000000000006 /* StopLocationCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000005 /* StopLocationCache.swift */; };
+		DC00000000000008 /* NearbyMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000007 /* NearbyMapView.swift */; };
+		DC0000000000000A /* RouteLaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC00000000000009 /* RouteLaneLayout.swift */; };
+		DC0000000000000C /* NearbyStopGrouping.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0000000000000B /* NearbyStopGrouping.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,6 +98,12 @@
 		DB00000000000024 /* DashboardSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardSheets.swift; sourceTree = "<group>"; };
 		DB00000000000026 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		DB0000000000F001 /* StopDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopDetailView.swift; sourceTree = "<group>"; };
+		DC00000000000001 /* ForegroundLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForegroundLocation.swift; sourceTree = "<group>"; };
+		DC00000000000003 /* NearbyStopSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyStopSelection.swift; sourceTree = "<group>"; };
+		DC00000000000005 /* StopLocationCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StopLocationCache.swift; sourceTree = "<group>"; };
+		DC00000000000007 /* NearbyMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyMapView.swift; sourceTree = "<group>"; };
+		DC00000000000009 /* RouteLaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteLaneLayout.swift; sourceTree = "<group>"; };
+		DC0000000000000B /* NearbyStopGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyStopGrouping.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +150,7 @@
 				DB00000000000003 /* Components */,
 				DB00000000000004 /* Screens */,
 				7555FF7E242A565900829871 /* iOSApp.swift */,
+				DC00000000000001 /* ForegroundLocation.swift */,
 				DA000000000000A1 /* SceneDelegate.swift */,
 				DA00000000000001 /* TransitActivityAttributes.swift */,
 				DA00000000000004 /* LiveActivityManager.swift */,
@@ -162,6 +175,10 @@
 			isa = PBXGroup;
 			children = (
 				DB00000000000006 /* AppModel.swift */,
+				DC0000000000000B /* NearbyStopGrouping.swift */,
+				DC00000000000009 /* RouteLaneLayout.swift */,
+				DC00000000000005 /* StopLocationCache.swift */,
+				DC00000000000003 /* NearbyStopSelection.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -193,6 +210,7 @@
 				DB00000000000005 /* Dashboard */,
 				DB00000000000016 /* AnnouncementsView.swift */,
 				DB00000000000018 /* LineDetailView.swift */,
+				DC00000000000007 /* NearbyMapView.swift */,
 				DB0000000000001A /* LinesView.swift */,
 				DB0000000000001C /* RootView.swift */,
 				DB0000000000001E /* SettingsView.swift */,
@@ -341,6 +359,12 @@
 				DB00000000000015 /* TimetableViews.swift in Sources */,
 				DB00000000000017 /* AnnouncementsView.swift in Sources */,
 				DB00000000000019 /* LineDetailView.swift in Sources */,
+				DC0000000000000C /* NearbyStopGrouping.swift in Sources */,
+				DC0000000000000A /* RouteLaneLayout.swift in Sources */,
+				DC00000000000008 /* NearbyMapView.swift in Sources */,
+				DC00000000000006 /* StopLocationCache.swift in Sources */,
+				DC00000000000004 /* NearbyStopSelection.swift in Sources */,
+				DC00000000000002 /* ForegroundLocation.swift in Sources */,
 				DB0000000000001B /* LinesView.swift in Sources */,
 				DB0000000000001D /* RootView.swift in Sources */,
 				DB0000000000001F /* SettingsView.swift in Sources */,

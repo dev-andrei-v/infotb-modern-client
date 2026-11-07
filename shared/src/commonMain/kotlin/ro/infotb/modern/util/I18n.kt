@@ -3,6 +3,34 @@ package ro.infotb.modern.util
 enum class Locale { RO, EN }
 
 private val translations: Map<String, Map<Locale, String>> = mapOf(
+    // iOS nearby stops and map
+    "nav.map" to mapOf(Locale.RO to "Harta", Locale.EN to "Map"),
+    "lineDetail.nearbyStops" to mapOf(Locale.RO to "Statii in apropiere", Locale.EN to "Nearby stops"),
+    "lineDetail.allStops" to mapOf(Locale.RO to "Toate statiile", Locale.EN to "All stops"),
+    "settings.nearbyStopCount" to mapOf(Locale.RO to "Numar de statii", Locale.EN to "Number of stops"),
+    "settings.nearbyStopsOff" to mapOf(Locale.RO to "Dezactivat", Locale.EN to "Off"),
+    "settings.stopCacheDescription" to mapOf(Locale.RO to "Pozitiile statiilor sunt salvate 7 zile, iar liniile deservite 24 de ore. Datele expirate raman disponibile offline. Statiile folosite frecvent au prioritate in cache.", Locale.EN to "Stop locations are cached for 7 days and serving lines for 24 hours. Expired data remains available offline. Frequently used stops take priority in the cache."),
+    "settings.nearbyStopsDescription" to mapOf(Locale.RO to "Afiseaza cele mai apropiate statii deasupra traseului complet cand deschizi o linie. Distantele sunt in linie dreapta.", Locale.EN to "Show the nearest stops above the complete route when opening a line. Distances are straight-line distances."),
+    "map.locationUnavailable" to mapOf(Locale.RO to "Pozitia nu este disponibila. Activeaza localizarea pentru a vedea statiile din apropiere.", Locale.EN to "Location is unavailable. Enable location to see nearby stops."),
+    "map.openSettings" to mapOf(Locale.RO to "Deschide Setari", Locale.EN to "Open Settings"),
+    "map.nearbyLines" to mapOf(Locale.RO to "Linii in apropiere", Locale.EN to "Nearby lines"),
+    "map.viewStops" to mapOf(Locale.RO to "Statiile liniei", Locale.EN to "View stops for"),
+    "map.nearestRoutes" to mapOf(Locale.RO to "Trasee apropiate", Locale.EN to "Nearest routes"),
+    "map.adjustSheet" to mapOf(Locale.RO to "Redimensioneaza panoul hartii", Locale.EN to "Resize map sheet"),
+    "map.sheetCollapsed" to mapOf(Locale.RO to "Restrans", Locale.EN to "Collapsed"),
+    "map.sheetMedium" to mapOf(Locale.RO to "Jumatate de ecran", Locale.EN to "Half screen"),
+    "map.sheetExpanded" to mapOf(Locale.RO to "Extins", Locale.EN to "Expanded"),
+    "map.platformCount" to mapOf(Locale.RO to "{n} peroane / sensuri", Locale.EN to "{n} platforms / directions"),
+    "map.surfaceStop" to mapOf(Locale.RO to "Statie de suprafata", Locale.EN to "Surface stop"),
+    "map.metroEntrance" to mapOf(Locale.RO to "Intrare metrou", Locale.EN to "Metro entrance"),
+    "map.cachedResults" to mapOf(Locale.RO to "Datele nu au putut fi actualizate. Sunt afisate statiile salvate, daca exista.", Locale.EN to "Could not refresh. Showing saved stops where available."),
+    "map.noStops" to mapOf(Locale.RO to "Nicio statie gasita la mai putin de 1 km cu aceste filtre.", Locale.EN to "No stops found within 1 km with these filters."),
+    "map.loadingRoutes" to mapOf(Locale.RO to "Se incarca liniile si traseele...", Locale.EN to "Loading lines and routes..."),
+    "map.routeSelected" to mapOf(Locale.RO to "Traseu selectat", Locale.EN to "Route selected"),
+    "map.showRoute" to mapOf(Locale.RO to "Evidentiaza traseul", Locale.EN to "Highlight route"),
+    "map.routeHint" to mapOf(Locale.RO to "Linii de la cele mai apropiate 8 statii si intrari de metrou, la cel mult 1 km. Harta evidentiaza primele 6 linii; atinge o linie pentru a-i izola traseul.", Locale.EN to "Lines serving the nearest 8 stops and metro entrances within 1 km. The first 6 lines are highlighted; tap a line to focus its route."),
+    "map.routesUnavailable" to mapOf(Locale.RO to "Unele linii sau trasee nu au putut fi incarcate.", Locale.EN to "Some lines or routes could not be loaded."),
+
     // Navigation
     "nav.dashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
     "nav.lines" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),

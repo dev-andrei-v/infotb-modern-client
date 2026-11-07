@@ -1,14 +1,21 @@
 package ro.infotb.modern.data.repository
 
+import com.russhwolf.settings.Settings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ro.infotb.modern.currentTimeMillis
 import ro.infotb.modern.data.api.StbApi
 import ro.infotb.modern.data.model.*
 import ro.infotb.modern.util.Constants
 
-class TransitRepository(private val api: StbApi) {
+class TransitRepository(private val api: StbApi, private val settings: Settings) {
+
+    private val announcementsJson = Json { ignoreUnknownKeys = true }
 
     private data class CachedStopInfo(val info: StopInfo, val fetchedAtMs: Long)
 
@@ -83,15 +90,37 @@ class TransitRepository(private val api: StbApi) {
         return api.getStopDetails(stopId)
     }
 
+    suspend fun getStopLines(stopId: Long): List<Line> = api.getStopLines(stopId)
+
     suspend fun getVehicles(lineId: Long, direction: Direction): List<VehiclePosition> {
         return api.getVehicles(lineId, direction)
     }
 
     suspend fun getAnnouncements(limit: Int = 50, offset: Int = 0): List<Announcement> {
-        return api.getAnnouncements(limit, offset)
+        return try {
+            api.getAnnouncements(limit, offset).also { announcements ->
+                settings.putString(announcementsCacheKey(limit, offset), announcementsJson.encodeToString(announcements))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            getCachedAnnouncements(limit, offset)?.let { return it }
+            throw e
+        }
     }
+
+    fun getCachedAnnouncements(limit: Int = 50, offset: Int = 0): List<Announcement>? {
+        val cached = settings.getStringOrNull(announcementsCacheKey(limit, offset)) ?: return null
+        return runCatching { announcementsJson.decodeFromString<List<Announcement>>(cached) }.getOrNull()
+    }
+
+    private fun announcementsCacheKey(limit: Int, offset: Int) =
+        "${Constants.SETTINGS_KEY_ANNOUNCEMENTS_CACHE}-$limit-$offset"
 
     suspend fun getHomeStops(stopId: Long): List<Stop> {
         return api.getHomeStops(stopId)
     }
+
+    suspend fun getStopsInBounds(south: Double, west: Double, north: Double, east: Double): List<Stop> =
+        api.getStopsInBounds(south, west, north, east)
 }

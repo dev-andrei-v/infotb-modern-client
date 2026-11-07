@@ -20,15 +20,16 @@ struct RootView: View {
             .tabItem { Label(tr("nav.lines"), systemImage: "point.topleft.down.to.point.bottomright.curvepath.fill") }
             .tag(AppTab.lines)
 
-            NavigationStack(path: $app.newsPath) {
-                AnnouncementsView(model: app.news)
+            NavigationStack(path: $app.mapPath) {
+                NearbyMapView()
                     .routeDestinations()
             }
-            .tabItem { Label(tr("nav.announcements"), systemImage: "exclamationmark.bubble.fill") }
-            .tag(AppTab.news)
+            .tabItem { Label(tr("nav.map"), systemImage: "map.fill") }
+            .tag(AppTab.map)
 
-            NavigationStack {
+            NavigationStack(path: $app.settingsPath) {
                 SettingsView()
+                    .routeDestinations()
             }
             .tabItem { Label(tr("nav.settings"), systemImage: "gearshape.fill") }
             .tag(AppTab.settings)
@@ -49,6 +50,8 @@ extension View {
                 StopDetailView(stopId: stopId, lineId: lineId, direction: direction)
             case .lineMap(let lineId, let direction):
                 LiveMapView(lineId: lineId, direction: direction)
+            case .news:
+                AnnouncementsView(model: AppModel.shared.news)
             }
         }
     }

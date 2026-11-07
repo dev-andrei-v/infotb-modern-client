@@ -34,7 +34,7 @@ struct DashboardCard: View {
 
                 let news = model.news(for: lines)
                 if !news.isEmpty {
-                    NewsBanner(news: news) { app.selectedTab = .news }
+                    NewsBanner(news: news) { app.openNews() }
                 }
 
                 if state?.info != nil, !lines.isEmpty {

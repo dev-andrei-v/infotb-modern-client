@@ -72,6 +72,12 @@ struct DashboardView: View {
                 Label(tr("widget.addStation"), systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
+            Button {
+                app.dashboardPath.append(.planner)
+            } label: {
+                Label(tr("planner.title"), systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+            }
+            .buttonStyle(.bordered)
         }
     }
 
@@ -82,45 +88,57 @@ struct DashboardView: View {
             let now = context.date
             let sections = model.sections(at: now)
             let showHeaders = model.showsHeaders(sections)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    statusHeader(now: now)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        statusHeader(now: now)
+                        if model.visibleCount == 0 {
+                            Text(tr("dashboard.allHidden"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 60)
+                        }
 
-                    if model.visibleCount == 0 {
-                        Text(tr("dashboard.allHidden"))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 60)
-                    }
-
-                    ForEach(sections) { section in
-                        if !section.isHidden && section.widgets.contains(where: { !$0.hidden }) {
-                            if showHeaders { sectionHeader(section) }
-                            if !model.isCollapsed(section) {
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
-                                    ForEach(section.widgets.filter { !$0.hidden }, id: \.id) { widget in
-                                        DashboardCard(
-                                            model: model,
-                                            widget: widget,
-                                            now: now,
-                                            showGroup: model.nearestMode,
-                                            onOptions: { optionsWidgetId = widget.id }
-                                        )
+                        ForEach(sections) { section in
+                            if !section.isHidden && section.widgets.contains(where: { !$0.hidden }) {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    if showHeaders { sectionHeader(section) }
+                                    if !model.isCollapsed(section) {
+                                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
+                                            ForEach(section.widgets.filter { !$0.hidden }, id: \.id) { widget in
+                                                DashboardCard(
+                                                    model: model,
+                                                    widget: widget,
+                                                    now: now,
+                                                    showGroup: model.nearestMode,
+                                                    onOptions: { optionsWidgetId = widget.id }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
+                                .id(section.name)
                             }
                         }
                     }
+                    .padding(.horizontal, InfoTBDesign.pageInset)
+                    .padding(.bottom, 24)
+                    .animation(.snappy, value: model.widgets.map(\.id))
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 24)
-                .animation(.snappy, value: model.widgets.map(\.id))
+                .background(Color(.systemGroupedBackground))
+                .refreshable { await model.refresh() }
+                .onAppear { scrollToPendingGroup(using: proxy) }
+                .onChange(of: app.pendingDashboardGroupName) { _, _ in scrollToPendingGroup(using: proxy) }
             }
-            .background(Color(.systemGroupedBackground))
-            .refreshable { await model.refresh() }
         }
+    }
+
+    private func scrollToPendingGroup(using proxy: ScrollViewProxy) {
+        guard let group = app.pendingDashboardGroupName else { return }
+        withAnimation(.snappy) { proxy.scrollTo(group, anchor: .top) }
+        _ = app.consumePendingDashboardGroup()
     }
 
     @ViewBuilder
@@ -266,7 +284,7 @@ struct DashboardView: View {
                 model.toggleHidden(widget)
             } label: {
                 Image(systemName: widget.hidden ? "eye.slash" : "eye")
-                    .foregroundStyle(widget.hidden ? Color.secondary : Color.accentColor)
+                    .foregroundStyle(widget.hidden ? Color.secondary : InfoTBDesign.accent)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(widget.hidden ? tr("widget.show") : tr("widget.hide"))

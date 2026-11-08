@@ -3,12 +3,17 @@ package ro.infotb.modern.ui.components.shared
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
@@ -93,12 +98,12 @@ fun ArrivalTimeBadge(
                 )
             },
             text = {
-                Text(
-                    if (isTimetable)
+                Column(Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                    Text(if (isTimetable)
                         "This arrival time is based on the scheduled timetable, not real-time tracking."
                     else
-                        "This arrival time is based on live GPS tracking of the vehicle."
-                )
+                        "This arrival time is based on live GPS tracking of the vehicle.")
+                }
             },
             confirmButton = {
                 TextButton(onClick = { showTooltip = false }) {

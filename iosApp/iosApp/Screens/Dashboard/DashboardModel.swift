@@ -1,5 +1,30 @@
 import Shared
 import SwiftUI
+import WidgetKit
+
+private struct HomeScreenGroupSnapshot: Codable {
+    let name: String
+    let stops: [HomeScreenStopSnapshot]
+    var activeFrom: Int? = nil
+    var activeTo: Int? = nil
+    var selectedStopId: Int64? = nil
+}
+
+private struct HomeScreenStopSnapshot: Codable {
+    let id: Int64
+    let name: String
+    let observedAtMs: Int64
+    let arrivals: [HomeScreenArrivalSnapshot]
+}
+
+private struct HomeScreenArrivalSnapshot: Codable {
+    let lineName: String
+    let color: String
+    let transportType: String
+    let direction: String
+    let seconds: Int64
+    let isTimetable: Bool
+}
 
 /// A titled run of cards on the dashboard; "" is the ungrouped section.
 struct DashboardSection: Identifiable {
@@ -14,6 +39,9 @@ struct DashboardSection: Identifiable {
 
 @Observable
 final class DashboardModel {
+    static var widgetSharingAvailable: Bool {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ro.infotb.modern") != nil
+    }
     let viewModel = IosServices.shared.dashboardViewModel()
     private let scope = KotlinScope()
 
@@ -33,6 +61,10 @@ final class DashboardModel {
     private(set) var distances: [Int64: Double] = [:]
     private(set) var timetables: [String: [TimetableHour]] = [:]
     private(set) var timetableLoading: Set<String> = []
+    private var widgetLocaleCode = "ro"
+    private var widgetReloadTask: Task<Void, Never>?
+    private(set) var homeWidgetStopID: Int64?
+    private(set) var homeWidgetStopIDs: [String: Int64] = [:]
 
     /// Scheduled groups the user opened while they are outside their hours.
     var expandedInactive: Set<String> = []
@@ -46,11 +78,41 @@ final class DashboardModel {
     init() {
         scope.own(viewModel)
         let vm = viewModel
-        scope.watch(vm.widgets) { [weak self] in self?.widgets = Unbox.list($0); self?.updateDistances() }
-        scope.watch(vm.groups) { [weak self] in self?.groups = Unbox.list($0) }
-        scope.watch(vm.hiddenGroups) { [weak self] in self?.hiddenGroups = Set(Unbox.list($0) as [String]) }
-        scope.watch(vm.groupSchedules) { [weak self] in self?.schedules = Unbox.stringKeyed($0) }
-        scope.watch(vm.cardStates) { [weak self] in self?.cardStates = Unbox.longKeyed($0) }
+        scope.watch(vm.widgets) { [weak self] in
+            guard let self else { return }
+            self.widgets = Unbox.list($0)
+            self.updateDistances()
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.groups) { [weak self] in
+            guard let self else { return }
+            self.groups = Unbox.list($0)
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.hiddenGroups) { [weak self] in
+            self?.hiddenGroups = Set(Unbox.list($0) as [String])
+            self?.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.groupSchedules) { [weak self] in
+            guard let self else { return }
+            self.schedules = Unbox.stringKeyed($0)
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.cardStates) { [weak self] in
+            guard let self else { return }
+            self.cardStates = Unbox.longKeyed($0)
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.homeWidgetStopId) { [weak self] value in
+            guard let self else { return }
+            self.homeWidgetStopID = (value as? NSNumber)?.int64Value
+            self.publishHomeScreenWidgetData()
+        }
+        scope.watch(vm.homeWidgetStopIds) { [weak self] value in
+            guard let self else { return }
+            self.homeWidgetStopIDs = Unbox.stringLongKeyed(value)
+            self.publishHomeScreenWidgetData()
+        }
         scope.watch(vm.announcements) { [weak self] in self?.announcements = Unbox.list($0) }
         scope.watch(vm.isRefreshing) { [weak self] in self?.isRefreshing = Unbox.bool($0) }
         scope.watch(vm.isEditing) { [weak self] in self?.isEditing = Unbox.bool($0) }
@@ -72,6 +134,115 @@ final class DashboardModel {
             }
         }
         distances = result
+        publishHomeScreenWidgetData()
+    }
+
+    private func publishHomeScreenWidgetData() {
+        let suite = UserDefaults(suiteName: "group.ro.infotb.modern")
+        let groupNames = groups + (widgets.contains(where: { $0.group.isEmpty }) ? [""] : [])
+        let snapshots = groupNames.map { group in
+            let stops = widgets.filter { !$0.hidden && !hiddenGroups.contains($0.group) && $0.group == group }.map { widget in
+                let state = cardStates[widget.stopId]
+                let arrivals = (state?.info?.lines ?? [])
+                    .filter { widget.visibleLines.isEmpty || widget.visibleLines.contains($0.lineKey) }
+                    .sorted { $0.arrivingTime < $1.arrivingTime }
+                    .prefix(3)
+                    .map {
+                        HomeScreenArrivalSnapshot(
+                            lineName: $0.name,
+                            color: $0.color,
+                            transportType: $0.type.name,
+                            direction: $0.directionName,
+                            seconds: $0.arrivingTime,
+                            isTimetable: $0.isTimetable
+                        )
+                    }
+                return HomeScreenStopSnapshot(
+                    id: widget.stopId,
+                    name: widget.stopName,
+                    observedAtMs: state?.lastUpdatedMs ?? 0,
+                    arrivals: arrivals
+                )
+            }
+            let schedule = schedules[group]
+            let selectedStop = homeWidgetStopIDs[group] ?? (group.isEmpty ? homeWidgetStopID : nil)
+            return HomeScreenGroupSnapshot(
+                name: group,
+                stops: stops,
+                activeFrom: schedule.map { Int($0.fromMinutes) },
+                activeTo: schedule.map { Int($0.toMinutes) },
+                selectedStopId: selectedStop
+            )
+        }
+        guard let data = try? JSONEncoder().encode(snapshots) else { return }
+        // Write the snapshot atomically before requesting a widget reload. This
+        // avoids a cross-process UserDefaults propagation race on first setup.
+        if let directory = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.ro.infotb.modern") {
+            try? data.write(to: directory.appendingPathComponent("dashboard-widget-groups.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
+        suite?.set(data, forKey: "dashboard.homeWidgetGroups.v1")
+        if let nearest = viewModel.nearestWidgetStopId() {
+            suite?.set(NSNumber(value: nearest.int64Value), forKey: "dashboard.homeWidgetNearestStopID.v1")
+        } else {
+            suite?.removeObject(forKey: "dashboard.homeWidgetNearestStopID.v1")
+        }
+        suite?.set(widgetLocaleCode, forKey: "dashboard.homeWidgetLocale.v1")
+        if let homeWidgetStopID {
+            suite?.set(NSNumber(value: homeWidgetStopID), forKey: "dashboard.homeWidgetSelectedStopID.v1")
+        } else {
+            suite?.removeObject(forKey: "dashboard.homeWidgetSelectedStopID.v1")
+        }
+        widgetReloadTask?.cancel()
+        widgetReloadTask = Task {
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            WidgetCenter.shared.reloadTimelines(ofKind: "TransitGroupWidget")
+        }
+    }
+
+    func updateWidgetLocale(_ localeCode: String) {
+        widgetLocaleCode = localeCode
+        publishHomeScreenWidgetData()
+    }
+
+    func isPinnedInWidget(_ widget: WidgetConfig) -> Bool {
+        if let pinnedId = homeWidgetStopIDs[widget.group] {
+            return pinnedId == widget.stopId
+        }
+        if widget.group.isEmpty {
+            return homeWidgetStopID == widget.stopId
+        }
+        return false
+    }
+
+    func pinnedStop(for group: String) -> WidgetConfig? {
+        guard let pinnedId = homeWidgetStopIDs[group] ?? (group.isEmpty ? homeWidgetStopID : nil) else { return nil }
+        return widgets.first { $0.stopId == pinnedId && $0.group == group }
+    }
+
+    func togglePinStopInWidget(_ widget: WidgetConfig) {
+        let isCurrentlyPinned = isPinnedInWidget(widget)
+        let nextStopId: KotlinLong? = isCurrentlyPinned ? nil : KotlinLong(value: widget.stopId)
+
+        // Set for this group (replaces any other stop pinned in this group)
+        viewModel.setHomeWidgetStop(groupName: widget.group, stopId: nextStopId)
+
+        // Also sync global dashboard selection
+        if isCurrentlyPinned {
+            if homeWidgetStopID == widget.stopId {
+                viewModel.setHomeWidgetStop(stopId: nil)
+            }
+        } else {
+            viewModel.setHomeWidgetStop(stopId: nextStopId)
+        }
+    }
+
+    func toggleHomeScreenStop(_ stopId: Int64) {
+        if let widget = widgets.first(where: { $0.stopId == stopId }) {
+            togglePinStopInWidget(widget)
+        } else {
+            let nextStopId: KotlinLong? = homeWidgetStopID == stopId ? nil : KotlinLong(value: stopId)
+            viewModel.setHomeWidgetStop(stopId: nextStopId)
+        }
     }
 
     // MARK: Layout

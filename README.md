@@ -36,6 +36,7 @@ It's a native app on both platforms: **SwiftUI with Liquid Glass on iPhone**, **
 - **Track an arrival.** Tap the bell next to a line and follow it in the **Dynamic Island** and on the Lock Screen (iPhone), or in an ongoing notification (Android), until it reaches your stop.
 - **Every line, searchable.** Filter by bus, tram, trolleybus, metro or night lines, and star your favourites.
 - **Live map.** See a line's route, its direction and every vehicle on it right now; tap a stop to see when the next one arrives there.
+- **Nearby on iPhone.** The Map tab shows nearby stations and routes with bus, tram, trolleybus and metro filters in a draggable sheet over a full-size map. Direction-specific stops are grouped under one station and can be expanded to pick a platform. Shared corridors use parallel lanes, and selecting a line emphasizes its route. Line pages show configurable nearby-stop shortcuts above the full route. Stop locations are cached for 7 days, with frequently opened stops kept first; service news lives in Settings and still appears on affected cards and line pages.
 - **Timetables.** The full day's schedule for any line at any stop, scrolled to the current hour.
 - **STB notices.** Service notices show up on the cards of the lines they affect, and you can be notified when a line you follow gets one.
 - **Metro in its real colours.** M1 yellow, M2 blue, M3 red, M4 green, M5 orange.
@@ -64,5 +65,11 @@ Want to build it yourself? Start with [docs/building.md](docs/building.md).
 > **InfoTB is an independent project and is not affiliated with STB or Metrorex.** Arrival data comes from STB's public API.
 
 InfoTB exists because public transport information is a public service, paid for by taxpayers, and riders deserve a client that is fast, clear and pleasant to use. The official app falls short of that, so this is a take on how it could be done.
+
+### Project ownership and reuse
+
+The app's product design, feature concepts, interaction flows, and original implementation in this repository were created by the project author. STB's API, service data, and any third-party materials remain the property of their respective owners; InfoTB is independent and is not an STB product.
+
+Please contact [the author](https://github.com/dev-andrei-v) and obtain written permission before reusing or redistributing this code or original assets, or publishing or marketing an app derived from this project—including by STB or another commercial entity. Do not present InfoTB or a derivative as your own or as an official STB app. The repository contains no license granting reuse rights. Product concepts and methods are described here as the author's work and should be credited and discussed with the author before commercial adoption; applicable law may treat abstract ideas differently from their specific expression. This notice does not replace legal advice.
 
 **No hacking is involved.** InfoTB uses the same public API that STB's own website (info.stb.ro) uses, in the same way: it identifies itself, requests the same data, and doesn't bypass any access controls. We believe the details of this API should be openly documented for everyone, which is why they are written up in [docs/stb-api.md](docs/stb-api.md).

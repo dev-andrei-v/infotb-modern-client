@@ -3,7 +3,7 @@ import Shared
 import UIKit
 
 enum AppTab: Hashable {
-    case dashboard, lines, news, settings
+    case dashboard, lines, map, planner, settings
 }
 
 enum Route: Hashable {
@@ -11,6 +11,8 @@ enum Route: Hashable {
     case stop(Int64, lineId: Int64? = nil, direction: Direction? = nil)
     /// A line's route and live vehicles on a full-screen map.
     case lineMap(Int64, direction: Direction)
+    case news
+    case planner
 }
 
 /// App-wide state: preferences, navigation, live-tracking subscriptions and
@@ -33,7 +35,11 @@ final class AppModel {
     var selectedTab: AppTab = .dashboard
     var dashboardPath: [Route] = []
     var linesPath: [Route] = []
-    var newsPath: [Route] = []
+    var mapPath: [Route] = []
+    var plannerPath: [Route] = []
+    var settingsPath: [Route] = []
+    var pendingPlannerDestinationID: String?
+    var pendingDashboardGroupName: String?
 
     /// Short confirmation shown at the top of the screen.
     private(set) var toast: String?
@@ -51,7 +57,12 @@ final class AppModel {
             self?.theme = $0 as? String ?? "system"
             self?.applyTheme()
         }
-        scope.watch(prefs.locale) { [weak self] in self?.localeCode = $0 as? String ?? "ro" }
+        scope.watch(prefs.locale) { [weak self] in
+            guard let self else { return }
+            self.localeCode = $0 as? String ?? "ro"
+            self.dashboard.updateWidgetLocale(self.localeCode)
+            AppQuickActions.refresh(localeCode: self.localeCode)
+        }
         scope.watch(prefs.noticeAlerts) { [weak self] in self?.noticeAlerts = Unbox.bool($0) }
         scope.watch(services.notificationStore.subscriptions) { [weak self] in
             self?.subscriptions = Unbox.list($0)
@@ -89,9 +100,52 @@ final class AppModel {
         switch selectedTab {
         case .dashboard: dashboardPath.append(route)
         case .lines: linesPath.append(route)
-        case .news: newsPath.append(route)
-        case .settings: break
+        case .map: mapPath.append(route)
+        case .planner: plannerPath.append(route)
+        case .settings: settingsPath.append(route)
         }
+    }
+
+    func openNews() {
+        selectedTab = .settings
+        settingsPath = [.news]
+    }
+
+    func openQuickAction(_ shortcut: UIApplicationShortcutItem) -> Bool {
+        switch shortcut.type {
+        case AppQuickActions.linesType:
+            selectedTab = .lines
+            linesPath = []
+            return true
+        case AppQuickActions.mapType:
+            selectedTab = .map
+            mapPath = []
+            return true
+        case AppQuickActions.savedDestinationType:
+            guard let destinationID = shortcut.userInfo?[AppQuickActions.destinationIDKey] as? String else { return false }
+            selectedTab = .planner
+            plannerPath = []
+            pendingPlannerDestinationID = destinationID
+            return true
+        default:
+            return false
+        }
+    }
+
+    func consumePendingPlannerDestination() -> String? {
+        defer { pendingPlannerDestinationID = nil }
+        return pendingPlannerDestinationID
+    }
+
+    func openDashboardGroup(_ name: String) {
+        selectedTab = .dashboard
+        dashboardPath = []
+        pendingDashboardGroupName = name
+    }
+
+    func consumePendingDashboardGroup() -> String? {
+        defer { pendingDashboardGroupName = nil }
+        return pendingDashboardGroupName
     }
 
     func addToDashboard(stopId: Int64, stopName: String) {
@@ -148,6 +202,11 @@ final class AppModel {
 
     func refreshTracking() {
         services.notificationEngine.refreshNow()
+    }
+
+    func refreshDashboardFromWidget() {
+        selectedTab = .dashboard
+        Task { @MainActor in await dashboard.refresh() }
     }
 
     // MARK: Toast

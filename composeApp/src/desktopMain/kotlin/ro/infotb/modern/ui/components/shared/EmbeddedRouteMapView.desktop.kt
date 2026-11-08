@@ -12,11 +12,13 @@ import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.VehiclePosition
 
 @Composable
-actual fun LeafletRouteMap(
+actual fun EmbeddedRouteMapView(
     stops: List<Stop>,
     vehicles: List<VehiclePosition>,
     lineColor: String,
     segmentPath: String?,
+    selectedStopId: Long?,
+    onStopSelect: (Long) -> Unit,
     modifier: Modifier
 ) {
     Box(

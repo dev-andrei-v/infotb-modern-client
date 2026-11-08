@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_choose_group">Alege un grup din Panou</string>
+    <string name="widget_default_group">Stații fără grup</string>
+    <string name="widget_no_stops">Nicio stație în acest grup</string>
+    <string name="widget_all_stops">Alte stații</string>
+    <string name="widget_refresh">Reîmprospătează sosirile</string>
+    <string name="widget_open_dashboard">Deschide Panoul pentru sosiri</string>
+    <string name="widget_rotating_group">Grup activ (după orar)</string>
+    <string name="widget_settings">Setări widget</string>
+    <string name="widget_choose_stop">Alege o stație pentru acest grup</string>
+    <string name="widget_default_stop">Automat (din Panou)</string>
+    <string name="widget_dashboard_selection">Stația aleasă în Panou</string>
+    <string name="widget_due">Acum</string>
+    <string name="widget_no_arrival">Fără sosiri</string>
+    <string name="widget_minutes">%1$d min</string>
+    <string name="widget_nearest_stop">Cea mai apropiată stație din Panou</string>
+    <string name="widget_nearest_unavailable">Deschide Panoul și activează localizarea</string>
+</resources>

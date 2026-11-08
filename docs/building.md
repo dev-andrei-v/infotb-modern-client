@@ -22,6 +22,8 @@ Min SDK 26 (Android 8.0), target SDK 35, application id `ro.infotb.modern`. Rele
 ./gradlew :composeApp:createDistributable    # package (Dmg / Msi / Deb)
 ```
 
+The app version is `0.4.0`. macOS installer metadata uses `1.4.0` because the Compose DMG packager requires a nonzero major version.
+
 ## iOS
 
 1. Open `iosApp/iosApp.xcodeproj` in Xcode.
@@ -66,11 +68,15 @@ The version lives in four places; bump them together:
 | `release-apk.yml` | tags `v*` | release APK attached to a GitHub Release |
 | `release-ipa.yml` | tags `v*` (or manual) | unsigned IPA attached to the GitHub Release |
 
-To release, push a tag such as `v0.2.0`.
+To release, push a tag such as `v0.4.0`.
 
 ## iOS sideloading
 
 The IPA from a release is unsigned. Sideloading tools such as [iLoader](https://github.com/nab138/iloader) or Sideloadly sign it with your Apple ID.
+
+Sideload packages carry ad-hoc signatures to preserve the requested App Group entitlement. They still need device provisioning and re-signing before installation. Both the app and the `InfoTBLiveActivity.appex` extension need a profile that grants `group.ro.infotb.modern`; a signing service must preserve this shared group. Without it, the home-screen widget cannot read the dashboard. Settings shows a widget-sharing warning when the installed app cannot access its shared container. Inspect the final re-signed IPA as well: the Signulous output tested so far replaces this App Group, gives the app and widget the same signing identity, and omits the widget’s embedded provisioning profile. Widget support through that signing setup remains unresolved; a successful signature-integrity check alone does not establish that the device can launch the widget.
+
+The widget's **Nearest dashboard stop** mode uses the most recent location obtained while the Dashboard is open, among visible saved stops. Open Dashboard and allow location to update it; the widget does not track location in the background.
 
 The Dynamic Island / Live Activity lives in an app extension, and not every tool signs extensions. When it isn't signed, the app falls back to regular notifications.
 

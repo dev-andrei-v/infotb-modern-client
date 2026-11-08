@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -57,18 +58,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.LineArrivalDetail
 import ro.infotb.modern.data.model.TimetableHour
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
-import ro.infotb.modern.ui.components.shared.LeafletMap
+import ro.infotb.modern.ui.components.shared.EmbeddedMapView
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.RealtimeColor
@@ -79,6 +83,10 @@ import ro.infotb.modern.currentHourOfDay
 import ro.infotb.modern.currentMinuteOfHour
 import ro.infotb.modern.data.store.NotificationSubscription
 import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.formatDestination
+import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.util.t
 import kotlinx.coroutines.launch
 
@@ -93,6 +101,7 @@ fun StopDetailScreen(
     activeSubscriptions: List<NotificationSubscription> = emptyList(),
     onBack: () -> Unit,
     onNavigateToLine: (lineId: Long) -> Unit,
+    onNavigateToStop: (latitude: Double, longitude: Double, name: String) -> Unit,
     onAddToDashboard: (stopId: Long, stopName: String) -> Unit,
     onSetNotification: (stopId: Long, stopName: String, lineId: Long, lineName: String, lineColor: String, direction: Direction, minutes: Int, isTimetable: Boolean, lineType: String) -> Unit,
     onStopNotification: (subscriptionId: String) -> Unit = {},
@@ -113,11 +122,23 @@ fun StopDetailScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = {
-                Text(
-                    text = stopInfo?.name ?: t("stopDetail.arrivals", locale),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val stopName = stopInfo?.name ?: t("stopDetail.arrivals", locale)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isAirportStopName(stopName)) {
+                        Icon(
+                            imageVector = AirplaneIcon,
+                            contentDescription = "Airport",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(16.dp).rotate(45f)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = stopName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
@@ -125,6 +146,16 @@ fun StopDetailScreen(
                 }
             }
         )
+
+        if (stopCoordinates != null) {
+            TextButton(onClick = {
+                stopCoordinates?.let { onNavigateToStop(it.lat, it.lng, stopInfo?.name ?: it.name) }
+            }, modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp)) {
+                Icon(Icons.Default.Place, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(t("stopDetail.navigateToStop", locale))
+            }
+        }
 
         if (isLoading && stopInfo == null) {
             Box(
@@ -138,11 +169,20 @@ fun StopDetailScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = t("stopDetail.notFound", locale),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = LocalMuted.current
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Text(
+                        text = t("stopDetail.notFound", locale),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = LocalMuted.current
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { viewModel.refreshNow() }) {
+                        Text(t("common.retry", locale))
+                    }
+                }
             }
         } else {
             val info = stopInfo!!
@@ -185,11 +225,11 @@ fun StopDetailScreen(
                     }
                 }
 
-                // Leaflet Map
+                // Embedded Map
                 val coords = stopCoordinates
                 if (coords != null) {
                     item(key = "map") {
-                        LeafletMap(
+                        EmbeddedMapView(
                             lat = coords.lat,
                             lng = coords.lng,
                             label = info.name,
@@ -401,39 +441,104 @@ private fun StopLineRow(
             )
             .padding(vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.clickable(onClick = onNavigateToLine)) {
-                LineBadge(name = line.name, color = line.color, size = BadgeSize.MEDIUM)
+        // Both columns share the same row height, including wrapped destinations.
+
+        val destination = formatDestination(line.directionName, line.direction)
+        val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName) || isAirportLineName(line.name)
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.width(48.dp).clickable(onClick = onNavigateToLine), contentAlignment = Alignment.Center) {
+                LineBadge(name = line.name, color = line.color, size = BadgeSize.MEDIUM, isAirport = isAirportLineName(line.name))
             }
-            Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = line.directionName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (followUps.isNotEmpty()) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 3.dp)
+            Spacer(Modifier.width(10.dp))
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isAirportDest) {
+                        Icon(
+                            imageVector = AirplaneIcon,
+                            contentDescription = "Airport",
+                            tint = LocalMuted.current,
+                            modifier = Modifier.size(13.dp).rotate(45f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        text = destination,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                if (inService) {
+                    Box(
+                        modifier = if (isImminent) Modifier
+                            .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(8.dp))
+                        else Modifier
                     ) {
-                        followUps.forEach { arrival ->
-                            ArrivalTimeBadge(
-                                seconds = arrival.arrivingTime,
-                                isTimetable = arrival.isTimetable,
-                                size = BadgeSize.SMALL
-                            )
-                        }
+                        ArrivalTimeBadge(
+                            seconds = line.arrivingTime,
+                            isTimetable = line.isTimetable,
+                            size = BadgeSize.LARGE,
+                            modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = t("widget.outOfService", locale),
+                            fontSize = 11.sp,
+                            color = LocalMuted.current
+                        )
                     }
                 }
             }
-            Spacer(Modifier.width(4.dp))
+        }
+
+        // Secondary row: follow-ups and action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (followUps.isNotEmpty()) {
+                Text(
+                    text = t("dashboard.nextArrivals", locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalMuted.current,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(48.dp)
+                )
+            } else {
+                Spacer(Modifier.width(48.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            if (followUps.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    followUps.forEach { arrival ->
+                        ArrivalTimeBadge(
+                            seconds = arrival.arrivingTime,
+                            isTimetable = arrival.isTimetable,
+                            size = BadgeSize.SMALL
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.weight(1f))
             IconButton(onClick = onToggleTimetable, modifier = Modifier.size(28.dp)) {
                 if (isTimetableLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 1.5.dp)
@@ -457,34 +562,6 @@ private fun StopLineRow(
                         else t("stopDetail.notification", locale),
                         tint = if (isTracking) MaterialTheme.colorScheme.error else LocalMuted.current,
                         modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = if (isImminent) Modifier
-                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                        .clip(RoundedCornerShape(8.dp))
-                    else Modifier
-                ) {
-                    ArrivalTimeBadge(
-                        seconds = line.arrivingTime,
-                        isTimetable = line.isTimetable,
-                        size = BadgeSize.LARGE,
-                        modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
-                    )
-                }
-            } else {
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = t("widget.outOfService", locale),
-                        fontSize = 11.sp,
-                        color = LocalMuted.current
                     )
                 }
             }

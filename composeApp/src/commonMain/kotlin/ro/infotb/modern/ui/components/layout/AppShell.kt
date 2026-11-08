@@ -24,7 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import ro.infotb.modern.ui.navigation.mainNavItems
+import ro.infotb.modern.getPlatformName
+import ro.infotb.modern.ui.navigation.mainNavItemsFor
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
 
@@ -33,8 +34,14 @@ fun AppShell(
     navController: NavController,
     currentRoute: String?,
     locale: Locale,
+    platform: String = getPlatformName(),
     content: @Composable () -> Unit
 ) {
+    if (currentRoute == ro.infotb.modern.ui.navigation.Screen.LineMap.ROUTE) {
+        content()
+        return
+    }
+    val navItems = mainNavItemsFor(platform)
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -49,7 +56,7 @@ fun AppShell(
                     modifier = Modifier.fillMaxHeight(),
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
-                    mainNavItems.forEach { item ->
+                    navItems.forEach { item ->
                         val selected = currentRoute == item.screen.route
                         NavigationRailItem(
                             selected = selected,
@@ -83,7 +90,7 @@ fun AppShell(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         tonalElevation = 0.dp
                     ) {
-                        mainNavItems.forEach { item ->
+                        navItems.forEach { item ->
                             val selected = currentRoute == item.screen.route
                             NavigationBarItem(
                                 selected = selected,

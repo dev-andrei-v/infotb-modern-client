@@ -1,5 +1,6 @@
 package ro.infotb.modern.util
 
+import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.TransportType
 
 /**
@@ -34,4 +35,55 @@ fun isLightColor(hex: String): Boolean {
     val g = (value shr 8 and 0xFF) / 255.0
     val b = (value and 0xFF) / 255.0
     return 0.299 * r + 0.587 * g + 0.114 * b > 0.65
+}
+
+/**
+ * Returns true if the line itself is an airport express route
+ * (e.g. line 100 or when the line name contains "Aeroport" or "Airport").
+ */
+fun isAirportLineName(name: String?): Boolean {
+    val n = name?.trim().orEmpty()
+    if (n == "100") return true
+    return n.contains("aeroport", ignoreCase = true) || n.contains("airport", ignoreCase = true)
+}
+
+/**
+ * Returns true if a stop or destination name refers to an airport
+ * (e.g. "Aeroport Baneasa", "Aeroport Henri Coanda").
+ */
+fun isAirportStopName(name: String?): Boolean {
+    val n = name?.trim().orEmpty()
+    return n.contains("aeroport", ignoreCase = true) || n.contains("airport", ignoreCase = true)
+}
+
+/**
+ * Deprecated compatibility helper for lines: checks line name only.
+ */
+fun isAirportLine(name: String?, routeOrDestination: String? = null): Boolean {
+    return isAirportLineName(name)
+}
+
+/**
+ * Returns the cleanly formatted destination for a line arrival:
+ * - Extracts the active destination when the string is a route like "Origin - Destination"
+ *   based on whether [direction] is TUR (outbound destination) or RETUR (inbound origin).
+ * - Strips redundant prefix symbols like "→" or "->".
+ * - Preserves already single-destination strings cleanly.
+ */
+fun formatDestination(directionName: String, direction: Direction? = null): String {
+    var raw = directionName.trim().removePrefix("→").removePrefix("->").trim()
+    val separators = listOf(" - ", " – ", " — ", " -> ")
+    for (sep in separators) {
+        if (raw.contains(sep)) {
+            val parts = raw.split(sep).map { it.trim() }.filter { it.isNotEmpty() }
+            if (parts.size >= 2) {
+                return when (direction) {
+                    Direction.TUR -> parts.last()
+                    Direction.RETUR -> parts.first()
+                    else -> parts.last()
+                }
+            }
+        }
+    }
+    return raw
 }

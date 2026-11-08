@@ -40,7 +40,16 @@ struct AnnouncementsView: View {
             ContentUnavailableView {
                 Label(tr("announcements.errorTitle"), systemImage: "wifi.exclamationmark")
             } description: {
-                Text(tr("announcements.errorDescription"))
+                VStack(spacing: 6) {
+                    Text(tr("announcements.errorDescription"))
+                    if let error = model.error, !error.isEmpty {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .textSelection(.enabled)
+                    }
+                }
             } actions: {
                 Button(tr("common.retry")) { model.reload() }.buttonStyle(.borderedProminent)
             }
@@ -59,12 +68,32 @@ struct AnnouncementsView: View {
     }
 }
 
-private struct AnnouncementRow: View {
+struct AnnouncementRow: View {
     let announcement: Announcement
     @State private var expanded = false
 
+    private var title: String { HTMLText.plain(announcement.title) }
     private var message: String { HTMLText.plain(announcement.message) }
-    private var isLong: Bool { announcement.message.count > 200 }
+    private var titleIsRepeatedInMessage: Bool {
+        !title.isEmpty && message.range(of: title, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+    private var messageWithoutRepeatedTitle: String {
+        guard titleIsRepeatedInMessage,
+              let range = message.range(of: title, options: [.caseInsensitive, .diacriticInsensitive]) else { return message }
+        return String(message[..<range.lowerBound] + message[range.upperBound...])
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+    }
+    private var isLong: Bool {
+        messageWithoutRepeatedTitle.count > 200
+    }
+    private var titlePreview: String {
+        guard title.count > 72 else { return title }
+        let prefix = String(title.prefix(69))
+        if let boundary = prefix.lastIndex(of: " "), boundary > prefix.index(prefix.startIndex, offsetBy: 35) {
+            return String(prefix[..<boundary]) + "…"
+        }
+        return String(title.prefix(69)) + "…"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -73,9 +102,10 @@ private struct AnnouncementRow: View {
                     .foregroundStyle(.orange)
                     .font(.title3)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(announcement.title)
+                    Text(titlePreview)
                         .font(.headline)
-                        .lineLimit(2)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     Text(relativeDate)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -90,10 +120,12 @@ private struct AnnouncementRow: View {
                 }
             }
 
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(expanded || !isLong ? nil : 4)
+            if !messageWithoutRepeatedTitle.isEmpty {
+                Text(messageWithoutRepeatedTitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(expanded || !isLong ? nil : 4)
+            }
 
             if isLong {
                 Button(expanded ? tr("announcements.showLess") : tr("announcements.showMore")) {

@@ -46,6 +46,12 @@ jobs:
 
           mkdir -p build/Payload
           cp -r build/iosApp.xcarchive/Products/Applications/InfoTB.app build/Payload/
+          codesign --force --sign - --timestamp=none --generate-entitlement-der \
+            --entitlements iosApp/InfoTBLiveActivity/InfoTBLiveActivity.entitlements \
+            build/Payload/InfoTB.app/PlugIns/InfoTBLiveActivity.appex
+          codesign --force --sign - --timestamp=none --generate-entitlement-der \
+            --entitlements iosApp/iosApp/iosApp.entitlements build/Payload/InfoTB.app
+          codesign --verify --deep --strict build/Payload/InfoTB.app
           cd build && zip -r InfoTB.ipa Payload
 
       - name: Upload IPA artifact

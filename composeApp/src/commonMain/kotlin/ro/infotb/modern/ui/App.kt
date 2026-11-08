@@ -1,5 +1,11 @@
 package ro.infotb.modern.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +22,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -42,9 +51,12 @@ import ro.infotb.modern.ui.components.layout.AppShell
 import ro.infotb.modern.ui.navigation.Screen
 import ro.infotb.modern.ui.screens.AnnouncementsScreen
 import ro.infotb.modern.ui.screens.DashboardScreen
+import ro.infotb.modern.ui.screens.LineMapScreen
 import ro.infotb.modern.ui.screens.LineDetailScreen
 import ro.infotb.modern.ui.screens.LinesScreen
+import ro.infotb.modern.ui.screens.NearbyMapScreen
 import ro.infotb.modern.ui.screens.NotificationsScreen
+import ro.infotb.modern.ui.screens.PlannerScreen
 import ro.infotb.modern.ui.screens.SettingsScreen
 import ro.infotb.modern.ui.screens.StopDetailScreen
 import ro.infotb.modern.ui.theme.StbTheme
@@ -54,6 +66,7 @@ import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.ui.viewmodel.LinesViewModel
 import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
 import ro.infotb.modern.util.Locale
 import ro.infotb.modern.util.t
 
@@ -63,8 +76,14 @@ data class PendingStopNav(
     val direction: Int
 )
 
+data class PendingQuickAction(val action: String, val destinationJson: String? = null, val requestId: Int = 0)
+
 @Composable
-fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableStateOf(null) }) {
+fun App(
+    notificationNav: MutableState<PendingStopNav?> = remember { mutableStateOf(null) },
+    quickActionNav: MutableState<PendingQuickAction?> = remember { mutableStateOf(null) }
+) {
+    val uriHandler = LocalUriHandler.current
     val preferencesStore: PreferencesStore = koinInject()
     val repository: TransitRepository = koinInject()
     val dashboardStore: DashboardStore = koinInject()
@@ -96,6 +115,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
     val activeSubscriptions by notificationStore.subscriptions.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val plannerShortcutDestination = remember { mutableStateOf<ro.infotb.modern.data.model.PlannerPlace?>(null) }
 
     fun handleTrackedStationSelection(
         stopId: Long,
@@ -141,6 +161,29 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
             }
         }
 
+        val quickAction = quickActionNav.value
+        LaunchedEffect(quickAction) {
+            if (quickAction != null) {
+                when (quickAction.action) {
+                    "lines" -> navController.navigate(Screen.Lines.route) { launchSingleTop = true }
+                    "map" -> navController.navigate(Screen.NearbyMap.route) { launchSingleTop = true }
+                    "refresh_dashboard", "open_dashboard_group" -> {
+                        navController.navigate(Screen.Dashboard.route) { launchSingleTop = true }
+                        dashboardViewModel.refreshNow()
+                    }
+                    "plan_destination" -> {
+                        plannerShortcutDestination.value = quickAction.destinationJson?.let { raw ->
+                            runCatching {
+                                kotlinx.serialization.json.Json.decodeFromString<ro.infotb.modern.data.model.PlannerPlace>(raw)
+                            }.getOrNull()
+                        }
+                        navController.navigate(Screen.Planner.route) { launchSingleTop = true }
+                    }
+                }
+                quickActionNav.value = null
+            }
+        }
+
         Box(modifier = Modifier.fillMaxSize()) {
         AppShell(
             navController = navController,
@@ -149,7 +192,11 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Screen.Dashboard.route
+                startDestination = Screen.Dashboard.route,
+                enterTransition = { if (isMapTransition()) EnterTransition.None else fadeIn(tween(200)) },
+                exitTransition = { if (isMapTransition()) ExitTransition.None else fadeOut(tween(200)) },
+                popEnterTransition = { if (isMapTransition()) EnterTransition.None else fadeIn(tween(200)) },
+                popExitTransition = { if (isMapTransition()) ExitTransition.None else fadeOut(tween(200)) }
             ) {
                 composable(Screen.Dashboard.route) {
                     DashboardScreen(
@@ -189,7 +236,7 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                 }
 
                 composable(Screen.Lines.route) {
-                    val viewModel = remember { LinesViewModel(repository, favoritesStore) }
+                    val viewModel = remember { LinesViewModel(repository, favoritesStore, preferencesStore) }
                     LinesScreen(
                         viewModel = viewModel,
                         locale = locale,
@@ -206,9 +253,10 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     )
                 ) { backStackEntry ->
                     val lineId = backStackEntry.arguments?.getLong("lineId") ?: return@composable
-                    val viewModel = remember(lineId) { LineDetailViewModel(repository) }
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel { LineDetailViewModel(repository, preferencesStore, platformLocation) }
                     LineDetailScreen(
                         lineId = lineId,
+                        onShowMap = { direction -> navController.navigate(Screen.LineMap(lineId, direction.value).route) },
                         viewModel = viewModel,
                         locale = locale,
                         onBack = { navController.popBackStack() },
@@ -222,6 +270,18 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                             )
                         }
                     )
+                }
+
+                composable(
+                    route = Screen.LineMap.ROUTE,
+                    arguments = listOf(navArgument("lineId") { type = NavType.LongType }, navArgument("direction") { type = NavType.IntType })
+                ) { entry ->
+                    val lineId = entry.arguments?.getLong("lineId") ?: return@composable
+                    val initialDirection = Direction.fromInt(entry.arguments?.getInt("direction") ?: 0)
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel { LineDetailViewModel(repository, preferencesStore, platformLocation) }
+                    LineMapScreen(lineId, initialDirection, viewModel, locale,
+                        onBack = { navController.popBackStack() },
+                        onNavigateToStop = { stopId, direction -> navController.navigate(Screen.StopDetail(stopId, lineId, direction.value).route) })
                 }
 
                 composable(
@@ -259,6 +319,9 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         onBack = { navController.popBackStack() },
                         onNavigateToLine = { lid ->
                             navController.navigate(Screen.LineDetail(lid).route)
+                        },
+                        onNavigateToStop = { lat, lng, name ->
+                            runCatching { uriHandler.openUri("geo:$lat,$lng?q=$lat,$lng") }
                         },
                         onAddToDashboard = { sid, stopName ->
                             dashboardStore.addWidget(
@@ -305,6 +368,37 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                     )
                 }
 
+                composable(Screen.NearbyMap.route) {
+                    NearbyMapScreen(
+                        repository = repository,
+                        platformLocation = platformLocation,
+                        locale = locale,
+                        onNavigateToStop = { stopId ->
+                            navController.navigate(Screen.StopDetail(stopId).route)
+                        },
+                        onNavigateToLine = { lineId ->
+                            navController.navigate(Screen.LineDetail(lineId).route)
+                        }
+                    )
+                }
+
+                composable(Screen.Planner.route) {
+                    PlannerScreen(
+                        repository = repository,
+                        platformLocation = platformLocation,
+                        preferencesStore = preferencesStore,
+                        locale = locale,
+                        initialDestination = plannerShortcutDestination.value,
+                        onInitialDestinationConsumed = { plannerShortcutDestination.value = null },
+                        onNavigateToStop = { stopId ->
+                            navController.navigate(Screen.StopDetail(stopId).route)
+                        },
+                        onNavigateToLine = { lineId ->
+                            navController.navigate(Screen.LineDetail(lineId).route)
+                        }
+                    )
+                }
+
                 composable(Screen.Notifications.route) {
                     NotificationsScreen(
                         notificationStore = notificationStore,
@@ -318,7 +412,8 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
                         notificationStore = notificationStore,
                         backupManager = backupManager,
                         locale = locale,
-                        onNotificationChanged = { notificationEngine.refreshNow() }
+                        onNotificationChanged = { notificationEngine.refreshNow() },
+                        onNavigateToNews = { navController.navigate(Screen.Announcements.route) }
                     )
                 }
             }
@@ -331,4 +426,11 @@ fun App(notificationNav: MutableState<PendingStopNav?> = remember { mutableState
         )
         }
     }
+}
+
+// Remove the outgoing map immediately instead of keeping it behind transparent
+// destination content for the duration of NavHost's crossfade.
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isMapTransition(): Boolean {
+    fun isMap(route: String?) = route == Screen.NearbyMap.route || route == Screen.LineMap.ROUTE
+    return isMap(initialState.destination.route) || isMap(targetState.destination.route)
 }

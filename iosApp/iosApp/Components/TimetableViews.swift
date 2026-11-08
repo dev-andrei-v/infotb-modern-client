@@ -26,16 +26,16 @@ private struct MinuteChip: View {
     var body: some View {
         Text(text.count < 2 ? "0" + text : text)
             .font(.caption.monospacedDigit().weight(isNext ? .bold : .regular))
-            .foregroundStyle(isNext ? Color.accentColor : isPast ? Color.secondary.opacity(0.4) : Color.secondary)
+            .foregroundStyle(isNext ? InfoTBDesign.accent : isPast ? Color.secondary.opacity(0.4) : Color.secondary)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(
-                isNext ? Color.accentColor.opacity(0.15) : isPast ? Color.clear : Color(.tertiarySystemFill),
+                isNext ? InfoTBDesign.accent.opacity(0.15) : isPast ? Color.clear : Color(.tertiarySystemFill),
                 in: RoundedRectangle(cornerRadius: 5, style: .continuous)
             )
             .overlay {
                 if isNext {
-                    RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.accentColor, lineWidth: 1.2)
+                    RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(InfoTBDesign.accent, lineWidth: 1.2)
                 }
             }
     }
@@ -86,7 +86,7 @@ struct TimetableGrid: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(hour.hour)
                 .font(.subheadline.monospacedDigit().weight(isCurrent ? .heavy : .bold))
-                .foregroundStyle(isPastHour ? Color.secondary.opacity(0.5) : isCurrent ? Color.accentColor : Color.primary)
+                .foregroundStyle(isPastHour ? Color.secondary.opacity(0.5) : isCurrent ? InfoTBDesign.accent : Color.primary)
                 .frame(width: 48, alignment: .leading)
             FlowLayout(spacing: 4, lineSpacing: 3) {
                 ForEach(Array(hour.minutes.enumerated()), id: \.offset) { _, minute in
@@ -101,7 +101,7 @@ struct TimetableGrid: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(isCurrent ? Color.accentColor.opacity(0.08) : .clear)
+        .background(isCurrent ? InfoTBDesign.accent.opacity(0.08) : .clear)
     }
 }
 

@@ -3,10 +3,105 @@ package ro.infotb.modern.util
 enum class Locale { RO, EN }
 
 private val translations: Map<String, Map<Locale, String>> = mapOf(
+    // iOS nearby stops and map
+    "nav.map" to mapOf(Locale.RO to "Harta", Locale.EN to "Map"),
+    "planner.title" to mapOf(Locale.RO to "Planifica o calatorie", Locale.EN to "Plan a trip"),
+    "planner.subtitle" to mapOf(Locale.RO to "Gaseste o ruta cu transportul public", Locale.EN to "Find a public transport route"),
+    "planner.from" to mapOf(Locale.RO to "De la", Locale.EN to "From"),
+    "planner.to" to mapOf(Locale.RO to "Pana la", Locale.EN to "To"),
+    "planner.chooseOrigin" to mapOf(Locale.RO to "Alege punctul de plecare", Locale.EN to "Choose starting point"),
+    "planner.chooseDestination" to mapOf(Locale.RO to "Alege destinatia", Locale.EN to "Choose destination"),
+    "planner.currentLocation" to mapOf(Locale.RO to "Pozitia curenta", Locale.EN to "Current location"),
+    "planner.pickOnMap" to mapOf(Locale.RO to "Alege pe harta", Locale.EN to "Pick on map"),
+    "planner.mapPoint" to mapOf(Locale.RO to "Punct ales pe harta", Locale.EN to "Map point"),
+    "planner.useMapPoint" to mapOf(Locale.RO to "Foloseste acest punct", Locale.EN to "Use this point"),
+    "planner.waitingLocation" to mapOf(Locale.RO to "Se cauta pozitia curenta...", Locale.EN to "Finding your current location…"),
+    "planner.locationUnavailable" to mapOf(Locale.RO to "Pozitia curenta nu este disponibila.", Locale.EN to "Current location is unavailable."),
+    "planner.cancel" to mapOf(Locale.RO to "Anuleaza", Locale.EN to "Cancel"),
+    "planner.swap" to mapOf(Locale.RO to "Inverseaza", Locale.EN to "Swap"),
+    "planner.departure" to mapOf(Locale.RO to "Plecare", Locale.EN to "Departure"),
+    "planner.leaveNow" to mapOf(Locale.RO to "Pleaca acum", Locale.EN to "Leave now"),
+    "planner.later" to mapOf(Locale.RO to "Mai tarziu", Locale.EN to "Later"),
+    "planner.dateAndTime" to mapOf(Locale.RO to "Data si ora", Locale.EN to "Date and time"),
+    "planner.vehicles" to mapOf(Locale.RO to "Mijloace de transport", Locale.EN to "Transport modes"),
+    "planner.advanced" to mapOf(Locale.RO to "Optiuni avansate", Locale.EN to "Advanced options"),
+    "planner.accessibility" to mapOf(Locale.RO to "Accesibil pentru persoane cu mobilitate redusa", Locale.EN to "Mobility accessible"),
+    "planner.walkDistance" to mapOf(Locale.RO to "Distanta maxima de mers pe jos", Locale.EN to "Maximum walking distance"),
+    "planner.findRoutes" to mapOf(Locale.RO to "Cauta rute", Locale.EN to "Find routes"),
+    "lines.expandAll" to mapOf(Locale.RO to "Extinde toate liniile", Locale.EN to "Expand all lines"),
+    "lines.collapseAll" to mapOf(Locale.RO to "Restrange toate liniile", Locale.EN to "Collapse all lines"),
+    "lines.displayStyle" to mapOf(Locale.RO to "Stilul liniilor", Locale.EN to "Line display style"),
+    "lines.styleNormal" to mapOf(Locale.RO to "Normal", Locale.EN to "Normal"),
+    "lines.styleBusDisplay" to mapOf(Locale.RO to "Inspirat de afisajul autobuzului", Locale.EN to "Bus display inspired"),
+    "planner.searchPlaces" to mapOf(Locale.RO to "Cauta o adresa sau statie", Locale.EN to "Search an address or stop"),
+    "planner.routes" to mapOf(Locale.RO to "Rute sugerate", Locale.EN to "Suggested routes"),
+    "planner.option" to mapOf(Locale.RO to "Optiunea", Locale.EN to "Option"),
+    "planner.arrives" to mapOf(Locale.RO to "Sosire:", Locale.EN to "Arrives:"),
+    "planner.loadFailed" to mapOf(Locale.RO to "Rutele nu au putut fi incarcate. Incearca din nou.", Locale.EN to "Could not load routes. Try again."),
+    "planner.searchFailed" to mapOf(Locale.RO to "Locatiile nu au putut fi cautate. Incearca din nou.", Locale.EN to "Could not search places. Try again."),
+    "planner.saveTrip" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
+    "planner.savedTrips" to mapOf(Locale.RO to "Calatorii salvate", Locale.EN to "Saved trips"),
+    "planner.noSavedTrips" to mapOf(Locale.RO to "Salveaza o calatorie pentru a o putea planifica din nou mai tarziu.", Locale.EN to "Save a trip to plan it again later."),
+    "planner.saveDestination" to mapOf(Locale.RO to "Salveaza destinatia", Locale.EN to "Save destination"),
+    "planner.destinationLabel" to mapOf(Locale.RO to "Eticheta (Acasa, Serviciu)", Locale.EN to "Label (Home, Work)"),
+    "planner.saveAction" to mapOf(Locale.RO to "Salveaza", Locale.EN to "Save"),
+    "planner.savedDestinations" to mapOf(Locale.RO to "Destinatii salvate", Locale.EN to "Saved destinations"),
+    "planner.noSavedDestinations" to mapOf(Locale.RO to "Salveaza destinatii precum Acasa sau Serviciu.", Locale.EN to "Save places like Home or Work for quick access."),
+    "planner.removeSavedDestination" to mapOf(Locale.RO to "Elimina destinatia", Locale.EN to "Remove destination"),
+    "planner.noRoutes" to mapOf(Locale.RO to "Nu au fost gasite rute.", Locale.EN to "No routes found."),
+    "planner.seeDetails" to mapOf(Locale.RO to "Vezi detalii", Locale.EN to "See details"),
+    "planner.backToResults" to mapOf(Locale.RO to "Inapoi la rezultate", Locale.EN to "Back to results"),
+    "planner.routeDetails" to mapOf(Locale.RO to "Detalii ruta", Locale.EN to "Route details"),
+    "planner.refresh" to mapOf(Locale.RO to "Actualizeaza", Locale.EN to "Refresh"),
+    "planner.walk" to mapOf(Locale.RO to "Mers pe jos", Locale.EN to "Walk"),
+    "planner.live" to mapOf(Locale.RO to "Timp real", Locale.EN to "Live"),
+    "notice.markRead" to mapOf(Locale.RO to "Marchează ca citită", Locale.EN to "Mark as read"),
+    "widget.homeScreen" to mapOf(Locale.RO to "Widget pe ecranul principal", Locale.EN to "Home screen widget"),
+    "widget.sharingUnavailable" to mapOf(Locale.RO to "Widgetul nu poate accesa datele aplicației", Locale.EN to "Widget data sharing is unavailable"),
+    "widget.sharingHelp" to mapOf(Locale.RO to "Re-semnează aplicația și extensia widget cu același App Group activat. Profilul de semnare trebuie să permită partajarea datelor.", Locale.EN to "Re-sign the app and widget extension with the same App Group enabled. The signing profile must allow shared widget data."),
+    "lineDetail.nearbyStops" to mapOf(Locale.RO to "Statii in apropiere", Locale.EN to "Nearby stops"),
+    "lineDetail.allStops" to mapOf(Locale.RO to "Toate statiile", Locale.EN to "All stops"),
+    "settings.nearbyStopCount" to mapOf(Locale.RO to "Numar de statii", Locale.EN to "Number of stops"),
+    "settings.nearbyStopRadius" to mapOf(Locale.RO to "Distanta maxima", Locale.EN to "Maximum distance"),
+    "settings.nearbyStopsOff" to mapOf(Locale.RO to "Dezactivat", Locale.EN to "Off"),
+    "settings.stopCacheDescription" to mapOf(Locale.RO to "Pozitiile statiilor sunt salvate 7 zile. Liniile si traseele sunt pastrate local 24 de ore. Datele expirate raman disponibile daca nu exista conexiune. Statiile folosite frecvent au prioritate in cache.", Locale.EN to "Stop locations are cached for 7 days. Lines and route geometry are stored locally for 24 hours. Expired data remains available when offline. Frequently used stops take priority in the cache."),
+    "settings.nearbyStopsDescription" to mapOf(Locale.RO to "Sectiunea din apropiere afiseaza doar statiile aflate la cel mult {distance}. Traseul complet ramane mai jos. Distantele sunt in linie dreapta.", Locale.EN to "The nearby section only shows stops within {distance}. The full line remains below. Distances are straight-line distances."),
+    "lineDetail.noNearbyStops" to mapOf(Locale.RO to "Nu sunt statii pe aceasta linie in raza selectata.", Locale.EN to "No stops on this line are within the selected radius."),
+    "map.locationPermissionRequired" to mapOf(Locale.RO to "Permite accesul la locație în setările aplicației, apoi încearcă din nou.", Locale.EN to "Allow location access in the app settings, then try again."),
+    "map.locationUnavailable" to mapOf(Locale.RO to "Pozitia nu este disponibila. Activeaza localizarea pentru a vedea statiile din apropiere.", Locale.EN to "Location is unavailable. Enable location to see nearby stops."),
+    "map.openSettings" to mapOf(Locale.RO to "Deschide Setari", Locale.EN to "Open Settings"),
+    "map.nearbyLines" to mapOf(Locale.RO to "Linii in apropiere", Locale.EN to "Nearby lines"),
+    "map.filters" to mapOf(Locale.RO to "Filtre de transport", Locale.EN to "Transport filters"),
+    "map.viewStops" to mapOf(Locale.RO to "Statiile liniei", Locale.EN to "View stops for"),
+    "map.nearestRoutes" to mapOf(Locale.RO to "Trasee apropiate", Locale.EN to "Nearest routes"),
+    "map.adjustSheet" to mapOf(Locale.RO to "Redimensioneaza panoul hartii", Locale.EN to "Resize map sheet"),
+    "map.expandSheet" to mapOf(Locale.RO to "Extinde panoul", Locale.EN to "Expand sheet"),
+    "map.collapseSheet" to mapOf(Locale.RO to "Restrange panoul", Locale.EN to "Collapse sheet"),
+    "map.sheetCollapsed" to mapOf(Locale.RO to "Restrans", Locale.EN to "Collapsed"),
+    "map.sheetMedium" to mapOf(Locale.RO to "Jumatate de ecran", Locale.EN to "Half screen"),
+    "map.sheetExpanded" to mapOf(Locale.RO to "Extins", Locale.EN to "Expanded"),
+    "map.platformCount" to mapOf(Locale.RO to "{n} peroane / sensuri", Locale.EN to "{n} platforms / directions"),
+    "map.surfaceStop" to mapOf(Locale.RO to "Statie de suprafata", Locale.EN to "Surface stop"),
+    "map.metroEntrance" to mapOf(Locale.RO to "Intrare metrou", Locale.EN to "Metro entrance"),
+    "map.cachedResults" to mapOf(Locale.RO to "Datele nu au putut fi actualizate. Sunt afisate statiile salvate, daca exista.", Locale.EN to "Could not refresh. Showing saved stops where available."),
+    "map.noStops" to mapOf(Locale.RO to "Nicio statie gasita in zona hartii cu aceste filtre.", Locale.EN to "No stops found in this map area with these filters."),
+    "map.loadingRoutes" to mapOf(Locale.RO to "Se incarca liniile si traseele...", Locale.EN to "Loading lines and routes..."),
+    "map.routeSelected" to mapOf(Locale.RO to "Traseu selectat", Locale.EN to "Route selected"),
+    "map.showRoute" to mapOf(Locale.RO to "Evidentiaza traseul", Locale.EN to "Highlight route"),
+    "map.routeHint" to mapOf(Locale.RO to "Linii de la statiile si intrarile de metrou din zona hartii. Atinge o linie pentru a-i izola traseul.", Locale.EN to "Lines serving stops and metro entrances in the map area. Tap a line to focus its route."),
+    "map.routesUnavailable" to mapOf(Locale.RO to "Unele linii sau trasee nu au putut fi incarcate.", Locale.EN to "Some lines or routes could not be loaded."),
+    "map.moreLines" to mapOf(Locale.RO to "linii apropiate suplimentare", Locale.EN to "more nearby lines"),
+    "map.nightBusesHidden" to mapOf(Locale.RO to "Liniile de noapte apar dupa ora 22:00.", Locale.EN to "Night buses appear after 10:00 PM."),
+    "map.searchNearby" to mapOf(Locale.RO to "Cauta statii sau linii in zona hartii", Locale.EN to "Search stops or lines in this map area"),
+    "map.noSearchResults" to mapOf(Locale.RO to "Nu s-au gasit statii sau linii potrivite.", Locale.EN to "No matching stops or lines found."),
+    "map.stopDetails" to mapOf(Locale.RO to "Detalii statie", Locale.EN to "Stop details"),
+    "common.clear" to mapOf(Locale.RO to "Sterge", Locale.EN to "Clear"),
+
     // Navigation
     "nav.dashboard" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
     "nav.lines" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),
     "nav.settings" to mapOf(Locale.RO to "Setari", Locale.EN to "Settings"),
+    "nav.planner" to mapOf(Locale.RO to "Planifica", Locale.EN to "Plan"),
 
     // Transport types
     "transport.BUS" to mapOf(Locale.RO to "Autobuz", Locale.EN to "Bus"),
@@ -20,8 +115,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "theme.system" to mapOf(Locale.RO to "Sistem", Locale.EN to "System"),
 
     // Direction
-    "direction.tur" to mapOf(Locale.RO to "Tur", Locale.EN to "Tour"),
-    "direction.retur" to mapOf(Locale.RO to "Retur", Locale.EN to "Retour"),
+    "direction.tur" to mapOf(Locale.RO to "Tur", Locale.EN to "Outbound"),
+    "direction.retur" to mapOf(Locale.RO to "Retur", Locale.EN to "Inbound"),
 
     // Dashboard page
     "dashboard.title" to mapOf(Locale.RO to "Panou", Locale.EN to "Dashboard"),
@@ -57,6 +152,7 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.updating" to mapOf(Locale.RO to "Se actualizeaza...", Locale.EN to "Updating..."),
     "dashboard.refresh" to mapOf(Locale.RO to "Reimprospateaza", Locale.EN to "Refresh"),
     "dashboard.stale" to mapOf(Locale.RO to "Date vechi", Locale.EN to "Stale"),
+    "dashboard.nextArrivals" to mapOf(Locale.RO to "Urm.", Locale.EN to "Next"),
     "time.justNow" to mapOf(Locale.RO to "chiar acum", Locale.EN to "just now"),
     "time.secondsAgo" to mapOf(Locale.RO to "acum {n}s", Locale.EN to "{n}s ago"),
     "time.minutesAgo" to mapOf(Locale.RO to "acum {n} min", Locale.EN to "{n} min ago"),
@@ -84,8 +180,14 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "dashboard.close" to mapOf(Locale.RO to "Inchide", Locale.EN to "Close"),
     "dashboard.groupHours" to mapOf(Locale.RO to "Interval orar", Locale.EN to "Active hours"),
     "dashboard.groupHoursDescription" to mapOf(
-        Locale.RO to "Grupul apare desfasurat pe panou doar in acest interval. In restul zilei ramane restrans.",
-        Locale.EN to "The group is expanded on the dashboard only between these times. The rest of the day it stays collapsed."
+        Locale.RO to "În acest interval, grupul apare desfășurat pe Panou și devine automat grupul activ în widgetul de pe ecranul principal. În restul zilei se restrânge, iar widgetul afișează celelalte grupuri.",
+        Locale.EN to "During these hours, the group expands on the Dashboard and automatically becomes the active group in the Home Screen widget. Outside these hours, it collapses and the widget falls back to other groups."
+    ),
+    "dashboard.activeNow" to mapOf(Locale.RO to "Activ acum", Locale.EN to "Active now"),
+    "dashboard.inactiveNow" to mapOf(Locale.RO to "Inactiv", Locale.EN to "Inactive"),
+    "dashboard.manageGroupsWidgetHelp" to mapOf(
+        Locale.RO to "Grupurile cu interval orar activ au prioritate automată în widgetul de pe ecranul principal și apar desfășurate pe Panou.",
+        Locale.EN to "Groups with an active schedule take automatic priority in the Home Screen widget and expand on the Dashboard."
     ),
     "dashboard.groupHoursFrom" to mapOf(Locale.RO to "De la", Locale.EN to "From"),
     "dashboard.groupHoursTo" to mapOf(Locale.RO to "Pana la", Locale.EN to "Until"),
@@ -112,8 +214,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "lines.title" to mapOf(Locale.RO to "Linii", Locale.EN to "Lines"),
     "lines.description" to mapOf(Locale.RO to "Toate liniile de transport", Locale.EN to "All transit lines"),
     "lines.searchPlaceholder" to mapOf(
-        Locale.RO to "Cauta linia (ex: 41, 61, 100, M2)...",
-        Locale.EN to "Search line (e.g. 41, 61, 100, M2)..."
+        Locale.RO to "Cauta linii sau statii (ex: 41, Unirii)...",
+        Locale.EN to "Search lines or stops (e.g. 41, Unirii)..."
     ),
     "lines.errorTitle" to mapOf(Locale.RO to "Eroare la incarcarea liniilor", Locale.EN to "Error loading lines"),
     "lines.errorDescription" to mapOf(
@@ -122,7 +224,24 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     ),
     "lines.favorites" to mapOf(Locale.RO to "Favorite", Locale.EN to "Favorites"),
     "lines.night" to mapOf(Locale.RO to "Noapte", Locale.EN to "Night"),
+    "lines.nearby" to mapOf(Locale.RO to "Linii apropiate", Locale.EN to "Nearby lines"),
+    "lines.nearbyLoading" to mapOf(Locale.RO to "Se cauta liniile din apropiere...", Locale.EN to "Finding nearby lines..."),
+    "lines.locatingTitle" to mapOf(Locale.RO to "Se cauta linii in apropiere...", Locale.EN to "Finding nearby lines..."),
+    "lines.locatingDescription" to mapOf(
+        Locale.RO to "Identificam liniile de transport din zona ta",
+        Locale.EN to "Locating transit routes near your current position"
+    ),
+    "lines.noNearbyTitle" to mapOf(Locale.RO to "Nicio linie in apropiere", Locale.EN to "No nearby lines found"),
+    "lines.noNearbyDescription" to mapOf(
+        Locale.RO to "Nu am gasit statii sau linii active la mai putin de 1 km de tine.",
+        Locale.EN to "No active transit lines or stops found within 1 km of your location."
+    ),
+    "lines.locationPermissionTitle" to mapOf(
+        Locale.RO to "Localizarea nu este disponibila",
+        Locale.EN to "Location unavailable"
+    ),
     "lines.emptyTitle" to mapOf(Locale.RO to "Nicio linie gasita", Locale.EN to "No lines found"),
+    "lines.searchingStops" to mapOf(Locale.RO to "Se cauta liniile...", Locale.EN to "Searching lines..."),
     "lines.emptyDescription" to mapOf(
         Locale.RO to "Incearca un alt termen de cautare sau modifica filtrele.",
         Locale.EN to "Try a different search term or change the filters."
@@ -141,10 +260,13 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "lineDetail.vehicleApproaching" to mapOf(Locale.RO to "In apropiere", Locale.EN to "Approaching"),
     "lineDetail.vehiclesActive" to mapOf(Locale.RO to "vehicule active pe traseu", Locale.EN to "vehicles active on route"),
     "lineDetail.noVehicles" to mapOf(Locale.RO to "Niciun vehicul activ momentan", Locale.EN to "No active vehicles at the moment"),
+    "lineDetail.refreshVehicles" to mapOf(Locale.RO to "Reimprospateaza vehiculele", Locale.EN to "Refresh vehicles"),
+    "lineDetail.nearestStop" to mapOf(Locale.RO to "Cea mai apropiata statie", Locale.EN to "Nearest stop"),
 
     // Stop detail page
     "stopDetail.back" to mapOf(Locale.RO to "Inapoi", Locale.EN to "Back"),
     "stopDetail.arrivals" to mapOf(Locale.RO to "Sosiri", Locale.EN to "Arrivals"),
+    "stopDetail.navigateToStop" to mapOf(Locale.RO to "Navighează la stație", Locale.EN to "Navigate to stop"),
     "stopDetail.lines" to mapOf(Locale.RO to "linii", Locale.EN to "lines"),
     "stopDetail.noLines" to mapOf(Locale.RO to "Nicio linie la aceasta statie", Locale.EN to "No lines at this station"),
     "stopDetail.notFound" to mapOf(Locale.RO to "Statia nu a fost gasita", Locale.EN to "Station not found"),
@@ -244,6 +366,12 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
     "widget.noScheduled" to mapOf(Locale.RO to "Nicio cursă programată în următoarele ore", Locale.EN to "No scheduled arrivals in the next hours"),
     "widget.addToDashboard" to mapOf(Locale.RO to "Adauga pe panou", Locale.EN to "Add to dashboard"),
     "widget.addedToDashboard" to mapOf(Locale.RO to "adaugat pe panou", Locale.EN to "added to dashboard"),
+    "widget.homeScreen" to mapOf(Locale.RO to "Widget pe ecranul principal", Locale.EN to "Home Screen widget"),
+    "widget.useHomeScreenStop" to mapOf(Locale.RO to "Afiseaza statia in widget", Locale.EN to "Show this stop in widget"),
+    "widget.removeHomeScreenStop" to mapOf(Locale.RO to "Elimina statia din widget", Locale.EN to "Remove stop from widget"),
+    "widget.pinStop" to mapOf(Locale.RO to "Fixează în widget", Locale.EN to "Pin to widget"),
+    "widget.unpinStop" to mapOf(Locale.RO to "Anulează fixarea din widget", Locale.EN to "Unpin from widget"),
+    "widget.pinnedInWidget" to mapOf(Locale.RO to "Fixată în widget", Locale.EN to "Pinned in widget"),
     "widget.widgetAdded" to mapOf(Locale.RO to "Widget adaugat pe panou", Locale.EN to "Widget added to dashboard"),
 
     // Arrival time
@@ -291,6 +419,13 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
         Locale.RO to "Apasa pe butonul Live de pe o statie pentru a urmari sosirea in timp real.",
         Locale.EN to "Tap the Live button on a stop to track arrivals in real-time."
     ),
+    "dynamicIsland.title" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
+    "dynamicIsland.enabled" to mapOf(Locale.RO to "Urmarire Dynamic Island activa", Locale.EN to "Dynamic Island tracking active"),
+    "dynamicIsland.emptyTitle" to mapOf(Locale.RO to "Nicio urmarire activa", Locale.EN to "No active tracking"),
+    "dynamicIsland.emptyDescription" to mapOf(
+        Locale.RO to "Apasa pe butonul Live de pe o statie pentru a urmari sosirea in Dynamic Island.",
+        Locale.EN to "Tap the Live button on a stop to follow its arrival in the Dynamic Island."
+    ),
     "notifications.description" to mapOf(Locale.RO to "Gestioneaza notificarile pentru sosiri", Locale.EN to "Manage arrival notifications"),
     "notifications.active" to mapOf(Locale.RO to "notificari active", Locale.EN to "active notifications"),
     "notifications.emptyTitle" to mapOf(Locale.RO to "Nicio notificare", Locale.EN to "No notifications"),
@@ -299,14 +434,8 @@ private val translations: Map<String, Map<Locale, String>> = mapOf(
         Locale.EN to "Add notifications from stop pages to be alerted when the bus arrives."
     ),
 
-    // Dynamic Island (iOS)
-    "dynamicIsland.title" to mapOf(Locale.RO to "Dynamic Island", Locale.EN to "Dynamic Island"),
-    "dynamicIsland.enabled" to mapOf(Locale.RO to "Dynamic Island activat", Locale.EN to "Dynamic Island enabled"),
-    "dynamicIsland.emptyTitle" to mapOf(Locale.RO to "Dynamic Island inactiv", Locale.EN to "Dynamic Island inactive"),
-    "dynamicIsland.emptyDescription" to mapOf(
-        Locale.RO to "Adauga notificari din paginile statiilor pentru a activa Dynamic Island.",
-        Locale.EN to "Add notifications from stop pages to activate the Dynamic Island."
-    ),
+    "settings.arrivalAlerts" to mapOf(Locale.RO to "Alerte de sosire", Locale.EN to "Arrival alerts"),
+    "settings.arrivalAlertsActive" to mapOf(Locale.RO to "Alerte active", Locale.EN to "Active alerts"),
     "notifications.onceSummary" to mapOf(Locale.RO to "Notificare la {min} min inainte", Locale.EN to "Notify {min} min before"),
     "notifications.repeatSummary" to mapOf(Locale.RO to "Repeta la fiecare {min} min", Locale.EN to "Repeat every {min} min"),
     "notifications.every" to mapOf(Locale.RO to "la fiecare", Locale.EN to "every"),

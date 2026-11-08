@@ -34,16 +34,34 @@ struct LineBadge: View {
     let name: String
     let color: String
     var size: BadgeSize = .medium
+    var isAirport: Bool? = nil
+
+    private var showAirport: Bool {
+        isAirport ?? LineColorsKt.isAirportLineName(name: name)
+    }
+
+    private var airportIconSize: CGFloat {
+        switch size {
+        case .small: 9
+        case .medium: 12
+        case .large: 15
+        }
+    }
 
     var body: some View {
         let background = Color(hex: color) ?? .lineFallback
-        Text(name)
-            .font(size.font.monospacedDigit())
-            .foregroundStyle(background.contrastingText)
-            .lineLimit(1)
-            .padding(size.padding)
-            .frame(minWidth: size.minWidth)
-            .background(background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        let badgeName = name.range(of: "^M\\d+\\s*-.*$", options: [.regularExpression, .caseInsensitive]) != nil
+            ? String(name.split(separator: "-", maxSplits: 1).first ?? Substring(name)).trimmingCharacters(in: .whitespacesAndNewlines)
+            : name
+        HStack(spacing: 3) {
+            Text(badgeName)
+                .font(size.font.monospacedDigit())
+                .lineLimit(1)
+        }
+        .foregroundStyle(background.contrastingText)
+        .padding(size.padding)
+        .frame(minWidth: size.minWidth)
+        .background(background, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
 
@@ -81,15 +99,23 @@ struct ArrivalBadge: View {
         }
         .contentTransition(.numericText())
         .onTapGesture { showInfo = true }
-        .popover(isPresented: $showInfo) {
-            Label(
-                isTimetable ? tr("arrival.scheduledInfo") : tr("arrival.liveInfo"),
-                systemImage: isTimetable ? "calendar" : "dot.radiowaves.left.and.right"
-            )
-            .font(.callout)
-            .padding()
-            .frame(maxWidth: 280)
-            .presentationCompactAdaptation(.popover)
+        .sheet(isPresented: $showInfo) {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(
+                    isTimetable ? tr("arrival.scheduled") : "Live GPS",
+                    systemImage: isTimetable ? "calendar" : "dot.radiowaves.left.and.right"
+                )
+                .font(.headline)
+                ScrollView {
+                    Text(isTimetable ? tr("arrival.scheduledInfo") : tr("arrival.liveInfo"))
+                        .font(.body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(20)
+            .presentationDetents([.height(145)])
+            .presentationDragIndicator(.visible)
         }
         .accessibilityElement(children: .combine)
     }

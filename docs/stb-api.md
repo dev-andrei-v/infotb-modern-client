@@ -35,9 +35,10 @@ The `App-key` value is in `Constants.APP_KEY`.
 | `/lines/{lineId}?lang=ro` | protobuf | `LineDetail` | line with its stops |
 | `/lines/{lineId}/direction/{0\|1}?lang=ro` | protobuf | `LineDetail` | one direction: stops, route polyline, direction names |
 | `/lines/stop?stop_id={id}[&selected_line_id={lineId}&direction={0\|1}]` | protobuf | `StopInfo` | arrivals at a stop; with a line selected it also carries that line's timetable, route segment and vehicles |
-| `/lines/stops/{stopId}` | protobuf | `StopDetails` | lines at a stop grouped by transport type |
+| `/lines/stops/{stopId}` | JSON | `List<Line>` via `decodeStopLines` | nearby-map line memberships (arrival fields may be null) |
 | `/lines/v2/{lineId}/vehicles/{0\|1}?lang=ro` | protobuf | `List<VehiclePosition>` | live vehicles on a line |
 | `/lines/v2/home/stops/{stopId}` | protobuf | `List<Stop>` | stop coordinates (maps, nearest-first sorting) |
+| `/lines/v2/home/stops/{south}/{west}/{north}/{east}` | protobuf | `List<Stop>` | stops within geographic bounds for the Swift Map tab |
 | `/notifications?limit=…&offset=…` | JSON | `List<Announcement>` | STB service notices |
 
 Directions are `0` (tur, outbound) and `1` (retur, return).
@@ -65,6 +66,7 @@ Arrival times are seconds from now; a negative value means the line has no upcom
 - **Metro colours.** Every metro line comes back with the same near-black colour (`#1D1D1B`). The app replaces it with the Metrorex colours in `LineColors.kt`.
 - **Metro stops.** Metro stations appear in line data, but `/lines/stop` doesn't serve their ids, so their stop page has no arrivals.
 - **Stop coordinates.** `/lines/v2/home/stops/{id}` has been seen returning HTTP 400, in which case the stop map and distance sorting have nothing to show.
+- **Map discovery.** The public web client sends south/west/north/east bounds to the home-stops endpoint. The Swift map uses this form, filters station records, and caches their coordinates locally. `/lines/stops/{id}` currently returns JSON rather than the protobuf expected by the legacy `getStopDetails` method; the map uses the dedicated JSON membership decoder.
 - **Notice timestamps** (`created_at`) are in milliseconds.
 
 ## Refresh rates

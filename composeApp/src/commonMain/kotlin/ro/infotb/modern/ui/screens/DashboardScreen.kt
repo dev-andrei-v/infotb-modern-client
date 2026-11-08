@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
@@ -111,6 +112,8 @@ import ro.infotb.modern.data.model.LineArrivalDetail
 import ro.infotb.modern.data.model.StopInfo
 import ro.infotb.modern.data.model.TimetableHour
 import ro.infotb.modern.data.store.WidgetConfig
+import androidx.compose.ui.draw.rotate
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.ArrivalTimeBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
 import ro.infotb.modern.ui.components.shared.HERO_ARRIVAL_MIN_WIDTH
@@ -119,9 +122,15 @@ import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.NotificationDialog
 import ro.infotb.modern.data.store.NotificationMode
 import ro.infotb.modern.data.store.NotificationStore
+import ro.infotb.modern.util.formatDestination
+import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.viewmodel.DashboardViewModel
+import ro.infotb.modern.ui.widget.publishDashboardWidgetSnapshot
 import ro.infotb.modern.util.Locale
+import kotlinx.serialization.encodeToString
 import ro.infotb.modern.util.t
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,6 +152,8 @@ fun DashboardScreen(
     val groups by viewModel.groups.collectAsState()
     val hiddenGroups by viewModel.hiddenGroups.collectAsState()
     val groupSchedules by viewModel.groupSchedules.collectAsState()
+    val homeWidgetStopIds by viewModel.homeWidgetStopIds.collectAsState()
+    val homeWidgetStopId by viewModel.homeWidgetStopId.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val lastRefreshMs by viewModel.lastRefreshMs.collectAsState()
@@ -156,6 +167,37 @@ fun DashboardScreen(
     val timetableLoading by viewModel.timetableLoading.collectAsState()
     var showResetDialog by remember { mutableStateOf(false) }
     var showGroupsDialog by remember { mutableStateOf(false) }
+
+    // Keep Android home-screen widgets aligned with the dashboard's locally
+    // cached groups and latest arrival snapshots.
+    LaunchedEffect(groups, widgets, cardStates, hiddenGroups, homeWidgetStopIds, homeWidgetStopId, groupSchedules, userLocation, stopCoordinates) {
+        val widgetGroups = (groups + "").distinct().map { groupName ->
+            HomeWidgetGroupSnapshot(
+                name = groupName,
+                selectedStopId = homeWidgetStopIds[groupName] ?: if (groupName.isEmpty()) homeWidgetStopId else null,
+                activeFrom = groupSchedules[groupName]?.fromMinutes,
+                activeTo = groupSchedules[groupName]?.toMinutes,
+                stops = widgets.asSequence()
+                    .filter { it.group == groupName && !it.hidden && groupName !in hiddenGroups }
+                    .map { widget ->
+                        val arrivals = cardStates[widget.stopId]?.info?.lines.orEmpty()
+                            .asSequence()
+                            .filter { widget.visibleLines.isEmpty() || widget.visibleLines.contains("${it.id}_${it.direction.value}") }
+                            .filter { it.arrivingTimes.isNotEmpty() || it.arrivingTime >= 0 }
+                            .sortedBy { it.arrivingTime }
+                            .take(3)
+                            .map { HomeWidgetArrivalSnapshot(it.name, it.color, it.directionName, it.arrivingTime, it.isTimetable) }
+                            .toList()
+                        HomeWidgetStopSnapshot(widget.stopId, widget.stopName, arrivals)
+                    }
+                    .toList()
+            )
+        }
+        publishDashboardWidgetSnapshot(
+            kotlinx.serialization.json.Json.encodeToString(HomeWidgetSnapshot(widgetGroups, viewModel.nearestWidgetStopId())),
+            homeWidgetStopId ?: homeWidgetStopIds.values.firstOrNull()
+        )
+    }
 
     // Only poll while this screen is on screen
     DisposableEffect(viewModel) {
@@ -420,6 +462,7 @@ fun DashboardScreen(
                                 groups = groups,
                                 lineTimetables = lineTimetables,
                                 timetableLoading = timetableLoading,
+                                homeWidgetStopId = homeWidgetStopIds[widget.group] ?: homeWidgetStopId,
                                 locale = locale,
                                 onDelete = { viewModel.removeWidget(widget.id) },
                                 onToggleHidden = { viewModel.toggleWidgetHidden(widget.id) },
@@ -429,6 +472,12 @@ fun DashboardScreen(
                                 onSetGroup = { group -> viewModel.setWidgetGroup(widget.id, group) },
                                 onAddGroup = { name -> viewModel.addGroup(name) },
                                 onResize = { size -> viewModel.resizeWidget(widget.id, size) },
+                                onToggleHomeWidgetStop = {
+                                    val nextGroupStop = if (homeWidgetStopIds[widget.group] == widget.stopId) null else widget.stopId
+                                    viewModel.setHomeWidgetStop(widget.group, nextGroupStop)
+                                    val nextGlobalStop = if (homeWidgetStopId == widget.stopId) null else widget.stopId
+                                    viewModel.setHomeWidgetStop(nextGlobalStop)
+                                },
                                 onMove = { delta -> viewModel.moveWidget(widget.id, delta) },
                                 onClick = { onNavigateToStop(widget.stopId) },
                                 onLineClick = { lineId -> onNavigateToLine(lineId) },
@@ -485,6 +534,9 @@ fun DashboardScreen(
         GroupsDialog(
             groups = groups,
             hiddenGroups = hiddenGroups,
+            homeWidgetStopIds = homeWidgetStopIds,
+            widgets = widgets,
+            nowMinute = nowMinute,
             locale = locale,
             onAdd = { viewModel.addGroup(it) },
             onRename = { old, new -> viewModel.renameGroup(old, new) },
@@ -520,6 +572,34 @@ fun DashboardScreen(
         )
     }
 }
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetSnapshot(val groups: List<HomeWidgetGroupSnapshot>, val nearestStopId: Long? = null)
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetGroupSnapshot(
+    val name: String,
+    val stops: List<HomeWidgetStopSnapshot>,
+    val selectedStopId: Long? = null,
+    val activeFrom: Int? = null,
+    val activeTo: Int? = null
+)
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetStopSnapshot(
+    val id: Long,
+    val name: String,
+    val arrivals: List<HomeWidgetArrivalSnapshot>
+)
+
+@kotlinx.serialization.Serializable
+private data class HomeWidgetArrivalSnapshot(
+    val line: String,
+    val color: String,
+    val direction: String,
+    val seconds: Long,
+    val isTimetable: Boolean
+)
 
 @Composable
 private fun DashboardHeader(
@@ -650,6 +730,7 @@ private fun StationWidgetCard(
     groups: List<String>,
     lineTimetables: Map<String, List<TimetableHour>>,
     timetableLoading: Set<String>,
+    homeWidgetStopId: Long?,
     locale: Locale,
     onDelete: () -> Unit,
     onToggleHidden: () -> Unit,
@@ -657,6 +738,7 @@ private fun StationWidgetCard(
     onSetGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onResize: (WidgetSize) -> Unit,
+    onToggleHomeWidgetStop: () -> Unit,
     onMove: (delta: Int) -> Unit,
     onClick: () -> Unit,
     onLineClick: (lineId: Long) -> Unit,
@@ -942,11 +1024,13 @@ private fun StationWidgetCard(
             widget = widget,
             allLines = allLines,
             groups = groups,
+            homeWidgetStopId = homeWidgetStopId,
             locale = locale,
             onToggleLineVisibility = onToggleLineVisibility,
             onSetGroup = onSetGroup,
             onAddGroup = onAddGroup,
             onResize = onResize,
+            onToggleHomeWidgetStop = onToggleHomeWidgetStop,
             onToggleHidden = onToggleHidden,
             onDelete = {
                 showOptions = false
@@ -1086,33 +1170,94 @@ private fun WidgetLineRow(
     val followUps = if (inService) line.arrivingTimes.drop(1).take(upcomingCount) else emptyList()
 
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.clickable(onClick = onLineClick)) {
-                LineBadge(
-                    name = line.name,
-                    color = line.color,
-                    size = BadgeSize.MEDIUM
-                )
+        // Both columns share the same row height, including wrapped destinations.
+
+        val destination = formatDestination(line.directionName, line.direction)
+        val isAirportDest = isAirportStopName(destination) || isAirportStopName(line.directionName) || isAirportLineName(line.name)
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.width(48.dp).clickable(onClick = onLineClick), contentAlignment = Alignment.Center) {
+                LineBadge(name = line.name, color = line.color, size = BadgeSize.MEDIUM, isAirport = isAirportLineName(line.name))
             }
-            Spacer(Modifier.width(8.dp))
-            // Direction and the following arrivals take whatever width is left;
-            // they never push the time off the card
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = line.directionName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalMuted.current,
-                    maxLines = if (detailed) 2 else 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Spacer(Modifier.width(10.dp))
+            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isAirportDest) {
+                        Icon(
+                            imageVector = AirplaneIcon,
+                            contentDescription = "Airport",
+                            tint = LocalMuted.current,
+                            modifier = Modifier.size(13.dp).rotate(45f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(
+                        text = destination,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                if (inService) {
+                    Box(
+                        modifier = if (isImminent) Modifier
+                            .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(8.dp))
+                        else Modifier
+                    ) {
+                        ArrivalTimeBadge(
+                            seconds = liveSeconds,
+                            isTimetable = line.isTimetable,
+                            size = if (detailed) BadgeSize.LARGE else BadgeSize.MEDIUM,
+                            modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = t("widget.outOfService", locale),
+                            fontSize = 11.sp,
+                            color = LocalMuted.current
+                        )
+                    }
+                }
+            }
+        }
+
+        val showSecondary = followUps.isNotEmpty() || detailed
+        if (showSecondary) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (followUps.isNotEmpty()) {
+                    Text(
+                        text = t("dashboard.nextArrivals", locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LocalMuted.current,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.width(48.dp)
+                    )
+                } else {
+                    Spacer(Modifier.width(48.dp))
+                }
+                Spacer(Modifier.width(10.dp))
                 if (followUps.isNotEmpty()) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 3.dp)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         followUps.forEach { arrival ->
                             ArrivalTimeBadge(
@@ -1123,9 +1268,7 @@ private fun WidgetLineRow(
                         }
                     }
                 }
-            }
-            if (inService) {
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.weight(1f))
                 IconButton(
                     onClick = {
                         if (!showTimetable) {
@@ -1149,46 +1292,18 @@ private fun WidgetLineRow(
                         )
                     }
                 }
-                IconButton(
-                    onClick = onBellClick,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = LocalMuted.current,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-                // The hero number, highlighted when the vehicle is about to arrive.
-                // It has a fixed minimum width so every row's time column lines up.
-                Box(
-                    modifier = if (isImminent) Modifier
-                        .border(1.5.dp, RealtimeColor, RoundedCornerShape(8.dp))
-                        .clip(RoundedCornerShape(8.dp))
-                    else Modifier
-                ) {
-                    ArrivalTimeBadge(
-                        seconds = liveSeconds,
-                        isTimetable = line.isTimetable,
-                        size = BadgeSize.LARGE,
-                        modifier = Modifier.widthIn(min = HERO_ARRIVAL_MIN_WIDTH)
-                    )
-                }
-            } else {
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = t("widget.outOfService", locale),
-                        fontSize = 11.sp,
-                        color = LocalMuted.current
-                    )
+                if (inService) {
+                    IconButton(
+                        onClick = onBellClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = LocalMuted.current,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1293,11 +1408,13 @@ private fun WidgetOptionsSheet(
     widget: WidgetConfig,
     allLines: List<LineArrivalDetail>,
     groups: List<String>,
+    homeWidgetStopId: Long?,
     locale: Locale,
     onToggleLineVisibility: (String) -> Unit,
     onSetGroup: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onResize: (WidgetSize) -> Unit,
+    onToggleHomeWidgetStop: () -> Unit,
     onToggleHidden: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -1329,6 +1446,26 @@ private fun WidgetOptionsSheet(
                 )
             }
 
+            SheetSection(title = t("widget.homeScreen", locale)) {
+                OutlinedButton(
+                    onClick = onToggleHomeWidgetStop,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = if (homeWidgetStopId == widget.stopId) Icons.Default.Check else Icons.Default.Place,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        t(
+                            if (homeWidgetStopId == widget.stopId) "widget.unpinStop" else "widget.pinStop",
+                            locale
+                        )
+                    )
+                }
+            }
+
             // Lines: tap a chip to hide/show it on the card
             if (allLines.isNotEmpty()) {
                 SheetSection(title = t("widget.lines", locale), hint = t("widget.linesHint", locale)) {
@@ -1354,7 +1491,7 @@ private fun WidgetOptionsSheet(
                                 LineBadge(name = line.name, color = line.color, size = BadgeSize.SMALL)
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = line.directionName,
+                                    text = formatDestination(line.directionName, line.direction),
                                     fontSize = 11.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -1516,6 +1653,9 @@ private fun GroupChip(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun GroupsDialog(
     groups: List<String>,
     hiddenGroups: List<String>,
+    homeWidgetStopIds: Map<String, Long> = emptyMap(),
+    widgets: List<WidgetConfig> = emptyList(),
+    nowMinute: Int = 0,
     locale: Locale,
     onAdd: (String) -> Unit,
     onRename: (String, String) -> Unit,
@@ -1563,6 +1703,11 @@ private fun GroupsDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = LocalMuted.current
                 )
+                Text(
+                    text = t("dashboard.manageGroupsWidgetHelp", locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 if (groups.isEmpty()) {
                     Text(
                         text = t("dashboard.noGroups", locale),
@@ -1597,19 +1742,37 @@ private fun GroupsDialog(
                                 .alpha(if (isHidden) 0.5f else 1f)
                         ) {
                             val schedule = schedules[group]
+                            val isActiveNow = schedule?.isActiveAt(nowMinute) ?: false
+                            val pinnedStopId = homeWidgetStopIds[group]
+                            val pinnedStop = widgets.firstOrNull { it.stopId == pinnedStopId && it.group == group }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = group,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.clickable {
-                                        renaming = group
-                                        renameValue = group
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = group,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.clickable {
+                                            renaming = group
+                                            renameValue = group
+                                        }
+                                    )
+                                    if (schedule != null) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = t(if (isActiveNow) "dashboard.activeNow" else "dashboard.inactiveNow", locale),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isActiveNow) Color(0xFF4CAF50) else LocalMuted.current,
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (isActiveNow) Color(0x224CAF50) else Color(0x18888888))
+                                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
                                     }
-                                )
-                                // Hours live right under the name so the feature is discoverable
+                                }
+                                // Hours and pinned stop live right under the name so the feature is discoverable
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -1629,6 +1792,23 @@ private fun GroupsDialog(
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (schedule != null) MaterialTheme.colorScheme.primary else LocalMuted.current
                                     )
+                                    if (pinnedStop != null) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(
+                                            Icons.Default.Place,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(Modifier.width(2.dp))
+                                        Text(
+                                            text = pinnedStop.stopName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                             IconButton(

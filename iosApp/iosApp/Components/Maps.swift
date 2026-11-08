@@ -44,15 +44,17 @@ struct RouteMap: View {
 
     var body: some View {
         Map(position: $position, interactionModes: [.pan, .zoom]) {
+            UserAnnotation()
             if route.count >= 2 {
                 MapPolyline(coordinates: route)
                     .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
             }
-            // Arrows along the route show the direction of travel, as the Leaflet map did
+            // Arrows along the route show the direction of travel
             ForEach(arrows) { arrow in
                 Annotation("", coordinate: arrow.coordinate, anchor: .center) {
                     DirectionArrow(color: color)
                         .rotationEffect(.degrees(arrow.bearing))
+                        .zIndex(0)
                         .allowsHitTesting(false)
                 }
             }
@@ -76,16 +78,18 @@ struct RouteMap: View {
                         }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityLabel(stop.name)
+                        .zIndex(1)
                 }
             }
             ForEach(vehicles, id: \.id) { vehicle in
-                Annotation("", coordinate: CLLocationCoordinate2D(latitude: vehicle.lat, longitude: vehicle.lng)) {
+                Annotation("", coordinate: CLLocationCoordinate2D(latitude: vehicle.lat, longitude: vehicle.lng), anchor: .center) {
                     VehicleGlyph(type: (vehicle.transportType ?? lineType).name, size: 14)
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
                         .background(Color.realtime, in: Circle())
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                         .shadow(radius: 2)
+                        .zIndex(2)
                 }
             }
         }
@@ -93,6 +97,7 @@ struct RouteMap: View {
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
         .mapControls {
             MapScaleView()
+            MapUserLocationButton()
         }
     }
 
@@ -141,7 +146,7 @@ private struct DirectionArrow: View {
 
     private struct ArrowShape: Shape {
         func path(in rect: CGRect) -> Path {
-            // Same outline as the Leaflet arrow: 12,2 20,16 12,11 4,16 on a 24 grid
+            // Direction chevron outline: 12,2 20,16 12,11 4,16 on a 24 grid
             let s = rect.width / 24
             var p = Path()
             p.move(to: CGPoint(x: 12 * s, y: 2 * s))

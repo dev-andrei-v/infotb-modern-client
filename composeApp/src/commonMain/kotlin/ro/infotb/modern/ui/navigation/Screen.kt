@@ -8,6 +8,9 @@ sealed class Screen(val route: String) {
             const val ROUTE = "lines/{lineId}"
         }
     }
+    data class LineMap(val lineId: Long, val direction: Int = 0) : Screen("line-map/$lineId/$direction") {
+        companion object { const val ROUTE = "line-map/{lineId}/{direction}" }
+    }
     data class StopDetail(
         val stopId: Long,
         val lineId: Long? = null,
@@ -27,5 +30,7 @@ sealed class Screen(val route: String) {
     }
     data object Announcements : Screen("announcements")
     data object Notifications : Screen("notifications")
+    data object NearbyMap : Screen("map")
+    data object Planner : Screen("planner")
     data object Settings : Screen("settings")
 }

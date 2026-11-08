@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_surface">#FF202631</color>
+    <color name="widget_outline">#33FFFFFF</color>
+    <color name="widget_text">#FFF4F5F7</color>
+    <color name="widget_secondary">#FFB6BFCC</color>
+    <color name="widget_link">#FF9EBEFF</color>
+    <color name="widget_accent">#FFC92335</color>
+    <color name="widget_arrival_live">#FF64C889</color>
+    <color name="widget_arrival_scheduled">#FFAEB8C5</color>
+    <color name="widget_arrival_background">#2464C889</color>
+</resources>

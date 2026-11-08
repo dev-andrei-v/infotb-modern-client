@@ -1,5 +1,7 @@
 import Shared
 import SwiftUI
+import MapKit
+import UIKit
 
 @Observable
 final class StopDetailModel {
@@ -19,12 +21,22 @@ final class StopDetailModel {
     init(stopId: Int64, lineId: Int64?, direction: Direction?) {
         self.stopId = stopId
         self.primaryLineId = lineId
+        if let stop = StopLocationCache.shared.stops[stopId] {
+            coordinates = Stop(id: stop.id, lat: stop.latitude, lng: stop.longitude, name: stop.name,
+                               description: nil, type: stop.type, iconColor: stop.color, lines: nil)
+            StopLocationCache.shared.markUsed(stopId)
+        }
         scope.own(viewModel)
         scope.watch(viewModel.stopInfo) { [weak self] in self?.info = $0 as? StopInfo }
         scope.watch(viewModel.isLoading) { [weak self] in self?.isLoading = Unbox.bool($0) }
         scope.watch(viewModel.lineTimetables) { [weak self] in self?.timetables = Unbox.stringKeyed($0) }
         scope.watch(viewModel.timetableLoading) { [weak self] in self?.timetableLoading = Unbox.strings($0) }
-        scope.watch(viewModel.stopCoordinates) { [weak self] in self?.coordinates = $0 as? Stop }
+        scope.watch(viewModel.stopCoordinates) { [weak self] in
+            if let stop = $0 as? Stop {
+                self?.coordinates = stop
+                StopLocationCache.shared.store([stop])
+            }
+        }
         viewModel.loadStop(stopId: stopId, lineId: lineId.kotlin, direction: direction)
         // Brings the Dynamic Island up to date when visiting a tracked stop.
         AppModel.shared.refreshTracking()
@@ -98,6 +110,15 @@ private struct StopDetailContent: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             if let info = model.info {
+                if let stop = model.coordinates {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            openMaps(latitude: stop.lat, longitude: stop.lng, name: info.name)
+                        } label: { Image(systemName: "arrow.triangle.turn.up.right.diamond") }
+                        .accessibilityLabel(tr("stopDetail.navigateToStop"))
+                        .accessibilityHint(tr("stopDetail.navigateToStopHint"))
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         app.addToDashboard(stopId: model.stopId, stopName: info.name)
@@ -106,6 +127,19 @@ private struct StopDetailContent: View {
                     }
                 }
             }
+        }
+    }
+
+    private func openMaps(latitude: Double, longitude: Double, name: String) {
+        let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let googleURL = URL(string: "comgooglemaps://?daddr=\(latitude),\(longitude)&q=\(encodedName)"),
+           UIApplication.shared.canOpenURL(googleURL) {
+            UIApplication.shared.open(googleURL)
+        } else {
+            let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+            item.name = name
+            item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeWalking])
         }
     }
 
@@ -140,15 +174,6 @@ private struct StopDetailContent: View {
                 }
             } header: {
                 Text("\(info.lines.count) \(tr("stopDetail.lines"))")
-            } footer: {
-                Button {
-                    app.addToDashboard(stopId: model.stopId, stopName: info.name)
-                } label: {
-                    Label(tr("stopDetail.addToDashboardLong"), systemImage: "plus")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .padding(.top, 8)
             }
         }
         .listStyle(.insetGrouped)
@@ -161,6 +186,8 @@ private struct StopDetailContent: View {
         return ArrivalRow(
             line: line,
             followUpCount: 3,
+            destinationOnly: true,
+            detailed: true,
             isTracking: subscription != nil,
             timetableExpanded: model.expandedTimetables.contains(key),
             timetableLoading: model.timetableLoading.contains(key),

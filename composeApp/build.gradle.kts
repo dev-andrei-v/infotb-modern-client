@@ -43,6 +43,7 @@ kotlin {
             dependencies {
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.activity.compose)
+                implementation(libs.maplibre.android.sdk)
             }
         }
 
@@ -63,8 +64,8 @@ android {
         applicationId = "ro.infotb.modern"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     signingConfigs {
@@ -105,7 +106,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "InfoTB"
-            packageVersion = "1.0.0"
+            packageVersion = "0.4.0"
 
             windows {
                 iconFile.set(project.rootProject.file("icon.ico"))
@@ -114,6 +115,9 @@ compose.desktop {
                 iconFile.set(project.rootProject.file("icon.png"))
             }
             macOS {
+                // DMG metadata requires a nonzero major version.
+                packageVersion = "1.4.0"
+                packageBuildVersion = "5"
                 iconFile.set(project.rootProject.file("icon.png"))
             }
         }

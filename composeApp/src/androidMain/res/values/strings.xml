@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Info TB Modern</string>
+    <string name="widget_choose_group">Choose dashboard group</string>
+    <string name="widget_default_group">Ungrouped stops</string>
+    <string name="widget_no_stops">No stops in this group</string>
+    <string name="widget_all_stops">Other stops</string>
+    <string name="widget_refresh">Refresh arrivals</string>
+    <string name="widget_open_dashboard">Open dashboard for arrivals</string>
+    <string name="widget_rotating_group">Active group (by schedule)</string>
+    <string name="widget_settings">Widget settings</string>
+    <string name="widget_choose_stop">Choose a stop for this group</string>
+    <string name="widget_default_stop">Automatic (from Dashboard)</string>
+    <string name="widget_dashboard_selection">Dashboard selection</string>
+    <string name="widget_due">Due</string>
+    <string name="widget_no_arrival">No arrival</string>
+    <string name="widget_minutes">%1$d min</string>
+    <string name="widget_nearest_stop">Nearest dashboard stop</string>
+    <string name="widget_nearest_unavailable">Open Dashboard and enable location</string>
 </resources>

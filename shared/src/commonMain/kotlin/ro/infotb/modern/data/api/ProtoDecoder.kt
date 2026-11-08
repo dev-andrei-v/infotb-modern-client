@@ -1,9 +1,176 @@
 package ro.infotb.modern.data.api
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import ro.infotb.modern.data.model.*
 import ro.infotb.modern.util.lineColor
 
 object ProtoDecoder {
+
+    /** Decode the official web planner's `Routes` protobuf message for the iOS planner. */
+    fun decodePlannerRoutes(data: ByteArray): String {
+        val reader = ProtobufReader(data)
+        val routes = mutableListOf<JsonElement>()
+        var resultsFromFilters: Boolean? = null
+        var name: String? = null
+        while (!reader.isAtEnd) {
+            val tag = reader.readTag()
+            if (tag == 0) break
+            when (tag ushr 3) {
+                1 -> routes += decodePlannerRoute(reader.readMessage())
+                2 -> resultsFromFilters = reader.readBool()
+                3 -> name = reader.readString()
+                else -> reader.skipField(tag and 7)
+            }
+        }
+        val root = buildJsonObject {
+            put("routes", JsonArray(routes))
+            resultsFromFilters?.let { put("results_from_filters", JsonPrimitive(it)) }
+            name?.let { put("name", JsonPrimitive(it)) }
+        }
+        return Json.encodeToString(root)
+    }
+
+    private fun decodePlannerRoute(reader: ProtobufReader): JsonObject {
+        var startTime: String? = null
+        var stopTime: String? = null
+        var durationSeconds: Int? = null
+        var hasDisability: Boolean? = null
+        var vehicleLat: Double? = null
+        var vehicleLng: Double? = null
+        val segments = mutableListOf<JsonElement>()
+        while (!reader.isAtEnd) {
+            val tag = reader.readTag()
+            if (tag == 0) break
+            when (tag ushr 3) {
+                1 -> reader.skipField(tag and 7) // vehicle boarding stop
+                2 -> hasDisability = reader.readBool()
+                3 -> vehicleLat = reader.readDouble()
+                4 -> vehicleLng = reader.readDouble()
+                5 -> startTime = reader.readString()
+                6 -> stopTime = reader.readString()
+                7 -> durationSeconds = reader.readInt()
+                8 -> reader.readBool()
+                9 -> segments += decodePlannerSegment(reader.readMessage())
+                else -> reader.skipField(tag and 7)
+            }
+        }
+        return buildJsonObject {
+            put("segments", JsonArray(segments))
+            startTime?.let { put("start_time", JsonPrimitive(it)) }
+            stopTime?.let {
+                put("stop_time", JsonPrimitive(it))
+                put("arrival_time", JsonPrimitive(it))
+            }
+            durationSeconds?.let { seconds ->
+                put("duration_seconds", JsonPrimitive(seconds))
+                put("duration", JsonPrimitive("${(seconds + 59) / 60} min"))
+            }
+            hasDisability?.let { put("has_disability", JsonPrimitive(it)) }
+            vehicleLat?.let { put("transport_vehicle_lat", JsonPrimitive(it)) }
+            vehicleLng?.let { put("transport_vehicle_lng", JsonPrimitive(it)) }
+        }
+    }
+
+    private fun decodePlannerSegment(reader: ProtobufReader): JsonObject {
+        var transportType: String? = null
+        var lineName: String? = null
+        var lineId: Long? = null
+        var vehicleId: Long? = null
+        var vehicleCode: String? = null
+        var color: String? = null
+        var vehicleLat: Double? = null
+        var vehicleLng: Double? = null
+        var directionName: String? = null
+        var startTime: String? = null
+        var stopTime: String? = null
+        var segmentPath: String? = null
+        var durationSeconds: Long? = null
+        var isTimetable: Boolean? = null
+        val stops = mutableListOf<JsonElement>()
+        while (!reader.isAtEnd) {
+            val tag = reader.readTag()
+            if (tag == 0) break
+            when (tag ushr 3) {
+                1 -> reader.readString() // segment identifier
+                2 -> transportType = reader.readString()
+                3 -> lineId = reader.readLong()
+                4 -> vehicleId = reader.readLong()
+                5 -> vehicleCode = reader.readString()
+                6 -> lineName = reader.readString()
+                7 -> color = reader.readString()
+                8 -> vehicleLat = reader.readDouble()
+                9 -> vehicleLng = reader.readDouble()
+                10 -> startTime = reader.readString()
+                11 -> stopTime = reader.readString()
+                12 -> segmentPath = reader.readString()
+                13 -> directionName = reader.readString()
+                14 -> reader.readInt()
+                15, 16 -> durationSeconds = reader.readLong()
+                17 -> isTimetable = reader.readBool()
+                18 -> stops += decodePlannerStop(reader.readMessage())
+                19 -> reader.skipField(tag and 7)
+                else -> reader.skipField(tag and 7)
+            }
+        }
+        return buildJsonObject {
+            transportType?.let {
+                put("type", JsonPrimitive(it))
+                put("transport_type", JsonPrimitive(it))
+            }
+            lineName?.let {
+                put("line_name", JsonPrimitive(it))
+                put("route_name", JsonPrimitive(it))
+            }
+            lineId?.let { put("transport_line_id", JsonPrimitive(it)) }
+            vehicleId?.let { put("transport_vehicle_id", JsonPrimitive(it)) }
+            vehicleCode?.let { put("transport_vehicle_code", JsonPrimitive(it)) }
+            color?.let { put("transport_color", JsonPrimitive(it)) }
+            vehicleLat?.let { put("transport_vehicle_lat", JsonPrimitive(it)) }
+            vehicleLng?.let { put("transport_vehicle_lng", JsonPrimitive(it)) }
+            directionName?.let { put("direction_name", JsonPrimitive(it)) }
+            startTime?.let { put("start_time", JsonPrimitive(it)) }
+            stopTime?.let { put("stop_time", JsonPrimitive(it)) }
+            segmentPath?.let { put("segment_path", JsonPrimitive(it)) }
+            durationSeconds?.let { put("duration_seconds", JsonPrimitive(it)) }
+            isTimetable?.let { put("is_timetable", JsonPrimitive(it)) }
+            put("stops", JsonArray(stops))
+        }
+    }
+
+    private fun decodePlannerStop(reader: ProtobufReader): JsonObject {
+        var id: Long? = null
+        var lat: Double? = null
+        var lng: Double? = null
+        var name: String? = null
+        var time: String? = null
+        while (!reader.isAtEnd) {
+            val tag = reader.readTag()
+            if (tag == 0) break
+            when (tag ushr 3) {
+                1 -> id = reader.readLong()
+                2 -> lat = reader.readDouble()
+                3 -> lng = reader.readDouble()
+                4 -> name = reader.readString()
+                5 -> time = reader.readString()
+                6, 7 -> reader.skipField(tag and 7)
+                else -> reader.skipField(tag and 7)
+            }
+        }
+        return buildJsonObject {
+            id?.let { put("id", JsonPrimitive(it)) }
+            lat?.let { put("lat", JsonPrimitive(it)) }
+            lng?.let { put("lng", JsonPrimitive(it)) }
+            name?.let { put("name", JsonPrimitive(it)) }
+            time?.let { put("time", JsonPrimitive(it)) }
+        }
+    }
 
     fun decodeLines(data: ByteArray): List<Line> {
         val reader = ProtobufReader(data)

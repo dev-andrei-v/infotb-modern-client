@@ -25,6 +25,7 @@ class AnnouncementsViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     init {
+        _announcements.value = repository.getCachedAnnouncements().orEmpty()
         loadAnnouncements()
     }
 

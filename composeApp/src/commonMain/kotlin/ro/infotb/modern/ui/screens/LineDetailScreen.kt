@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -31,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import ro.infotb.modern.util.nearbyStopIndices
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,16 +45,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ro.infotb.modern.data.model.Direction
+import ro.infotb.modern.data.model.TransportType
 import ro.infotb.modern.data.model.Stop
 import ro.infotb.modern.data.model.VehiclePosition
+import ro.infotb.modern.ui.components.shared.AirplaneIcon
 import ro.infotb.modern.ui.components.shared.DirectionToggle
-import ro.infotb.modern.ui.components.shared.LeafletRouteMap
+import ro.infotb.modern.ui.components.shared.EmbeddedRouteMapView
 import ro.infotb.modern.ui.components.shared.drawScrollbar
 import ro.infotb.modern.ui.components.shared.LineBadge
 import ro.infotb.modern.ui.components.shared.BadgeSize
@@ -60,6 +66,9 @@ import ro.infotb.modern.ui.theme.LocalMuted
 import ro.infotb.modern.ui.theme.parseColor
 import ro.infotb.modern.ui.viewmodel.LineDetailViewModel
 import ro.infotb.modern.util.Locale
+import ro.infotb.modern.util.isAirportLine
+import ro.infotb.modern.util.isAirportLineName
+import ro.infotb.modern.util.isAirportStopName
 import ro.infotb.modern.util.t
 import ro.infotb.modern.util.isLightColor
 
@@ -70,6 +79,7 @@ fun LineDetailScreen(
     viewModel: LineDetailViewModel,
     locale: Locale,
     onBack: () -> Unit,
+    onShowMap: (Direction) -> Unit,
     onNavigateToStop: (stopId: Long, lineId: Long, direction: Direction) -> Unit
 ) {
     val lineDetail by viewModel.lineDetail.collectAsState()
@@ -77,57 +87,32 @@ fun LineDetailScreen(
     val direction by viewModel.direction.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val announcements by viewModel.announcements.collectAsState()
-    var showFullMap by remember { mutableStateOf(false) }
+    val lineDisplayStyle by viewModel.lineDisplayStyle.collectAsState()
+    val nearbyStopCount by viewModel.nearbyStopCount.collectAsState()
+    val nearbyStopRadius by viewModel.nearbyStopRadius.collectAsState()
+    val userLocation by viewModel.userLocation.collectAsState()
+    val locationLoading by viewModel.locationLoading.collectAsState()
+    LaunchedEffect(nearbyStopCount) { if (nearbyStopCount > 0) viewModel.refreshLocation() }
 
     LaunchedEffect(lineId) {
         viewModel.loadLine(lineId)
-    }
-
-    // Full-screen map overlay
-    if (showFullMap && lineDetail != null) {
-        val detail = lineDetail!!
-        Box(modifier = Modifier.fillMaxSize()) {
-            LeafletRouteMap(
-                stops = detail.stops,
-                vehicles = vehicles,
-                lineColor = detail.color,
-                segmentPath = detail.segmentPath,
-                modifier = Modifier.fillMaxSize()
-            )
-            // Close button
-            IconButton(
-                onClick = { showFullMap = false },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-            ) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Close map",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-        return
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (lineDetail != null) {
+                    if (lineDetail != null && lineDisplayStyle == "normal") {
                         LineBadge(
-                            name = lineDetail!!.name,
+                            name = if (lineDetail!!.type == TransportType.SUBWAY) lineDetail!!.name.substringBefore('-').trim() else lineDetail!!.name,
                             color = lineDetail!!.color,
-                            size = BadgeSize.MEDIUM
+                            size = BadgeSize.MEDIUM,
+                            isAirport = lineDetail!!.isAirport
                         )
                         Spacer(Modifier.width(8.dp))
                     }
                     Text(
-                        text = "${t("lineDetail.linePrefix", locale)} ${lineDetail?.name ?: ""}",
+                        text = "${t("lineDetail.linePrefix", locale)} ${lineDetail?.let { if (it.type == TransportType.SUBWAY) it.name.substringBefore('-').trim() else it.name } ?: ""}",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -181,6 +166,66 @@ fun LineDetailScreen(
 
                 Spacer(Modifier.height(12.dp))
 
+                if (lineDisplayStyle == "bus_display") {
+                    val directionName = if (direction == Direction.TUR) detail.directionNameTur else detail.directionNameRetur
+                    val routeStops = directionName.orEmpty().split(" - ").map { it.trim() }.filter { it.isNotEmpty() }.take(2)
+                    val lcdColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFC857) else Color(0xFF9A5B00)
+                    val isAirport = isAirportLineName(detail.name) || routeStops.any { isAirportStopName(it) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.widthIn(min = 64.dp)
+                        ) {
+                            Text(
+                                text = if (detail.type == TransportType.SUBWAY) detail.name.substringBefore('-').trim() else detail.name,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 30.sp,
+                                lineHeight = 32.sp,
+                                letterSpacing = 0.8.sp,
+                                color = lcdColor,
+                                maxLines = 1
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isAirport) {
+                                Icon(
+                                    imageVector = AirplaneIcon,
+                                    contentDescription = "Airport",
+                                    tint = lcdColor,
+                                    modifier = Modifier.size(20.dp).rotate(45f)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                routeStops.ifEmpty { listOf("—") }.forEach { stopName ->
+                                    Text(
+                                        stopName.uppercase(),
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp,
+                                        lineHeight = 16.sp,
+                                        letterSpacing = 0.6.sp,
+                                        color = lcdColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // Direction toggle
                 DirectionToggle(
                     selected = direction,
@@ -193,42 +238,9 @@ fun LineDetailScreen(
                 Spacer(Modifier.height(12.dp))
             }
 
-            // Announcements banner
-            if (announcements.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFF8E1)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            tint = Color(0xFFFF8F00),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = announcements.first().title,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            color = Color(0xFF5D4037)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
-
             // Live map button
             FilledTonalButton(
-                onClick = { showFullMap = true },
+                onClick = { onShowMap(direction) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
@@ -262,6 +274,49 @@ fun LineDetailScreen(
                     vertical = 8.dp
                 )
             ) {
+                announcements.forEach { notice ->
+                    item(key = "news_${notice.id}") {
+                        var expanded by remember(notice.id) { mutableStateOf(false) }
+                        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(stripHtml(notice.title), style = MaterialTheme.typography.titleSmall)
+                                if (expanded) Text(stripHtml(notice.message), style = MaterialTheme.typography.bodyMedium)
+                                Row {
+                                    TextButton(onClick = { expanded = !expanded }) { Text(t("planner.seeDetails", locale)) }
+                                    Spacer(Modifier.weight(1f))
+                                    TextButton(onClick = { viewModel.dismissAnnouncement(notice.id) }) { Text(t("notice.markRead", locale)) }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (nearbyStopCount > 0) {
+                    item(key = "nearby_header") {
+                        Text(t("lineDetail.nearbyStops", locale), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    val indices = nearbyStopIndices(detail.stops, userLocation, nearbyStopCount, nearbyStopRadius)
+                    if (userLocation == null) {
+                        item(key = "location_status") {
+                            TextButton(onClick = { viewModel.refreshLocation() }, enabled = !locationLoading) {
+                                Text(t(if (locationLoading) "dashboard.locationLoading" else "map.locationUnavailable", locale))
+                            }
+                        }
+                    } else if (indices.isEmpty()) {
+                        item(key = "nearby_empty") { Text(t("lineDetail.noNearbyStops", locale), color = LocalMuted.current) }
+                    }
+                    indices.forEach { index ->
+                        item(key = "nearby_${detail.stops[index].id}") {
+                            val stop = detail.stops[index]
+                            StopRow(index, stop, detail.color, true, true, vehicles, locale) {
+                                onNavigateToStop(stop.id, detail.id, direction)
+                            }
+                        }
+                    }
+                }
+                item(key = "all_header") {
+                    Text(t("lineDetail.allStops", locale), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp))
+                }
                 itemsIndexed(detail.stops, key = { _, stop -> stop.id }) { index, stop ->
                     StopRow(
                         index = index,
@@ -365,6 +420,15 @@ private fun StopRow(
                 .padding(vertical = 6.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isAirportStopName(stop.name)) {
+                    Icon(
+                        imageVector = AirplaneIcon,
+                        contentDescription = "Airport",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(13.dp).rotate(45f)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
                     text = stop.name,
                     style = MaterialTheme.typography.bodyMedium,

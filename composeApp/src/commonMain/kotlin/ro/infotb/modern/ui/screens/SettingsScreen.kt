@@ -1,6 +1,7 @@
 package ro.infotb.modern.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -77,8 +79,11 @@ fun SettingsScreen(
     notificationStore: NotificationStore,
     backupManager: BackupManager,
     locale: Locale,
-    onNotificationChanged: (() -> Unit)? = null
+    onNotificationChanged: (() -> Unit)? = null,
+    onNavigateToNews: (() -> Unit)? = null
 ) {
+    val nearbyStopCount by preferencesStore.nearbyStopCount.collectAsState()
+    val nearbyStopRadius by preferencesStore.nearbyStopRadius.collectAsState()
     val theme by preferencesStore.theme.collectAsState()
     val noticeAlerts by preferencesStore.noticeAlerts.collectAsState()
     val subscriptions by notificationStore.subscriptions.collectAsState()
@@ -106,6 +111,68 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = LocalMuted.current
             )
+        }
+
+        // News / Announcements section (matching iOS Settings)
+        if (onNavigateToNews != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onNavigateToNews() },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = t("nav.announcements", locale),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = t("announcements.description", locale),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = LocalMuted.current
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = LocalMuted.current
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         // Theme section
@@ -249,6 +316,29 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(Modifier.height(16.dp))
+
+        SettingsSection(
+            title = t("lineDetail.nearbyStops", locale),
+            description = t("settings.nearbyStopsDescription", locale).replace("{distance}", "$nearbyStopRadius m")
+        ) {
+            Text(t("settings.nearbyStopCount", locale), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                (0..5).forEach { count ->
+                    TextButton(onClick = { preferencesStore.setNearbyStopCount(count) }) {
+                        Text((if (count == 0) t("settings.nearbyStopsOff", locale) else "$count") + if (count == nearbyStopCount) " ✓" else "")
+                    }
+                }
+            }
+            Text(t("settings.nearbyStopRadius", locale), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.horizontalScroll(rememberScrollState())) {
+                listOf(200, 500, 1000, 2000).forEach { radius ->
+                    TextButton(onClick = { preferencesStore.setNearbyStopRadius(radius) }, enabled = nearbyStopCount > 0) {
+                        Text("$radius m" + if (radius == nearbyStopRadius) " ✓" else "")
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         // Backup & restore section

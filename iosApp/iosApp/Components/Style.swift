@@ -1,6 +1,29 @@
 import Shared
 import SwiftUI
 
+enum InfoTBDesign {
+    static let accent = Color(hex: "#C92335") ?? .red
+    static let pageInset: CGFloat = 16
+    static let cardRadius: CGFloat = 18
+}
+
+func InfoTBDisplayName(_ name: String, type: TransportType) -> String {
+    guard type == .subway,
+          let first = name.split(separator: "-", maxSplits: 1).first,
+          first.trimmingCharacters(in: .whitespacesAndNewlines).range(of: "^M\\d+$", options: .regularExpression) != nil
+    else { return name }
+    return first.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func InfoTBTransitLineColor(name: String?, type: String?, apiColor: String?) -> String? {
+    guard ["SUBWAY", "METRO"].contains(type?.uppercased() ?? ""),
+          let name,
+          let match = name.range(of: #"^\s*M([1-5])\b"#, options: .regularExpression),
+          let number = Int(name[match].filter(\.isNumber)) else { return apiColor }
+    let metroColors = [1: "#FFC20E", 2: "#0070BA", 3: "#E2231A", 4: "#009A49", 5: "#F7941D"]
+    return metroColors[number] ?? apiColor
+}
+
 extension Color {
     /// Parses "#RRGGBB" from the STB API; nil when it isn't a colour.
     init?(hex: String) {
@@ -39,18 +62,6 @@ extension TransportType {
 extension LineArrivalDetail {
     /// "lineId_direction": a line in one direction, unique at a stop.
     var lineKey: String { "\(id)_\(direction.value)" }
-}
-
-/// Colour of the line arriving next, falling back to the stop's dominant transport type.
-func cardAccent(for lines: [LineArrivalDetail], sorted: [LineArrivalDetail]) -> Color {
-    if let next = sorted.first(where: { $0.arrivingTime >= 0 }), let color = Color(hex: next.color) {
-        return color
-    }
-    let counts = Dictionary(grouping: lines, by: { $0.type.name }).mapValues(\.count)
-    if let top = counts.max(by: { $0.value < $1.value })?.key {
-        return TransportType.Companion.shared.fromString(value: top).color
-    }
-    return .accentColor
 }
 
 // MARK: - Liquid Glass

@@ -14,6 +14,11 @@ import org.koin.core.component.get
 import ro.infotb.modern.data.backup.BackupManager
 import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.LineArrivalDetail
+import ro.infotb.modern.data.model.Line
+import ro.infotb.modern.data.model.Stop
+import ro.infotb.modern.data.model.StopInfo
+import ro.infotb.modern.data.model.LineDetail
+import ro.infotb.modern.data.model.PlannerPlace
 import ro.infotb.modern.data.repository.TransitRepository
 import ro.infotb.modern.data.store.DashboardStore
 import ro.infotb.modern.data.store.FavoritesStore
@@ -32,6 +37,8 @@ import ro.infotb.modern.ui.viewmodel.StopDetailViewModel
  * exposed as properties; view models are created fresh, mirroring App.kt.
  */
 object IosServices : KoinComponent {
+    var lastPlannerError: String? = null
+
     val preferencesStore: PreferencesStore get() = get()
     val dashboardStore: DashboardStore get() = get()
     val favoritesStore: FavoritesStore get() = get()
@@ -41,10 +48,28 @@ object IosServices : KoinComponent {
     val arrivalTracker: ArrivalTracker get() = get()
 
     fun dashboardViewModel() = DashboardViewModel(get(), get(), get(), get(), get())
-    fun linesViewModel() = LinesViewModel(get(), get())
-    fun lineDetailViewModel() = LineDetailViewModel(get())
+    fun linesViewModel() = LinesViewModel(get(), get(), get())
+    fun lineDetailViewModel() = LineDetailViewModel(get(), get())
     fun stopDetailViewModel() = StopDetailViewModel(get())
     fun announcementsViewModel() = AnnouncementsViewModel(get(), get())
+
+    suspend fun searchPlannerPlaces(query: String): List<PlannerPlace>? = try {
+        get<TransitRepository>().searchPlannerPlaces(query)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    suspend fun planRoutes(start: PlannerPlace, destination: PlannerPlace, maxWalkDistance: Int, startTimeMs: Long, vehicleTypes: List<String>, accessible: Boolean, language: String): String? = try {
+        lastPlannerError = null
+        get<TransitRepository>().planRoutes(start, destination, maxWalkDistance, startTimeMs, vehicleTypes, accessible, language)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        lastPlannerError = e.message?.take(500)
+        null
+    }
 
     /**
      * One line's arrivals at one stop, for the live map's stop card. Returns
@@ -53,6 +78,40 @@ object IosServices : KoinComponent {
     suspend fun lineArrival(stopId: Long, lineId: Long, direction: Direction): LineArrivalDetail? = try {
         get<TransitRepository>().getStopInfo(stopId, lineId, direction)
             .lines.firstOrNull { it.id == lineId && it.direction == direction }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Null means the request failed; an empty list means no stops in this area. */
+    suspend fun stopsInBounds(south: Double, west: Double, north: Double, east: Double): List<Stop>? = try {
+        get<TransitRepository>().getStopsInBounds(south, west, north, east)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    suspend fun stopLines(stopId: Long): List<Line>? = try {
+        get<TransitRepository>().getStopLines(stopId)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    /** Stop arrivals and live vehicle positions for the map's stop preview. */
+    suspend fun stopPreview(stopId: Long): StopInfo? = try {
+        get<TransitRepository>().getStopInfo(stopId, maxAgeMs = 0)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    suspend fun mapLine(lineId: Long, direction: Direction): LineDetail? = try {
+        get<TransitRepository>().getLineDirection(lineId, direction)
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {

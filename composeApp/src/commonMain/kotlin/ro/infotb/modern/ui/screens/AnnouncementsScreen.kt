@@ -94,7 +94,7 @@ fun AnnouncementsScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     TextButton(onClick = { viewModel.loadAnnouncements() }) {
-                        Text("Retry")
+                        Text(t("common.retry", locale))
                     }
                 }
             }
@@ -221,7 +221,7 @@ private fun AnnouncementCard(
  * Without kotlinx-datetime in common, we use a compile-time approximate "now".
  * In production, add kotlinx-datetime for accurate wall-clock time.
  */
-private fun stripHtml(html: String): String {
+internal fun stripHtml(html: String): String {
     return html
         .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
         .replace(Regex("<p>", RegexOption.IGNORE_CASE), "")

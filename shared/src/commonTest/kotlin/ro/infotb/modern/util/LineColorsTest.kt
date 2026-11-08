@@ -1,5 +1,6 @@
 package ro.infotb.modern.util
 
+import ro.infotb.modern.data.model.Direction
 import ro.infotb.modern.data.model.TransportType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,5 +38,33 @@ class LineColorsTest {
         assertFalse(isLightColor("#0070BA"))
         assertFalse(isLightColor("#F7941D"))
         assertFalse(isLightColor("not a colour"))
+    }
+
+    @Test
+    fun airportLineDetection() {
+        assertTrue(isAirportLineName("100"))
+        assertTrue(isAirportLineName("Aeroport Henri Coanda"))
+        assertTrue(isAirportLineName("A1 Airport Express"))
+        assertFalse(isAirportLineName("5"))
+        assertFalse(isAirportLineName("41"))
+        assertFalse(isAirportLineName("335"))
+        assertFalse(isAirportLineName("101"))
+
+        assertTrue(isAirportStopName("Aeroport Baneasa"))
+        assertTrue(isAirportStopName("Aeroport Henri Coanda"))
+        assertTrue(isAirportStopName("Terminal Airport"))
+        assertFalse(isAirportStopName("Piata Presei"))
+        assertFalse(isAirportStopName("Complex Comercial Baneasa"))
+    }
+
+    @Test
+    fun destinationFormattingCleansAndResolvesDirection() {
+        assertEquals("Aeroport Baneasa", formatDestination("Aeroport Baneasa"))
+        assertEquals("Bd. Banu Manta", formatDestination("→ Bd. Banu Manta"))
+        assertEquals("Gara de Nord", formatDestination("-> Gara de Nord"))
+        assertEquals("Complex Comercial Baneasa", formatDestination("Barajul Dunarii - Complex Comercial Baneasa", Direction.TUR))
+        assertEquals("Barajul Dunarii", formatDestination("Barajul Dunarii - Complex Comercial Baneasa", Direction.RETUR))
+        assertEquals("Aeroport Henri Coanda", formatDestination("Piata Unirii – Aeroport Henri Coanda", Direction.TUR))
+        assertEquals("Piata Unirii", formatDestination("Piata Unirii — Aeroport Henri Coanda", Direction.RETUR))
     }
 }
